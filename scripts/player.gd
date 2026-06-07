@@ -10,6 +10,17 @@ var controls_enabled := true
 var _facing := Vector2.RIGHT
 
 
+func _process(_delta: float) -> void:
+	var mouse_direction := get_local_mouse_position()
+	if mouse_direction.is_zero_approx():
+		return
+
+	var new_facing := mouse_direction.normalized()
+	if not new_facing.is_equal_approx(_facing):
+		_facing = new_facing
+		queue_redraw()
+
+
 func _physics_process(_delta: float) -> void:
 	var input_direction := Input.get_vector(
 		"move_left",
@@ -24,10 +35,6 @@ func _physics_process(_delta: float) -> void:
 		input_direction = Vector2.ZERO
 
 	velocity = input_direction * speed
-	if not input_direction.is_zero_approx():
-		_facing = input_direction.normalized()
-		queue_redraw()
-
 	move_and_slide()
 
 
