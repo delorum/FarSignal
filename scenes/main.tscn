@@ -1,0 +1,59 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/game.gd" id="1_game"]
+[ext_resource type="Script" path="res://scripts/maze.gd" id="2_maze"]
+[ext_resource type="Script" path="res://scripts/player.gd" id="3_player"]
+[ext_resource type="Script" path="res://scripts/goal.gd" id="4_goal"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_player"]
+radius = 14.0
+
+[node name="Game" type="Node2D"]
+script = ExtResource("1_game")
+
+[node name="Maze" type="StaticBody2D" parent="."]
+script = ExtResource("2_maze")
+
+[node name="Goal" type="Node2D" parent="."]
+script = ExtResource("4_goal")
+
+[node name="Player" type="CharacterBody2D" parent="."]
+script = ExtResource("3_player")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Player"]
+shape = SubResource("CircleShape2D_player")
+
+[node name="Camera2D" type="Camera2D" parent="Player"]
+position_smoothing_enabled = true
+position_smoothing_speed = 8.0
+
+[node name="Interface" type="CanvasLayer" parent="."]
+
+[node name="MarginContainer" type="MarginContainer" parent="Interface"]
+offset_right = 1152.0
+offset_bottom = 648.0
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 20
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Interface/MarginContainer"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="Interface/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.31, 0.88, 1, 1)
+theme_override_font_sizes/font_size = 24
+text = "FAR SIGNAL"
+
+[node name="Hint" type="Label" parent="Interface/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.72, 0.78, 0.88, 1)
+theme_override_font_sizes/font_size = 16
+text = "WASD / arrows — move    R — restart"
+
+[node name="Status" type="Label" parent="Interface/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.76, 0.28, 1)
+theme_override_font_sizes/font_size = 18
+text = "Find the signal"
