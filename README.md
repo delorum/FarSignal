@@ -11,7 +11,10 @@ Controls:
 
 - `WASD` or arrow keys: move
 - `R`: restart
+- `Ctrl+Q`: quit
 
-The maze is generated from a fixed seed in `scripts/maze.gd`, so every run
-produces the same layout. All visuals are drawn with Godot primitives; there
-are no textures or tile sets.
+The maze, player position, and signal position are randomized on every run.
+The signal is placed at least 20 corridor steps from the player when possible.
+All visuals are drawn with Godot primitives; there are no textures or tile
+sets. The camera keeps the player centered, and only the current straight
+corridors and their adjacent walls are visible.

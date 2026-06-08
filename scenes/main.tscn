@@ -1,35 +1,34 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene format=3 uid="uid://dw58ygdj26wbu"]
 
-[ext_resource type="Script" path="res://scripts/game.gd" id="1_game"]
-[ext_resource type="Script" path="res://scripts/maze.gd" id="2_maze"]
-[ext_resource type="Script" path="res://scripts/player.gd" id="3_player"]
-[ext_resource type="Script" path="res://scripts/goal.gd" id="4_goal"]
+[ext_resource type="Script" uid="uid://b7t1b5rs3b076" path="res://scripts/game.gd" id="1_game"]
+[ext_resource type="Script" uid="uid://1jcmw0g6148v" path="res://scripts/maze.gd" id="2_maze"]
+[ext_resource type="Script" uid="uid://h6ytpoggv4ve" path="res://scripts/player.gd" id="3_player"]
+[ext_resource type="Script" uid="uid://dhik1sxjyaqvj" path="res://scripts/goal.gd" id="4_goal"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_player"]
 radius = 14.0
 
-[node name="Game" type="Node2D"]
+[node name="Game" type="Node2D" unique_id=1970410369]
 script = ExtResource("1_game")
 
-[node name="Maze" type="StaticBody2D" parent="."]
+[node name="Maze" type="StaticBody2D" parent="." unique_id=2053429230]
 script = ExtResource("2_maze")
 
-[node name="Goal" type="Node2D" parent="."]
+[node name="Goal" type="Node2D" parent="." unique_id=1162955221]
 script = ExtResource("4_goal")
 
-[node name="Player" type="CharacterBody2D" parent="."]
+[node name="Player" type="CharacterBody2D" parent="." unique_id=1057369580]
 script = ExtResource("3_player")
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Player"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Player" unique_id=751310340]
 shape = SubResource("CircleShape2D_player")
 
-[node name="Camera2D" type="Camera2D" parent="Player"]
-position_smoothing_enabled = true
-position_smoothing_speed = 8.0
+[node name="Camera2D" type="Camera2D" parent="Player" unique_id=447359688]
+position_smoothing_enabled = false
 
-[node name="Interface" type="CanvasLayer" parent="."]
+[node name="Interface" type="CanvasLayer" parent="." unique_id=747650452]
 
-[node name="MarginContainer" type="MarginContainer" parent="Interface"]
+[node name="MarginContainer" type="MarginContainer" parent="Interface" unique_id=1978756863]
 offset_right = 1152.0
 offset_bottom = 648.0
 theme_override_constants/margin_left = 24
@@ -37,22 +36,16 @@ theme_override_constants/margin_top = 20
 theme_override_constants/margin_right = 24
 theme_override_constants/margin_bottom = 20
 
-[node name="VBoxContainer" type="VBoxContainer" parent="Interface/MarginContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="Interface/MarginContainer" unique_id=1532128388]
 layout_mode = 2
 
-[node name="Title" type="Label" parent="Interface/MarginContainer/VBoxContainer"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.31, 0.88, 1, 1)
-theme_override_font_sizes/font_size = 24
-text = "FAR SIGNAL"
-
-[node name="Hint" type="Label" parent="Interface/MarginContainer/VBoxContainer"]
+[node name="Hint" type="Label" parent="Interface/MarginContainer/VBoxContainer" unique_id=330507306]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.72, 0.78, 0.88, 1)
 theme_override_font_sizes/font_size = 16
-text = "WASD / arrows — move    R — restart"
+text = "WASD / arrows — move    R — restart, Ctrl-Q - exit"
 
-[node name="Status" type="Label" parent="Interface/MarginContainer/VBoxContainer"]
+[node name="Status" type="Label" parent="Interface/MarginContainer/VBoxContainer" unique_id=1225306376]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.76, 0.28, 1)
 theme_override_font_sizes/font_size = 18
