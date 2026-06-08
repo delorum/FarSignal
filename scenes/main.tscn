@@ -4,6 +4,8 @@
 [ext_resource type="Script" uid="uid://1jcmw0g6148v" path="res://scripts/maze.gd" id="2_maze"]
 [ext_resource type="Script" uid="uid://h6ytpoggv4ve" path="res://scripts/player.gd" id="3_player"]
 [ext_resource type="Script" uid="uid://dhik1sxjyaqvj" path="res://scripts/goal.gd" id="4_goal"]
+[ext_resource type="Script" path="res://scripts/map_view.gd" id="5_map"]
+[ext_resource type="Script" path="res://scripts/map_content.gd" id="6_map_content"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_player"]
 radius = 14.0
@@ -43,10 +45,49 @@ layout_mode = 2
 layout_mode = 2
 theme_override_colors/font_color = Color(0.72, 0.78, 0.88, 1)
 theme_override_font_sizes/font_size = 16
-text = "WASD / arrows — move    R — restart, Ctrl-Q - exit"
+text = "WASD / arrows — move    M — map    R — restart, Ctrl-Q - exit"
 
 [node name="Status" type="Label" parent="Interface/MarginContainer/VBoxContainer" unique_id=1225306376]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.76, 0.28, 1)
 theme_override_font_sizes/font_size = 18
 text = "Find the signal"
+
+[node name="MapOverlay" type="CanvasLayer" parent="."]
+layer = 10
+
+[node name="MapView" type="Control" parent="MapOverlay"]
+process_mode = 3
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("5_map")
+
+[node name="MapViewport" type="Control" parent="MapOverlay/MapView"]
+clip_contents = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 80.0
+offset_top = 80.0
+offset_right = -80.0
+offset_bottom = -80.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="MapContent" type="Control" parent="MapOverlay/MapView/MapViewport"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("6_map_content")

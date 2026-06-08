@@ -14,9 +14,16 @@ const CARDINAL_DIRECTIONS: Array[Vector2i] = [
 	Vector2i.LEFT,
 	Vector2i.UP,
 ]
+const DIAGONAL_DIRECTIONS: Array[Vector2i] = [
+	Vector2i(1, 1),
+	Vector2i(-1, 1),
+	Vector2i(-1, -1),
+	Vector2i(1, -1),
+]
 
 var _cells: Array[PackedByteArray] = []
 var _visible_cells: Dictionary = {}
+var _explored_cells: Dictionary = {}
 var _view_cell := Vector2i(-1, -1)
 
 
@@ -39,6 +46,18 @@ func world_to_cell(world_position: Vector2) -> Vector2i:
 
 func world_size() -> Vector2:
 	return Vector2(COLUMNS, ROWS) * CELL_SIZE
+
+
+func grid_size() -> Vector2i:
+	return Vector2i(COLUMNS, ROWS)
+
+
+func is_wall(cell: Vector2i) -> bool:
+	return _is_inside(cell) and _is_wall(cell)
+
+
+func is_cell_explored(cell: Vector2i) -> bool:
+	return _explored_cells.has(cell)
 
 
 func get_random_floor_cell(rng: RandomNumberGenerator) -> Vector2i:
@@ -97,12 +116,15 @@ func update_visibility(viewer_position: Vector2) -> void:
 	_view_cell = viewer_cell
 	_visible_cells.clear()
 	_reveal_floor_with_walls(viewer_cell)
+	_reveal_diagonal_walls(viewer_cell)
 
 	for direction in CARDINAL_DIRECTIONS:
 		var cell := viewer_cell + direction
 		while _is_inside(cell) and not _is_wall(cell):
 			_reveal_floor_with_walls(cell)
 			cell += direction
+
+	_mark_cell_explored(viewer_cell)
 
 	queue_redraw()
 
@@ -169,6 +191,21 @@ func _reveal_floor_with_walls(cell: Vector2i) -> void:
 		var neighbor: Vector2i = cell + direction
 		if _is_inside(neighbor) and _is_wall(neighbor):
 			_visible_cells[neighbor] = true
+
+
+func _reveal_diagonal_walls(cell: Vector2i) -> void:
+	for direction in DIAGONAL_DIRECTIONS:
+		var neighbor := cell + direction
+		if _is_inside(neighbor) and _is_wall(neighbor):
+			_visible_cells[neighbor] = true
+
+
+func _mark_cell_explored(cell: Vector2i) -> void:
+	_explored_cells[cell] = true
+	for direction in CARDINAL_DIRECTIONS + DIAGONAL_DIRECTIONS:
+		var neighbor := cell + direction
+		if _is_inside(neighbor) and _is_wall(neighbor):
+			_explored_cells[neighbor] = true
 
 
 func _is_inside(cell: Vector2i) -> bool:

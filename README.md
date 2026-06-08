@@ -10,6 +10,8 @@ Minimal top-down 2D maze prototype for Godot 4.
 Controls:
 
 - `WASD` or arrow keys: move
+- `M`: open or close the explored map
+- `Esc`: close the map
 - `R`: restart
 - `Ctrl+Q`: quit
 
