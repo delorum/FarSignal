@@ -17,6 +17,9 @@ Controls:
 
 The maze, player position, and signal position are randomized on every run.
 The signal is placed at least 20 corridor steps from the player when possible.
+Extra connections are opened after generation, creating loops and alternate
+routes through parts of the maze. Most corridors are two cells wide while
+roughly 35% of connections narrow to one cell; walls remain one cell thick.
 All visuals are drawn with Godot primitives; there are no textures or tile
 sets. The camera keeps the player centered, and only the current straight
 corridors and their adjacent walls are visible.

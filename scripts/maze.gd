@@ -1,13 +1,19 @@
 extends StaticBody2D
 class_name Maze
 
-const COLUMNS := 25
-const ROWS := 17
+const LOGICAL_COLUMNS := 12
+const LOGICAL_ROWS := 8
+const LAYOUT_COLUMNS := LOGICAL_COLUMNS * 2 + 1
+const LAYOUT_ROWS := LOGICAL_ROWS * 2 + 1
+const COLUMNS := LOGICAL_COLUMNS * 3 + 1
+const ROWS := LOGICAL_ROWS * 3 + 1
 const CELL_SIZE := 48.0
 const FLOOR_COLOR := Color("101b2d")
 const FLOOR_EDGE_COLOR := Color("172943")
 const WALL_COLOR := Color("29415f")
 const WALL_EDGE_COLOR := Color("3f6688")
+const LOOP_DENSITY := 0.16
+const NARROW_CORRIDOR_RATIO := 0.35
 const CARDINAL_DIRECTIONS: Array[Vector2i] = [
 	Vector2i.RIGHT,
 	Vector2i.DOWN,
@@ -119,12 +125,10 @@ func update_visibility(viewer_position: Vector2) -> void:
 	_reveal_diagonal_walls(viewer_cell)
 
 	for direction in CARDINAL_DIRECTIONS:
-		var cell := viewer_cell + direction
-		while _is_inside(cell) and not _is_wall(cell):
-			_reveal_floor_with_walls(cell)
-			cell += direction
+		_reveal_corridor_in_direction(viewer_cell, direction)
 
-	_mark_cell_explored(viewer_cell)
+	for cell in _visible_cells:
+		_explored_cells[cell] = true
 
 	queue_redraw()
 
@@ -134,17 +138,11 @@ func is_cell_visible(cell: Vector2i) -> bool:
 
 
 func _generate() -> void:
-	_cells.clear()
-	for y in ROWS:
-		var row := PackedByteArray()
-		row.resize(COLUMNS)
-		row.fill(1)
-		_cells.append(row)
-
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
+	var layout := _create_wall_grid(LAYOUT_COLUMNS, LAYOUT_ROWS)
 	var stack: Array[Vector2i] = [Vector2i(1, 1)]
-	_cells[1][1] = 0
+	layout[1][1] = 0
 
 	while not stack.is_empty():
 		var current: Vector2i = stack.back()
@@ -152,9 +150,9 @@ func _generate() -> void:
 
 		for direction in CARDINAL_DIRECTIONS:
 			var next: Vector2i = current + direction * 2
-			if next.x > 0 and next.x < COLUMNS - 1 \
-					and next.y > 0 and next.y < ROWS - 1 \
-					and _cells[next.y][next.x] == 1:
+			if next.x > 0 and next.x < LAYOUT_COLUMNS - 1 \
+					and next.y > 0 and next.y < LAYOUT_ROWS - 1 \
+					and layout[next.y][next.x] == 1:
 				candidates.append(next)
 
 		if candidates.is_empty():
@@ -163,9 +161,127 @@ func _generate() -> void:
 
 		var next: Vector2i = candidates[rng.randi_range(0, candidates.size() - 1)]
 		var between: Vector2i = (current + next) / 2
-		_cells[between.y][between.x] = 0
-		_cells[next.y][next.x] = 0
+		layout[between.y][between.x] = 0
+		layout[next.y][next.x] = 0
 		stack.append(next)
+
+	_add_loops(layout, rng)
+	_rasterize_layout(layout, rng)
+
+
+func _create_wall_grid(columns: int, rows: int) -> Array[PackedByteArray]:
+	var grid: Array[PackedByteArray] = []
+	for y in rows:
+		var row := PackedByteArray()
+		row.resize(columns)
+		row.fill(1)
+		grid.append(row)
+	return grid
+
+
+func _add_loops(
+	layout: Array[PackedByteArray],
+	rng: RandomNumberGenerator
+) -> void:
+	var candidates: Array[Vector2i] = []
+	for y in range(1, LAYOUT_ROWS - 1):
+		for x in range(1, LAYOUT_COLUMNS - 1):
+			var cell := Vector2i(x, y)
+			if layout[y][x] == 1 and _connects_existing_passages(layout, cell):
+				candidates.append(cell)
+
+	var loop_count := maxi(1, roundi(candidates.size() * LOOP_DENSITY))
+	for index in mini(loop_count, candidates.size()):
+		var candidate_index := rng.randi_range(index, candidates.size() - 1)
+		var candidate := candidates[candidate_index]
+		candidates[candidate_index] = candidates[index]
+		candidates[index] = candidate
+		layout[candidate.y][candidate.x] = 0
+
+
+func _connects_existing_passages(
+	layout: Array[PackedByteArray],
+	cell: Vector2i
+) -> bool:
+	if cell.x % 2 == 0 and cell.y % 2 == 1:
+		return layout[cell.y][cell.x - 1] == 0 \
+				and layout[cell.y][cell.x + 1] == 0
+
+	if cell.x % 2 == 1 and cell.y % 2 == 0:
+		return layout[cell.y - 1][cell.x] == 0 \
+				and layout[cell.y + 1][cell.x] == 0
+
+	return false
+
+
+func _rasterize_layout(
+	layout: Array[PackedByteArray],
+	rng: RandomNumberGenerator
+) -> void:
+	_cells = _create_wall_grid(COLUMNS, ROWS)
+
+	for logical_y in LOGICAL_ROWS:
+		for logical_x in LOGICAL_COLUMNS:
+			var room_origin := Vector2i(
+				logical_x * 3 + 1,
+				logical_y * 3 + 1
+			)
+			_carve_room(room_origin)
+
+	var connectors: Array[Vector2i] = []
+	for y in range(1, LAYOUT_ROWS - 1):
+		for x in range(1, LAYOUT_COLUMNS - 1):
+			if layout[y][x] == 1:
+				continue
+
+			var connector := Vector2i(x, y)
+			if x % 2 != y % 2:
+				connectors.append(connector)
+
+	var narrow_connectors: Dictionary = {}
+	var narrow_count := roundi(connectors.size() * NARROW_CORRIDOR_RATIO)
+	for index in narrow_count:
+		var candidate_index := rng.randi_range(index, connectors.size() - 1)
+		var candidate := connectors[candidate_index]
+		connectors[candidate_index] = connectors[index]
+		connectors[index] = candidate
+		narrow_connectors[candidate] = true
+
+	for connector in connectors:
+		_carve_connector(
+			connector,
+			connector.x % 2 == 0,
+			narrow_connectors.has(connector),
+			rng
+		)
+
+
+func _carve_room(origin: Vector2i) -> void:
+	for offset_y in 2:
+		for offset_x in 2:
+			_cells[origin.y + offset_y][origin.x + offset_x] = 0
+
+
+func _carve_connector(
+	layout_cell: Vector2i,
+	horizontal: bool,
+	narrow: bool,
+	rng: RandomNumberGenerator
+) -> void:
+	var open_lane := rng.randi_range(0, 1)
+
+	if horizontal:
+		var wall_x := (layout_cell.x / 2) * 3
+		var top_y := ((layout_cell.y - 1) / 2) * 3 + 1
+		for lane in 2:
+			if not narrow or lane == open_lane:
+				_cells[top_y + lane][wall_x] = 0
+	else:
+		var wall_y := (layout_cell.y / 2) * 3
+		var left_x := ((layout_cell.x - 1) / 2) * 3 + 1
+		for lane in 2:
+			if not narrow or lane == open_lane:
+				_cells[wall_y][left_x + lane] = 0
 
 
 func _build_collisions() -> void:
@@ -193,19 +309,31 @@ func _reveal_floor_with_walls(cell: Vector2i) -> void:
 			_visible_cells[neighbor] = true
 
 
+func _reveal_corridor_in_direction(
+	viewer_cell: Vector2i,
+	direction: Vector2i
+) -> void:
+	var perpendicular := Vector2i(-direction.y, direction.x)
+	var ray_origins: Array[Vector2i] = [viewer_cell]
+
+	for side in [-1, 1]:
+		var adjacent: Vector2i = viewer_cell + perpendicular * int(side)
+		if _is_inside(adjacent) and not _is_wall(adjacent):
+			ray_origins.append(adjacent)
+
+	for origin in ray_origins:
+		_reveal_floor_with_walls(origin)
+		var cell := origin + direction
+		while _is_inside(cell) and not _is_wall(cell):
+			_reveal_floor_with_walls(cell)
+			cell += direction
+
+
 func _reveal_diagonal_walls(cell: Vector2i) -> void:
 	for direction in DIAGONAL_DIRECTIONS:
 		var neighbor := cell + direction
 		if _is_inside(neighbor) and _is_wall(neighbor):
 			_visible_cells[neighbor] = true
-
-
-func _mark_cell_explored(cell: Vector2i) -> void:
-	_explored_cells[cell] = true
-	for direction in CARDINAL_DIRECTIONS + DIAGONAL_DIRECTIONS:
-		var neighbor := cell + direction
-		if _is_inside(neighbor) and _is_wall(neighbor):
-			_explored_cells[neighbor] = true
 
 
 func _is_inside(cell: Vector2i) -> bool:
