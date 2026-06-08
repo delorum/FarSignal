@@ -45,7 +45,7 @@ layout_mode = 2
 layout_mode = 2
 theme_override_colors/font_color = Color(0.72, 0.78, 0.88, 1)
 theme_override_font_sizes/font_size = 16
-text = "WASD / arrows — move    M — map    R — restart, Ctrl-Q - exit"
+text = "WASD / arrows — move    Tab — map    R — restart, Ctrl-Q - exit"
 
 [node name="Status" type="Label" parent="Interface/MarginContainer/VBoxContainer" unique_id=1225306376]
 layout_mode = 2
@@ -80,7 +80,7 @@ offset_right = -80.0
 offset_bottom = -80.0
 grow_horizontal = 2
 grow_vertical = 2
-mouse_filter = 2
+mouse_filter = 1
 
 [node name="MapContent" type="Control" parent="MapOverlay/MapView/MapViewport"]
 layout_mode = 1
