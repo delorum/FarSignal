@@ -3,9 +3,9 @@
 [ext_resource type="Script" uid="uid://b7t1b5rs3b076" path="res://scripts/game.gd" id="1_game"]
 [ext_resource type="Script" uid="uid://1jcmw0g6148v" path="res://scripts/maze.gd" id="2_maze"]
 [ext_resource type="Script" uid="uid://h6ytpoggv4ve" path="res://scripts/player.gd" id="3_player"]
-[ext_resource type="Script" uid="uid://dhik1sxjyaqvj" path="res://scripts/goal.gd" id="4_goal"]
 [ext_resource type="Script" path="res://scripts/map_view.gd" id="5_map"]
 [ext_resource type="Script" path="res://scripts/map_content.gd" id="6_map_content"]
+[ext_resource type="Script" path="res://scripts/pause_menu.gd" id="7_pause"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_player"]
 radius = 14.0
@@ -16,9 +16,6 @@ script = ExtResource("1_game")
 [node name="Maze" type="StaticBody2D" parent="." unique_id=2053429230]
 script = ExtResource("2_maze")
 
-[node name="Goal" type="Node2D" parent="." unique_id=1162955221]
-script = ExtResource("4_goal")
-
 [node name="Player" type="CharacterBody2D" parent="." unique_id=1057369580]
 script = ExtResource("3_player")
 
@@ -28,30 +25,16 @@ shape = SubResource("CircleShape2D_player")
 [node name="Camera2D" type="Camera2D" parent="Player" unique_id=447359688]
 position_smoothing_enabled = false
 
-[node name="Interface" type="CanvasLayer" parent="." unique_id=747650452]
+[node name="GameInterface" type="CanvasLayer" parent="."]
 
-[node name="MarginContainer" type="MarginContainer" parent="Interface" unique_id=1978756863]
-offset_right = 1152.0
-offset_bottom = 648.0
-theme_override_constants/margin_left = 24
-theme_override_constants/margin_top = 20
-theme_override_constants/margin_right = 24
-theme_override_constants/margin_bottom = 20
-
-[node name="VBoxContainer" type="VBoxContainer" parent="Interface/MarginContainer" unique_id=1532128388]
-layout_mode = 2
-
-[node name="Hint" type="Label" parent="Interface/MarginContainer/VBoxContainer" unique_id=330507306]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.72, 0.78, 0.88, 1)
-theme_override_font_sizes/font_size = 16
-text = "WASD / arrows — move    Tab — map    R — restart, Ctrl-Q - exit"
-
-[node name="Status" type="Label" parent="Interface/MarginContainer/VBoxContainer" unique_id=1225306376]
-layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.76, 0.28, 1)
+[node name="Coordinates" type="Label" parent="GameInterface"]
+offset_left = 20.0
+offset_top = 16.0
+offset_right = 180.0
+offset_bottom = 44.0
+theme_override_colors/font_color = Color(0.63, 0.7, 0.78, 1)
 theme_override_font_sizes/font_size = 18
-text = "Find the signal"
+text = "X: 0  Y: 0"
 
 [node name="MapOverlay" type="CanvasLayer" parent="."]
 layer = 10
@@ -91,3 +74,111 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("6_map_content")
+
+[node name="PauseOverlay" type="CanvasLayer" parent="."]
+layer = 20
+
+[node name="PauseMenu" type="Control" parent="PauseOverlay"]
+process_mode = 3
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("7_pause")
+
+[node name="Background" type="ColorRect" parent="PauseOverlay/PauseMenu"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.02, 0.035, 0.055, 0.94)
+
+[node name="CenterContainer" type="CenterContainer" parent="PauseOverlay/PauseMenu"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="PauseMenu" type="VBoxContainer" parent="PauseOverlay/PauseMenu/CenterContainer"]
+custom_minimum_size = Vector2(360, 0)
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="Title" type="Label" parent="PauseOverlay/PauseMenu/CenterContainer/PauseMenu"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.345, 0.839, 0.961, 1)
+theme_override_font_sizes/font_size = 42
+text = "Пауза"
+horizontal_alignment = 1
+
+[node name="TitleSeparator" type="Control" parent="PauseOverlay/PauseMenu/CenterContainer/PauseMenu"]
+custom_minimum_size = Vector2(0, 24)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="ContinueButton" type="Button" parent="PauseOverlay/PauseMenu/CenterContainer/PauseMenu"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Продолжить"
+
+[node name="ControlsButton" type="Button" parent="PauseOverlay/PauseMenu/CenterContainer/PauseMenu"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Управление"
+
+[node name="ExitButton" type="Button" parent="PauseOverlay/PauseMenu/CenterContainer/PauseMenu"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Выход"
+
+[node name="ControlsScreen" type="VBoxContainer" parent="PauseOverlay/PauseMenu/CenterContainer"]
+visible = false
+custom_minimum_size = Vector2(560, 0)
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="Title" type="Label" parent="PauseOverlay/PauseMenu/CenterContainer/ControlsScreen"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.345, 0.839, 0.961, 1)
+theme_override_font_sizes/font_size = 38
+text = "Управление"
+horizontal_alignment = 1
+
+[node name="TitleSeparator" type="Control" parent="PauseOverlay/PauseMenu/CenterContainer/ControlsScreen"]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Description" type="Label" parent="PauseOverlay/PauseMenu/CenterContainer/ControlsScreen"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.82, 0.88, 0.94, 1)
+theme_override_font_sizes/font_size = 20
+text = "WASD или стрелки — движение\nМышь — направление взгляда\nTab — открыть или закрыть карту\nКолесо мыши — масштаб карты\nEsc — пауза или вернуться назад"
+horizontal_alignment = 1
+line_spacing = 8
+
+[node name="DescriptionSeparator" type="Control" parent="PauseOverlay/PauseMenu/CenterContainer/ControlsScreen"]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="BackButton" type="Button" parent="PauseOverlay/PauseMenu/CenterContainer/ControlsScreen"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Назад"
+
+[connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/PauseMenu/ContinueButton" to="PauseOverlay/PauseMenu" method="_on_continue_pressed"]
+[connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/PauseMenu/ControlsButton" to="PauseOverlay/PauseMenu" method="_on_controls_pressed"]
+[connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/PauseMenu/ExitButton" to="PauseOverlay/PauseMenu" method="_on_exit_pressed"]
+[connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/ControlsScreen/BackButton" to="PauseOverlay/PauseMenu" method="_on_back_pressed"]

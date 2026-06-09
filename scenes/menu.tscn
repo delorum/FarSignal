@@ -1,0 +1,107 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/main_menu.gd" id="1_menu"]
+
+[node name="MainMenu" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_menu")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.027, 0.055, 0.098, 1)
+
+[node name="CenterContainer" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MainMenu" type="VBoxContainer" parent="CenterContainer"]
+custom_minimum_size = Vector2(360, 0)
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="Title" type="Label" parent="CenterContainer/MainMenu"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.345, 0.839, 0.961, 1)
+theme_override_font_sizes/font_size = 52
+text = "Far Signal"
+horizontal_alignment = 1
+
+[node name="TitleSeparator" type="Control" parent="CenterContainer/MainMenu"]
+custom_minimum_size = Vector2(0, 34)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="NewGameButton" type="Button" parent="CenterContainer/MainMenu"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Новая игра"
+
+[node name="ControlsButton" type="Button" parent="CenterContainer/MainMenu"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Управление"
+
+[node name="ExitButton" type="Button" parent="CenterContainer/MainMenu"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Выход"
+
+[node name="ControlsScreen" type="VBoxContainer" parent="CenterContainer"]
+visible = false
+custom_minimum_size = Vector2(560, 0)
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="Title" type="Label" parent="CenterContainer/ControlsScreen"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.345, 0.839, 0.961, 1)
+theme_override_font_sizes/font_size = 38
+text = "Управление"
+horizontal_alignment = 1
+
+[node name="TitleSeparator" type="Control" parent="CenterContainer/ControlsScreen"]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Description" type="Label" parent="CenterContainer/ControlsScreen"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.82, 0.88, 0.94, 1)
+theme_override_font_sizes/font_size = 20
+text = "WASD или стрелки — движение\nМышь — направление взгляда\nTab — открыть или закрыть карту\nКолесо мыши — масштаб карты\nEsc — пауза или вернуться назад"
+horizontal_alignment = 1
+line_spacing = 8
+
+[node name="DescriptionSeparator" type="Control" parent="CenterContainer/ControlsScreen"]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="BackButton" type="Button" parent="CenterContainer/ControlsScreen"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Назад"
+
+[connection signal="pressed" from="CenterContainer/MainMenu/NewGameButton" to="." method="_on_new_game_pressed"]
+[connection signal="pressed" from="CenterContainer/MainMenu/ControlsButton" to="." method="_on_controls_pressed"]
+[connection signal="pressed" from="CenterContainer/MainMenu/ExitButton" to="." method="_on_exit_pressed"]
+[connection signal="pressed" from="CenterContainer/ControlsScreen/BackButton" to="." method="_on_back_pressed"]

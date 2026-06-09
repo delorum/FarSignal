@@ -7,18 +7,18 @@ Minimal top-down 2D maze prototype for Godot 4.
 1. Open this directory in Godot 4.
 2. Run the project with `F6`/`F5`.
 
+The project starts at the main menu. Select `Новая игра` to generate and enter
+the maze.
+
 Controls:
 
 - `WASD` or arrow keys: move
 - `Tab`: open or close the explored map
-- `Esc`: close the map
 - Mouse wheel: zoom the map
-- `R`: restart
-- `Ctrl+Q`: quit
+- `Esc`: pause or return from the controls screen
 
-The 1000 by 500 cell maze, player position, and signal position are randomized
-on every run.
-The signal is placed at least 20 corridor steps from the player when possible.
+The 500 by 1000 cell maze is randomized on every run.
+The player starts in a random floor cell along the bottom of the maze.
 Extra connections are opened after generation, creating loops and alternate
 routes through parts of the maze. Most corridors are two cells wide while
 roughly 35% of connections narrow to one cell; walls remain one cell thick.

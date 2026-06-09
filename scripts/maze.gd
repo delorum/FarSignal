@@ -1,10 +1,10 @@
 extends StaticBody2D
 class_name Maze
 
-const COLUMNS := 1000
-const ROWS := 500
-const LOGICAL_COLUMNS := 333
-const LOGICAL_ROWS := 166
+const COLUMNS := 500
+const ROWS := 1000
+const LOGICAL_COLUMNS := 166
+const LOGICAL_ROWS := 333
 const LAYOUT_COLUMNS := LOGICAL_COLUMNS * 2 + 1
 const LAYOUT_ROWS := LOGICAL_ROWS * 2 + 1
 const CELL_SIZE := 48.0
@@ -94,25 +94,21 @@ func get_random_floor_cell(rng: RandomNumberGenerator) -> Vector2i:
 	return Vector2i.ZERO
 
 
-func get_random_distant_floor_cell(
-	origin: Vector2i,
-	rng: RandomNumberGenerator,
-	minimum_steps: int
+func get_random_bottom_floor_cell(
+	rng: RandomNumberGenerator
 ) -> Vector2i:
-	var best_cell := origin
-	var best_distance := 0
+	for y in range(ROWS - 2, 0, -1):
+		var floor_cells: Array[Vector2i] = []
+		for x in range(1, COLUMNS - 1):
+			var cell := Vector2i(x, y)
+			if not _is_wall(cell):
+				floor_cells.append(cell)
 
-	for attempt in FLOOR_CELL_SEARCH_ATTEMPTS:
-		var candidate := get_random_floor_cell(rng)
-		var distance := (
-			absi(candidate.x - origin.x)
-			+ absi(candidate.y - origin.y)
-		)
-		if distance >= minimum_steps and distance > best_distance:
-			best_cell = candidate
-			best_distance = distance
+		if not floor_cells.is_empty():
+			return floor_cells[rng.randi_range(0, floor_cells.size() - 1)]
 
-	return best_cell
+	push_error("Generated maze contains no floor cells")
+	return Vector2i.ZERO
 
 
 func update_visibility(
