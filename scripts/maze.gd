@@ -1,13 +1,16 @@
 extends StaticBody2D
 class_name Maze
 
-const LOGICAL_COLUMNS := 12
-const LOGICAL_ROWS := 8
+const COLUMNS := 1000
+const ROWS := 500
+const LOGICAL_COLUMNS := 333
+const LOGICAL_ROWS := 166
 const LAYOUT_COLUMNS := LOGICAL_COLUMNS * 2 + 1
 const LAYOUT_ROWS := LOGICAL_ROWS * 2 + 1
-const COLUMNS := LOGICAL_COLUMNS * 3 + 1
-const ROWS := LOGICAL_ROWS * 3 + 1
 const CELL_SIZE := 48.0
+const COLLISION_RADIUS := 6
+const COLLISION_DIAMETER := COLLISION_RADIUS * 2 + 1
+const FLOOR_CELL_SEARCH_ATTEMPTS := 256
 const FLOOR_COLOR := Color("101b2d")
 const FLOOR_EDGE_COLOR := Color("172943")
 const WALL_COLOR := Color("29415f")
@@ -31,11 +34,12 @@ var _cells: Array[PackedByteArray] = []
 var _visible_cells: Dictionary = {}
 var _explored_cells: Dictionary = {}
 var _view_cell := Vector2i(-1, -1)
+var _collision_shapes: Array[CollisionShape2D] = []
 
 
 func _ready() -> void:
 	_generate()
-	_build_collisions()
+	_create_collision_pool()
 	queue_redraw()
 
 
@@ -67,14 +71,22 @@ func is_cell_explored(cell: Vector2i) -> bool:
 
 
 func get_random_floor_cell(rng: RandomNumberGenerator) -> Vector2i:
-	var floor_cells: Array[Vector2i] = []
+	for attempt in FLOOR_CELL_SEARCH_ATTEMPTS:
+		var cell := Vector2i(
+			rng.randi_range(1, COLUMNS - 2),
+			rng.randi_range(1, ROWS - 2)
+		)
+		if not _is_wall(cell):
+			return cell
+
 	for y in ROWS:
 		for x in COLUMNS:
 			var cell := Vector2i(x, y)
 			if not _is_wall(cell):
-				floor_cells.append(cell)
+				return cell
 
-	return floor_cells[rng.randi_range(0, floor_cells.size() - 1)]
+	push_error("Generated maze contains no floor cells")
+	return Vector2i.ZERO
 
 
 func get_random_distant_floor_cell(
@@ -82,36 +94,20 @@ func get_random_distant_floor_cell(
 	rng: RandomNumberGenerator,
 	minimum_steps: int
 ) -> Vector2i:
-	var distances: Dictionary = {origin: 0}
-	var queue: Array[Vector2i] = [origin]
-	var candidates: Array[Vector2i] = []
-	var farthest_cells: Array[Vector2i] = [origin]
-	var farthest_distance := 0
-	var queue_index := 0
+	var best_cell := origin
+	var best_distance := 0
 
-	while queue_index < queue.size():
-		var current := queue[queue_index]
-		queue_index += 1
-		var current_distance: int = distances[current]
+	for attempt in FLOOR_CELL_SEARCH_ATTEMPTS:
+		var candidate := get_random_floor_cell(rng)
+		var distance := (
+			absi(candidate.x - origin.x)
+			+ absi(candidate.y - origin.y)
+		)
+		if distance >= minimum_steps and distance > best_distance:
+			best_cell = candidate
+			best_distance = distance
 
-		if current_distance >= minimum_steps:
-			candidates.append(current)
-
-		if current_distance > farthest_distance:
-			farthest_distance = current_distance
-			farthest_cells.assign([current])
-		elif current_distance == farthest_distance:
-			farthest_cells.append(current)
-
-		for direction in CARDINAL_DIRECTIONS:
-			var neighbor := current + direction
-			if _is_inside(neighbor) and not _is_wall(neighbor) \
-					and not distances.has(neighbor):
-				distances[neighbor] = current_distance + 1
-				queue.append(neighbor)
-
-	var available_cells := candidates if not candidates.is_empty() else farthest_cells
-	return available_cells[rng.randi_range(0, available_cells.size() - 1)]
+	return best_cell
 
 
 func update_visibility(viewer_position: Vector2) -> void:
@@ -120,6 +116,7 @@ func update_visibility(viewer_position: Vector2) -> void:
 		return
 
 	_view_cell = viewer_cell
+	_update_nearby_collisions(viewer_cell)
 	_visible_cells.clear()
 	_reveal_floor_with_walls(viewer_cell)
 	_reveal_diagonal_walls(viewer_cell)
@@ -284,18 +281,34 @@ func _carve_connector(
 				_cells[wall_y][left_x + lane] = 0
 
 
-func _build_collisions() -> void:
-	for y in ROWS:
-		for x in COLUMNS:
-			if _cells[y][x] == 0:
-				continue
+func _create_collision_pool() -> void:
+	for index in COLLISION_DIAMETER * COLLISION_DIAMETER:
+		var collision := CollisionShape2D.new()
+		var shape := RectangleShape2D.new()
+		shape.size = Vector2.ONE * CELL_SIZE
+		collision.shape = shape
+		collision.disabled = true
+		add_child(collision)
+		_collision_shapes.append(collision)
 
-			var collision := CollisionShape2D.new()
-			var shape := RectangleShape2D.new()
-			shape.size = Vector2.ONE * CELL_SIZE
-			collision.shape = shape
-			collision.position = cell_to_world(Vector2i(x, y))
-			add_child(collision)
+
+func _update_nearby_collisions(viewer_cell: Vector2i) -> void:
+	var shape_index := 0
+	for y in range(
+		viewer_cell.y - COLLISION_RADIUS,
+		viewer_cell.y + COLLISION_RADIUS + 1
+	):
+		for x in range(
+			viewer_cell.x - COLLISION_RADIUS,
+			viewer_cell.x + COLLISION_RADIUS + 1
+		):
+			var collision := _collision_shapes[shape_index]
+			var cell := Vector2i(x, y)
+			var enabled := _is_inside(cell) and _is_wall(cell)
+			if enabled:
+				collision.position = cell_to_world(cell)
+			collision.set_deferred("disabled", not enabled)
+			shape_index += 1
 
 
 func _reveal_floor_with_walls(cell: Vector2i) -> void:
@@ -345,16 +358,12 @@ func _is_wall(cell: Vector2i) -> bool:
 
 
 func _draw() -> void:
-	for y in ROWS:
-		for x in COLUMNS:
-			var cell := Vector2i(x, y)
-			if not _visible_cells.has(cell):
-				continue
-
-			var rect := Rect2(Vector2(x, y) * CELL_SIZE, Vector2.ONE * CELL_SIZE)
-			if _is_wall(cell):
-				draw_rect(rect, WALL_COLOR)
-				draw_rect(rect.grow(-2.0), WALL_EDGE_COLOR, false, 2.0)
-			else:
-				draw_rect(rect, FLOOR_COLOR)
-				draw_rect(rect.grow(-2.0), FLOOR_EDGE_COLOR, false, 1.0)
+	for visible_cell in _visible_cells:
+		var cell: Vector2i = visible_cell
+		var rect := Rect2(Vector2(cell) * CELL_SIZE, Vector2.ONE * CELL_SIZE)
+		if _is_wall(cell):
+			draw_rect(rect, WALL_COLOR)
+			draw_rect(rect.grow(-2.0), WALL_EDGE_COLOR, false, 2.0)
+		else:
+			draw_rect(rect, FLOOR_COLOR)
+			draw_rect(rect.grow(-2.0), FLOOR_EDGE_COLOR, false, 1.0)

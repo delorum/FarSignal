@@ -34,8 +34,17 @@ func _draw() -> void:
 
 	var map_origin := size * 0.5 - scroll_position
 	var grid_size := _maze.grid_size()
-	for y in grid_size.y:
-		for x in grid_size.x:
+	var first_cell := Vector2i(
+		maxi(0, floori(-map_origin.x / cell_size)),
+		maxi(0, floori(-map_origin.y / cell_size))
+	)
+	var last_cell := Vector2i(
+		mini(grid_size.x - 1, ceili((size.x - map_origin.x) / cell_size)),
+		mini(grid_size.y - 1, ceili((size.y - map_origin.y) / cell_size))
+	)
+
+	for y in range(first_cell.y, last_cell.y + 1):
+		for x in range(first_cell.x, last_cell.x + 1):
 			var cell := Vector2i(x, y)
 			if not _maze.is_cell_explored(cell):
 				continue

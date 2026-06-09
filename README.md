@@ -16,7 +16,8 @@ Controls:
 - `R`: restart
 - `Ctrl+Q`: quit
 
-The maze, player position, and signal position are randomized on every run.
+The 1000 by 500 cell maze, player position, and signal position are randomized
+on every run.
 The signal is placed at least 20 corridor steps from the player when possible.
 Extra connections are opened after generation, creating loops and alternate
 routes through parts of the maze. Most corridors are two cells wide while
