@@ -11,10 +11,13 @@ const CELL_SIZE := 48.0
 const COLLISION_RADIUS := 6
 const COLLISION_DIAMETER := COLLISION_RADIUS * 2 + 1
 const FLOOR_CELL_SEARCH_ATTEMPTS := 256
+const DRAW_RADIUS := 16
 const FLOOR_COLOR := Color("101b2d")
 const FLOOR_EDGE_COLOR := Color("172943")
 const WALL_COLOR := Color("29415f")
 const WALL_EDGE_COLOR := Color("3f6688")
+const EXPLORED_WALL_COLOR := Color("14171b")
+const EXPLORED_WALL_EDGE_COLOR := Color("20242a")
 const LOOP_DENSITY := 0.16
 const NARROW_CORRIDOR_RATIO := 0.35
 const CARDINAL_DIRECTIONS: Array[Vector2i] = [
@@ -139,6 +142,7 @@ func update_visibility(
 		_reveal_corridor_in_direction(viewer_cell, direction)
 
 	_filter_cells_outside_view(viewer_position, normalized_direction, viewer_cell)
+	_reveal_distant_corner_walls(viewer_position, normalized_direction)
 
 	for cell in _visible_cells:
 		_explored_cells[cell] = true
@@ -365,6 +369,40 @@ func _reveal_diagonal_walls(cell: Vector2i) -> void:
 			_visible_cells[neighbor] = true
 
 
+func _reveal_distant_corner_walls(
+	viewer_position: Vector2,
+	viewer_direction: Vector2
+) -> void:
+	var corner_walls: Dictionary = {}
+	for visible_cell in _visible_cells:
+		var cell: Vector2i = visible_cell
+		if _is_wall(cell):
+			continue
+
+		for diagonal_direction in DIAGONAL_DIRECTIONS:
+			var candidate := cell + diagonal_direction
+			if not _is_inside(candidate) or not _is_wall(candidate) \
+					or _visible_cells.has(candidate):
+				continue
+
+			var direction_to_candidate := (
+				cell_to_world(candidate) - viewer_position
+			)
+			if viewer_direction.dot(direction_to_candidate) <= 0.0:
+				continue
+
+			var horizontal_wall := cell + Vector2i(diagonal_direction.x, 0)
+			var vertical_wall := cell + Vector2i(0, diagonal_direction.y)
+			if _visible_cells.has(horizontal_wall) \
+					and _is_wall(horizontal_wall) \
+					and _visible_cells.has(vertical_wall) \
+					and _is_wall(vertical_wall):
+				corner_walls[candidate] = true
+
+	for wall in corner_walls:
+		_visible_cells[wall] = true
+
+
 func _filter_cells_outside_view(
 	viewer_position: Vector2,
 	viewer_direction: Vector2,
@@ -393,6 +431,32 @@ func _is_wall(cell: Vector2i) -> bool:
 
 
 func _draw() -> void:
+	for y in range(
+		maxi(0, _view_cell.y - DRAW_RADIUS),
+		mini(ROWS, _view_cell.y + DRAW_RADIUS + 1)
+	):
+		for x in range(
+			maxi(0, _view_cell.x - DRAW_RADIUS),
+			mini(COLUMNS, _view_cell.x + DRAW_RADIUS + 1)
+		):
+			var cell := Vector2i(x, y)
+			if not _explored_cells.has(cell) or _visible_cells.has(cell):
+				continue
+			if not _is_wall(cell):
+				continue
+
+			var rect := Rect2(
+				Vector2(cell) * CELL_SIZE,
+				Vector2.ONE * CELL_SIZE
+			)
+			draw_rect(rect, EXPLORED_WALL_COLOR)
+			draw_rect(
+				rect.grow(-2.0),
+				EXPLORED_WALL_EDGE_COLOR,
+				false,
+				1.0
+			)
+
 	for visible_cell in _visible_cells:
 		var cell: Vector2i = visible_cell
 		var rect := Rect2(Vector2(cell) * CELL_SIZE, Vector2.ONE * CELL_SIZE)
