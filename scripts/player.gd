@@ -10,6 +10,10 @@ var controls_enabled := true
 var _facing := Vector2.RIGHT
 
 
+func facing_direction() -> Vector2:
+	return _facing
+
+
 func _process(_delta: float) -> void:
 	var mouse_direction := get_local_mouse_position()
 	if mouse_direction.is_zero_approx():

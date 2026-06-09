@@ -34,6 +34,8 @@ var _cells: Array[PackedByteArray] = []
 var _visible_cells: Dictionary = {}
 var _explored_cells: Dictionary = {}
 var _view_cell := Vector2i(-1, -1)
+var _view_position := Vector2(-1.0, -1.0)
+var _view_direction := Vector2.ZERO
 var _collision_shapes: Array[CollisionShape2D] = []
 
 
@@ -110,19 +112,33 @@ func get_random_distant_floor_cell(
 	return best_cell
 
 
-func update_visibility(viewer_position: Vector2) -> void:
+func update_visibility(
+	viewer_position: Vector2,
+	viewer_direction: Vector2
+) -> void:
 	var viewer_cell := world_to_cell(viewer_position)
-	if viewer_cell == _view_cell or not _is_inside(viewer_cell):
+	if not _is_inside(viewer_cell) or viewer_direction.is_zero_approx():
 		return
 
-	_view_cell = viewer_cell
-	_update_nearby_collisions(viewer_cell)
+	if viewer_cell != _view_cell:
+		_view_cell = viewer_cell
+		_update_nearby_collisions(viewer_cell)
+
+	var normalized_direction := viewer_direction.normalized()
+	if viewer_position.is_equal_approx(_view_position) \
+			and normalized_direction.is_equal_approx(_view_direction):
+		return
+
+	_view_position = viewer_position
+	_view_direction = normalized_direction
 	_visible_cells.clear()
 	_reveal_floor_with_walls(viewer_cell)
 	_reveal_diagonal_walls(viewer_cell)
 
 	for direction in CARDINAL_DIRECTIONS:
 		_reveal_corridor_in_direction(viewer_cell, direction)
+
+	_filter_cells_outside_view(viewer_position, normalized_direction, viewer_cell)
 
 	for cell in _visible_cells:
 		_explored_cells[cell] = true
@@ -347,6 +363,25 @@ func _reveal_diagonal_walls(cell: Vector2i) -> void:
 		var neighbor := cell + direction
 		if _is_inside(neighbor) and _is_wall(neighbor):
 			_visible_cells[neighbor] = true
+
+
+func _filter_cells_outside_view(
+	viewer_position: Vector2,
+	viewer_direction: Vector2,
+	viewer_cell: Vector2i
+) -> void:
+	var cells_outside_view: Array[Vector2i] = []
+	for visible_cell in _visible_cells:
+		var cell: Vector2i = visible_cell
+		if cell == viewer_cell:
+			continue
+
+		var direction_to_cell := cell_to_world(cell) - viewer_position
+		if viewer_direction.dot(direction_to_cell) <= 0.0:
+			cells_outside_view.append(cell)
+
+	for cell in cells_outside_view:
+		_visible_cells.erase(cell)
 
 
 func _is_inside(cell: Vector2i) -> bool:

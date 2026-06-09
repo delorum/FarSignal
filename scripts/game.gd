@@ -43,5 +43,5 @@ func _process(_delta: float) -> void:
 
 
 func _update_visibility() -> void:
-	maze.update_visibility(player.position)
+	maze.update_visibility(player.position, player.facing_direction())
 	goal.visible = maze.is_cell_visible(_goal_cell)
