@@ -5,6 +5,7 @@ extends Control
 @onready var continue_button: Button = $CenterContainer/PauseMenu/ContinueButton
 @onready var back_button: Button = $CenterContainer/ControlsScreen/BackButton
 @onready var map_view: Control = $"../../MapOverlay/MapView"
+@onready var game: Node = $"../.."
 
 
 func _ready() -> void:
@@ -40,8 +41,9 @@ func _on_controls_pressed() -> void:
 	back_button.grab_focus()
 
 
-func _on_exit_pressed() -> void:
-	get_tree().quit()
+func _on_save_and_exit_pressed() -> void:
+	if game.save_game():
+		get_tree().quit()
 
 
 func _on_back_pressed() -> void:

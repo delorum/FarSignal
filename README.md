@@ -17,6 +17,11 @@ Controls:
 - Mouse wheel: zoom the map
 - `Esc`: pause or return from the controls screen
 
+`Сохранить и выйти` writes `far_signal_save.json` next to the exported game
+binary. When running from the editor, the file is written to the project root.
+When this file exists, the main menu shows `Продолжить`. Starting a new game
+deletes the previous save.
+
 The 500 by 1000 cell maze is randomized on every run.
 The player starts in a random floor cell along the bottom of the maze.
 Extra connections are opened after generation, creating loops and alternate

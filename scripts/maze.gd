@@ -40,6 +40,8 @@ var _view_cell := Vector2i(-1, -1)
 var _view_position := Vector2(-1.0, -1.0)
 var _view_direction := Vector2.ZERO
 var _collision_shapes: Array[CollisionShape2D] = []
+var _generation_seed := 0
+var generation_seed_override := -1
 
 
 func _ready() -> void:
@@ -73,6 +75,30 @@ func is_wall(cell: Vector2i) -> bool:
 
 func is_cell_explored(cell: Vector2i) -> bool:
 	return _explored_cells.has(cell)
+
+
+func generation_seed() -> int:
+	return _generation_seed
+
+
+func explored_cells_for_save() -> Array:
+	var cells: Array = []
+	for explored_cell in _explored_cells:
+		var cell: Vector2i = explored_cell
+		cells.append([cell.x, cell.y])
+	return cells
+
+
+func restore_explored_cells(saved_cells: Array) -> void:
+	_explored_cells.clear()
+	for saved_cell in saved_cells:
+		if not saved_cell is Array or saved_cell.size() != 2:
+			continue
+
+		var cell := Vector2i(int(saved_cell[0]), int(saved_cell[1]))
+		if _is_inside(cell):
+			_explored_cells[cell] = true
+	queue_redraw()
 
 
 func get_random_floor_cell(rng: RandomNumberGenerator) -> Vector2i:
@@ -152,7 +178,12 @@ func is_cell_visible(cell: Vector2i) -> bool:
 
 func _generate() -> void:
 	var rng := RandomNumberGenerator.new()
-	rng.randomize()
+	if generation_seed_override >= 0:
+		_generation_seed = generation_seed_override
+	else:
+		rng.randomize()
+		_generation_seed = rng.randi()
+	rng.seed = _generation_seed
 	var layout := _create_wall_grid(LAYOUT_COLUMNS, LAYOUT_ROWS)
 	var stack: Array[Vector2i] = [Vector2i(1, 1)]
 	layout[1][1] = 0

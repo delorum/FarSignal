@@ -4,12 +4,14 @@ const GAME_SCENE := "res://scenes/main.tscn"
 
 @onready var main_menu: VBoxContainer = $CenterContainer/MainMenu
 @onready var controls_screen: VBoxContainer = $CenterContainer/ControlsScreen
+@onready var continue_button: Button = $CenterContainer/MainMenu/ContinueButton
 @onready var new_game_button: Button = $CenterContainer/MainMenu/NewGameButton
 @onready var back_button: Button = $CenterContainer/ControlsScreen/BackButton
 
 
 func _ready() -> void:
-	new_game_button.grab_focus()
+	continue_button.visible = SaveStore.has_save()
+	_focus_first_menu_button()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -18,8 +20,20 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
-func _on_new_game_pressed() -> void:
+func _on_continue_pressed() -> void:
+	var save_data := SaveStore.read_save()
+	if save_data.is_empty():
+		continue_button.hide()
+		new_game_button.grab_focus()
+		return
+
+	SaveStore.request_load(save_data)
 	get_tree().change_scene_to_file(GAME_SCENE)
+
+
+func _on_new_game_pressed() -> void:
+	if SaveStore.delete_save():
+		get_tree().change_scene_to_file(GAME_SCENE)
 
 
 func _on_controls_pressed() -> void:
@@ -39,4 +53,11 @@ func _on_back_pressed() -> void:
 func _show_main_menu() -> void:
 	controls_screen.hide()
 	main_menu.show()
-	new_game_button.grab_focus()
+	_focus_first_menu_button()
+
+
+func _focus_first_menu_button() -> void:
+	if continue_button.visible:
+		continue_button.grab_focus()
+	else:
+		new_game_button.grab_focus()

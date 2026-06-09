@@ -14,6 +14,25 @@ func facing_direction() -> Vector2:
 	return _facing
 
 
+func facing_direction_for_save() -> Array[float]:
+	return [_facing.x, _facing.y]
+
+
+func restore_facing_direction(saved_facing: Array) -> void:
+	if saved_facing.size() != 2:
+		return
+
+	var restored_facing := Vector2(
+		float(saved_facing[0]),
+		float(saved_facing[1])
+	)
+	if restored_facing.is_zero_approx():
+		return
+
+	_facing = restored_facing.normalized()
+	queue_redraw()
+
+
 func _process(_delta: float) -> void:
 	var mouse_direction := get_local_mouse_position()
 	if mouse_direction.is_zero_approx():
