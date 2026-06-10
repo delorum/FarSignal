@@ -13,6 +13,7 @@ the maze. A short story screen introduces the expedition before a new game.
 Controls:
 
 - `WASD` or arrow keys: move
+- Left `Shift`: toggle running or silent walking
 - Left mouse button: fire one bullet
 - `E`: open or close a nearby door, interact with a station
 - `Tab`: open or close the explored map

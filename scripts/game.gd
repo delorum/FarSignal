@@ -28,6 +28,7 @@ const SHOT_HEARING_RANGE := 60.0
 @onready var health_bar: ProgressBar = $GameInterface/PlayerPanel/Margin/VBox/HealthBar
 @onready var ammo_value: Label = $GameInterface/PlayerPanel/Margin/VBox/AmmoValue
 @onready var ammo_bar: ProgressBar = $GameInterface/PlayerPanel/Margin/VBox/AmmoBar
+@onready var movement_mode_value: Label = $GameInterface/PlayerPanel/Margin/VBox/MovementModeValue
 @onready var signal_meter: Control = $GameInterface/PlayerPanel/Margin/VBox/SignalMeter
 @onready var enemy_meter: Control = $GameInterface/PlayerPanel/Margin/VBox/EnemyMeter
 @onready var station_menu: Control = $StationOverlay/StationMenu
@@ -36,6 +37,8 @@ const SHOT_HEARING_RANGE := 60.0
 var _displayed_player_cell := Vector2i(-1, -1)
 var _displayed_health := -1
 var _displayed_ammo := -1
+var _displayed_walking := false
+var _movement_mode_initialized := false
 var _displayed_signal := -1
 var _displayed_enemy_signal := -1
 var _doors: Array[Node] = []
@@ -133,6 +136,11 @@ func _update_player_panel() -> void:
 		ammo_value.text = "%d / %d" % [player.ammo, player.MAX_AMMO]
 		ammo_bar.value = player.ammo
 
+	if not _movement_mode_initialized or player.walking != _displayed_walking:
+		_movement_mode_initialized = true
+		_displayed_walking = player.walking
+		movement_mode_value.text = player.movement_mode_name()
+
 	var signal_strength := _signal_strength()
 	if signal_strength != _displayed_signal:
 		_displayed_signal = signal_strength
@@ -142,6 +150,7 @@ func _update_player_panel() -> void:
 	if enemy_signal_strength != _displayed_enemy_signal:
 		_displayed_enemy_signal = enemy_signal_strength
 		enemy_meter.strength = enemy_signal_strength
+	player.set_enemy_directions(_audible_enemy_directions())
 
 
 func save_game() -> bool:
@@ -152,6 +161,7 @@ func save_game() -> bool:
 		"player_facing": player.facing_direction_for_save(),
 		"player_health": player.health,
 		"player_ammo": player.ammo,
+		"player_walking": player.walking,
 		"explored_cells": maze.explored_cells_for_save(),
 		"doors": _doors.map(func(door: Node): return door.save_data()),
 		"discovered_stations": _stations.filter(
@@ -179,6 +189,7 @@ func _restore_game(save_data: Dictionary) -> void:
 		int(save_data.get("player_health", player.MAX_HEALTH)),
 		int(save_data.get("player_ammo", player.MAX_AMMO))
 	)
+	player.restore_movement_mode(bool(save_data.get("player_walking", false)))
 	maze.restore_explored_cells(save_data.explored_cells)
 	var discovered_stations: Array = save_data.get("discovered_stations", [])
 	for station in _stations:
@@ -438,6 +449,20 @@ func _enemy_signal_strength() -> int:
 	if closest_distance <= 30.0:
 		return 1
 	return 0
+
+
+func _audible_enemy_directions() -> Array[Vector2]:
+	var directions: Array[Vector2] = []
+	var player_cell: Vector2i = maze.world_to_cell(player.position)
+	var player_level: int = maze.level_for_cell(player_cell)
+	for enemy in _enemies:
+		if enemy.dead or enemy.level != player_level:
+			continue
+
+		var offset: Vector2 = enemy.position - player.position
+		if offset.length() <= 30.0 * Maze.CELL_SIZE:
+			directions.append(offset.normalized())
+	return directions
 
 
 func _alert_enemies_to_shot() -> void:

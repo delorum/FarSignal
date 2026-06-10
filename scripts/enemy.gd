@@ -180,7 +180,8 @@ func _physics_process(delta: float) -> void:
 	if state == State.COMBAT:
 		_enter_search()
 
-	if _player.is_moving() and distance_to_player <= STEP_HEARING_RANGE \
+	if _player.is_making_step_noise() \
+			and distance_to_player <= STEP_HEARING_RANGE \
 			and _hearing_cooldown <= 0.0:
 		hear_player()
 
