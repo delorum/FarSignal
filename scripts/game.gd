@@ -7,8 +7,14 @@ const START_FACING := Vector2.UP
 @onready var player = $Player
 @onready var doors: Node2D = $Doors
 @onready var coordinates_label: Label = $GameInterface/Coordinates
+@onready var health_value: Label = $GameInterface/PlayerPanel/Margin/VBox/HealthValue
+@onready var health_bar: ProgressBar = $GameInterface/PlayerPanel/Margin/VBox/HealthBar
+@onready var ammo_value: Label = $GameInterface/PlayerPanel/Margin/VBox/AmmoValue
+@onready var ammo_bar: ProgressBar = $GameInterface/PlayerPanel/Margin/VBox/AmmoBar
 
 var _displayed_player_cell := Vector2i(-1, -1)
+var _displayed_health := -1
+var _displayed_ammo := -1
 var _doors: Array[Node] = []
 
 
@@ -37,6 +43,7 @@ func _ready() -> void:
 
 	_update_visibility()
 	_update_coordinates()
+	_update_player_panel()
 
 
 func _process(_delta: float) -> void:
@@ -45,6 +52,7 @@ func _process(_delta: float) -> void:
 
 	_update_visibility()
 	_update_coordinates()
+	_update_player_panel()
 
 
 func _update_visibility() -> void:
@@ -65,12 +73,26 @@ func _update_coordinates() -> void:
 	coordinates_label.text = "X: %d  Y: %d" % [player_cell.x, player_cell.y]
 
 
+func _update_player_panel() -> void:
+	if player.health != _displayed_health:
+		_displayed_health = player.health
+		health_value.text = "%d / %d" % [player.health, player.MAX_HEALTH]
+		health_bar.value = player.health
+
+	if player.ammo != _displayed_ammo:
+		_displayed_ammo = player.ammo
+		ammo_value.text = "%d / %d" % [player.ammo, player.MAX_AMMO]
+		ammo_bar.value = player.ammo
+
+
 func save_game() -> bool:
 	var save_data := {
 		"version": SaveStore.SAVE_VERSION,
 		"maze_seed": maze.generation_seed(),
 		"player_position": [player.position.x, player.position.y],
 		"player_facing": player.facing_direction_for_save(),
+		"player_health": player.health,
+		"player_ammo": player.ammo,
 		"explored_cells": maze.explored_cells_for_save(),
 		"doors": _doors.map(func(door: Node): return door.save_data()),
 	}
@@ -88,6 +110,10 @@ func _restore_game(save_data: Dictionary) -> void:
 		float(saved_position[1])
 	)
 	player.restore_facing_direction(save_data.player_facing)
+	player.restore_status(
+		int(save_data.get("player_health", player.MAX_HEALTH)),
+		int(save_data.get("player_ammo", player.MAX_AMMO))
+	)
 	maze.restore_explored_cells(save_data.explored_cells)
 	if save_data.has("doors"):
 		for door_data in save_data.doors:

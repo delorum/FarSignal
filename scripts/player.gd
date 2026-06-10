@@ -5,8 +5,12 @@ class_name Player
 
 const BODY_COLOR := Color("58d6f5")
 const DIRECTION_COLOR := Color("e8fbff")
+const MAX_HEALTH := 100
+const MAX_AMMO := 30
 
 var controls_enabled := true
+var health := MAX_HEALTH
+var ammo := MAX_AMMO
 var _facing := Vector2.RIGHT
 
 
@@ -31,6 +35,11 @@ func restore_facing_direction(saved_facing: Array) -> void:
 
 	_facing = restored_facing.normalized()
 	queue_redraw()
+
+
+func restore_status(saved_health: int, saved_ammo: int) -> void:
+	health = clampi(saved_health, 0, MAX_HEALTH)
+	ammo = clampi(saved_ammo, 0, MAX_AMMO)
 
 
 func _process(_delta: float) -> void:
