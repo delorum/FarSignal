@@ -50,6 +50,14 @@ func consume_ammo() -> bool:
 	return true
 
 
+func refill_health() -> void:
+	health = MAX_HEALTH
+
+
+func refill_ammo() -> void:
+	ammo = MAX_AMMO
+
+
 func _process(_delta: float) -> void:
 	var mouse_direction := get_local_mouse_position()
 	if mouse_direction.is_zero_approx():

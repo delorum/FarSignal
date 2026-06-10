@@ -6,6 +6,8 @@ const WALL_COLOR := Color("3f6688")
 const PLAYER_COLOR := Color("58d6f5")
 const CLOSED_DOOR_COLOR := Color("d0a86f")
 const OPEN_DOOR_COLOR := Color("8a6f4d")
+const STATION_COLOR := Color("245d3b")
+const STATION_EDGE_COLOR := Color("3d8155")
 
 var scroll_position := Vector2.ZERO
 var cell_size := 40.0
@@ -13,17 +15,20 @@ var cell_size := 40.0
 var _maze: Maze
 var _player: Player
 var _doors: Node2D
+var _stations: Node2D
 
 
 func setup(
 	maze: Maze,
 	player: Player,
 	doors: Node2D,
+	stations: Node2D,
 	cell_size: float
 ) -> void:
 	_maze = maze
 	_player = player
 	_doors = doors
+	_stations = stations
 	self.cell_size = cell_size
 	queue_redraw()
 
@@ -58,6 +63,7 @@ func _draw() -> void:
 			draw_rect(cell_rect.grow(-1.0), color)
 
 	_draw_doors(map_origin)
+	_draw_stations(map_origin)
 
 	var player_cell := _maze.world_to_cell(_player.position)
 	var player_position := (
@@ -110,3 +116,28 @@ func _draw_doors(map_origin: Vector2) -> void:
 			OPEN_DOOR_COLOR,
 			line_width
 		)
+
+
+func _draw_stations(map_origin: Vector2) -> void:
+	if _stations == null:
+		return
+
+	for station in _stations.get_children():
+		if not station.discovered:
+			continue
+
+		var center := (
+			map_origin
+			+ (Vector2(station.cell) + Vector2.ONE * 0.5) * cell_size
+		)
+		var radius := cell_size * 0.3
+		var points := PackedVector2Array([
+			center + Vector2(0.0, -radius),
+			center + Vector2(radius, 0.0),
+			center + Vector2(0.0, radius),
+			center + Vector2(-radius, 0.0),
+		])
+		draw_colored_polygon(points, STATION_COLOR)
+		var outline := points.duplicate()
+		outline.append(points[0])
+		draw_polyline(outline, STATION_EDGE_COLOR, 1.0, true)

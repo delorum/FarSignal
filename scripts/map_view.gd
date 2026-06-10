@@ -13,7 +13,9 @@ const TEXT_COLOR := Color("d8e7f5")
 @onready var maze: Maze = $"../../Maze"
 @onready var player: Player = $"../../Player"
 @onready var doors: Node2D = $"../../Doors"
+@onready var stations: Node2D = $"../../Stations"
 @onready var pause_menu: Control = $"../../PauseOverlay/PauseMenu"
+@onready var station_menu: Control = $"../../StationOverlay/StationMenu"
 @onready var map_viewport: Control = $MapViewport
 @onready var map_content: Control = $MapViewport/MapContent
 
@@ -25,7 +27,7 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	resized.connect(_on_resized)
 	map_viewport.gui_input.connect(_on_map_viewport_gui_input)
-	map_content.setup(maze, player, doors, _cell_size)
+	map_content.setup(maze, player, doors, stations, _cell_size)
 
 
 func _exit_tree() -> void:
@@ -35,7 +37,7 @@ func _exit_tree() -> void:
 
 func _process(delta: float) -> void:
 	if Input.is_action_just_pressed("toggle_map"):
-		if pause_menu.visible:
+		if pause_menu.visible or station_menu.visible:
 			return
 		if visible:
 			_close_map()

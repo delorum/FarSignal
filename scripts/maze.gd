@@ -21,6 +21,11 @@ const EXPLORED_WALL_EDGE_COLOR := Color("20242a")
 const LOOP_DENSITY := 0.16
 const NARROW_CORRIDOR_RATIO := 0.35
 const DOOR_RATIO := 0.003
+const LEVEL_COUNT := 10
+const LEVEL_HEIGHT := 100
+const STATION_ROOM_RADIUS := 3
+const STATION_FLOOR_RADIUS := 2
+const STATION_PLACEMENT_ATTEMPTS := 128
 const CARDINAL_DIRECTIONS: Array[Vector2i] = [
 	Vector2i.RIGHT,
 	Vector2i.DOWN,
@@ -44,6 +49,7 @@ var _collision_shapes: Array[CollisionShape2D] = []
 var _generation_seed := 0
 var generation_seed_override := -1
 var _door_specs: Array[Dictionary] = []
+var _station_specs: Array[Dictionary] = []
 var _closed_door_cells: Dictionary = {}
 
 
@@ -86,6 +92,16 @@ func generation_seed() -> int:
 
 func generated_door_specs() -> Array[Dictionary]:
 	return _door_specs.duplicate(true)
+
+
+func generated_station_specs() -> Array[Dictionary]:
+	return _station_specs.duplicate(true)
+
+
+func station_cell_for_level(level: int) -> Vector2i:
+	if level < 0 or level >= _station_specs.size():
+		return Vector2i(-1, -1)
+	return _station_specs[level].cell
 
 
 func set_door_closed(cell: Vector2i, closed: bool) -> void:
@@ -204,6 +220,8 @@ func is_cell_visible(cell: Vector2i) -> bool:
 
 
 func _generate() -> void:
+	_door_specs.clear()
+	_station_specs.clear()
 	var rng := RandomNumberGenerator.new()
 	if generation_seed_override >= 0:
 		_generation_seed = generation_seed_override
@@ -326,6 +344,8 @@ func _rasterize_layout(
 			rng
 		)
 
+	_add_stations(rng)
+
 	var door_candidates: Array[Dictionary] = []
 	for connector in connectors:
 		if not narrow_connectors.has(connector):
@@ -333,6 +353,8 @@ func _rasterize_layout(
 
 		var horizontal := connector.x % 2 == 0
 		var cell := _connector_floor_cell(connector, horizontal)
+		if _is_inside_station(cell):
+			continue
 		door_candidates.append({
 			"cell": cell,
 			"horizontal_passage": horizontal,
@@ -348,6 +370,95 @@ func _rasterize_layout(
 		door_candidates[candidate_index] = door_candidates[index]
 		door_candidates[index] = candidate
 		_door_specs.append(candidate)
+
+	for station_spec in _station_specs:
+		for door_spec in station_spec.doors:
+			_door_specs.append(door_spec)
+
+
+func _add_stations(rng: RandomNumberGenerator) -> void:
+	for level in LEVEL_COUNT:
+		var level_start := level * LEVEL_HEIGHT
+		var center := _find_station_center(level_start, rng)
+		_carve_station(center)
+
+		var doors: Array[Dictionary] = []
+		for direction in CARDINAL_DIRECTIONS:
+			var door_cell := center + direction * STATION_ROOM_RADIUS
+			doors.append({
+				"cell": door_cell,
+				"horizontal_passage": direction.x != 0,
+				"station_door": true,
+			})
+			_connect_station_door(door_cell, direction)
+
+		_station_specs.append({
+			"cell": center,
+			"level": level,
+			"doors": doors,
+		})
+
+
+func _find_station_center(
+	level_start: int,
+	rng: RandomNumberGenerator
+) -> Vector2i:
+	var min_y := level_start + STATION_ROOM_RADIUS + 2
+	var max_y := mini(
+		ROWS - STATION_ROOM_RADIUS - 2,
+		level_start + LEVEL_HEIGHT - STATION_ROOM_RADIUS - 3
+	)
+	var fallback := Vector2i(
+		rng.randi_range(STATION_ROOM_RADIUS + 2, COLUMNS - STATION_ROOM_RADIUS - 3),
+		rng.randi_range(min_y, max_y)
+	)
+
+	for attempt in STATION_PLACEMENT_ATTEMPTS:
+		var candidate := Vector2i(
+			rng.randi_range(
+				STATION_ROOM_RADIUS + 2,
+				COLUMNS - STATION_ROOM_RADIUS - 3
+			),
+			rng.randi_range(min_y, max_y)
+		)
+		if not _is_wall(candidate):
+			return candidate
+
+	return fallback
+
+
+func _carve_station(center: Vector2i) -> void:
+	for offset_y in range(-STATION_ROOM_RADIUS, STATION_ROOM_RADIUS + 1):
+		for offset_x in range(-STATION_ROOM_RADIUS, STATION_ROOM_RADIUS + 1):
+			var cell := center + Vector2i(offset_x, offset_y)
+			var is_floor := absi(offset_x) <= STATION_FLOOR_RADIUS \
+					and absi(offset_y) <= STATION_FLOOR_RADIUS
+			_cells[cell.y][cell.x] = 0 if is_floor else 1
+
+	for direction in CARDINAL_DIRECTIONS:
+		var door_cell := center + direction * STATION_ROOM_RADIUS
+		_cells[door_cell.y][door_cell.x] = 0
+
+
+func _connect_station_door(
+	door_cell: Vector2i,
+	direction: Vector2i
+) -> void:
+	var cell := door_cell + direction
+	while _is_inside(cell):
+		if not _is_wall(cell):
+			return
+		_cells[cell.y][cell.x] = 0
+		cell += direction
+
+
+func _is_inside_station(cell: Vector2i) -> bool:
+	for station_spec in _station_specs:
+		var center: Vector2i = station_spec.cell
+		if absi(cell.x - center.x) <= STATION_ROOM_RADIUS \
+				and absi(cell.y - center.y) <= STATION_ROOM_RADIUS:
+			return true
+	return false
 
 
 func _carve_room(origin: Vector2i) -> void:

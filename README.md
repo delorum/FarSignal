@@ -14,7 +14,7 @@ Controls:
 
 - `WASD` or arrow keys: move
 - Left mouse button: fire one bullet
-- `E`: open or close a nearby door
+- `E`: open or close a nearby door, interact with a station
 - `Tab`: open or close the explored map
 - Mouse wheel: zoom the map
 - `Esc`: pause or return from the controls screen
@@ -26,6 +26,9 @@ deletes the previous save.
 
 The 500 by 1000 cell maze is randomized on every run.
 The player starts in a random floor cell along the bottom of the maze.
+Each 100-cell-high level contains one station room with four doors. Its central
+machine restores health and ammunition. The HUD signal meter detects only the
+station on the player's current level and has a range of 100 cells.
 Extra connections are opened after generation, creating loops and alternate
 routes through parts of the maze. Most corridors are two cells wide while
 roughly 35% of connections narrow to one cell; walls remain one cell thick.

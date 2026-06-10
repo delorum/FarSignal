@@ -10,6 +10,7 @@ const LoreText = preload("res://scripts/lore_text.gd")
 @onready var objective_back_button: Button = $CenterContainer/ObjectiveScreen/BackButton
 @onready var objective_text: Label = $CenterContainer/ObjectiveScreen/ObjectiveText
 @onready var map_view: Control = $"../../MapOverlay/MapView"
+@onready var station_menu: Control = $"../../StationOverlay/StationMenu"
 @onready var game: Node = $"../.."
 
 
@@ -25,6 +26,8 @@ func _exit_tree() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not event.is_action_pressed("ui_cancel"):
+		return
+	if station_menu.visible:
 		return
 
 	if not visible:

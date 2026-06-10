@@ -1,4 +1,4 @@
-[gd_scene format=3 uid="uid://dw58ygdj26wbu"]
+[gd_scene load_steps=14 format=3 uid="uid://dw58ygdj26wbu"]
 
 [ext_resource type="Script" uid="uid://b7t1b5rs3b076" path="res://scripts/game.gd" id="1_game"]
 [ext_resource type="Script" uid="uid://1jcmw0g6148v" path="res://scripts/maze.gd" id="2_maze"]
@@ -6,6 +6,8 @@
 [ext_resource type="Script" path="res://scripts/map_view.gd" id="5_map"]
 [ext_resource type="Script" path="res://scripts/map_content.gd" id="6_map_content"]
 [ext_resource type="Script" path="res://scripts/pause_menu.gd" id="7_pause"]
+[ext_resource type="Script" path="res://scripts/signal_meter.gd" id="8_signal"]
+[ext_resource type="Script" path="res://scripts/station_menu.gd" id="9_station_menu"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_player"]
 radius = 14.0
@@ -36,6 +38,8 @@ script = ExtResource("1_game")
 script = ExtResource("2_maze")
 
 [node name="Doors" type="Node2D" parent="."]
+
+[node name="Stations" type="Node2D" parent="."]
 
 [node name="Bullets" type="Node2D" parent="."]
 
@@ -129,6 +133,23 @@ theme_override_styles/fill = SubResource("StyleBoxFlat_ammo_fill")
 max_value = 30.0
 value = 30.0
 show_percentage = false
+
+[node name="SignalSpacer" type="Control" parent="GameInterface/PlayerPanel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 26)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="SignalTitle" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.82, 0.88, 0.94, 1)
+theme_override_font_sizes/font_size = 18
+text = "СИЛА СИГНАЛА"
+
+[node name="SignalMeter" type="Control" parent="GameInterface/PlayerPanel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 24)
+layout_mode = 2
+mouse_filter = 2
+script = ExtResource("8_signal")
 
 [node name="MapOverlay" type="CanvasLayer" parent="."]
 layer = 10
@@ -263,7 +284,7 @@ mouse_filter = 2
 layout_mode = 2
 theme_override_colors/font_color = Color(0.82, 0.88, 0.94, 1)
 theme_override_font_sizes/font_size = 20
-text = "WASD или стрелки — движение\nМышь — направление взгляда\nЛевая кнопка мыши — выстрел\nE — открыть или закрыть дверь\nTab — открыть или закрыть карту\nКолесо мыши — масштаб карты\nEsc — пауза или вернуться назад"
+text = "WASD или стрелки — движение\nМышь — направление взгляда\nЛевая кнопка мыши — выстрел\nE — дверь или взаимодействие со станцией\nTab — открыть или закрыть карту\nКолесо мыши — масштаб карты\nEsc — пауза или вернуться назад"
 horizontal_alignment = 1
 line_spacing = 8
 
@@ -308,9 +329,78 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Назад"
 
+[node name="StationOverlay" type="CanvasLayer" parent="."]
+layer = 30
+
+[node name="StationMenu" type="Control" parent="StationOverlay"]
+process_mode = 3
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("9_station_menu")
+
+[node name="Background" type="ColorRect" parent="StationOverlay/StationMenu"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.02, 0.035, 0.055, 0.94)
+
+[node name="Center" type="CenterContainer" parent="StationOverlay/StationMenu/Background"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Menu" type="VBoxContainer" parent="StationOverlay/StationMenu/Background/Center"]
+custom_minimum_size = Vector2(420, 0)
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="Title" type="Label" parent="StationOverlay/StationMenu/Background/Center/Menu"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.345, 0.839, 0.561, 1)
+theme_override_font_sizes/font_size = 40
+text = "Станция"
+horizontal_alignment = 1
+
+[node name="Separator" type="Control" parent="StationOverlay/StationMenu/Background/Center/Menu"]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="AmmoButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Пополнить боезапас"
+
+[node name="HealthButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Пополнить здоровье"
+
+[node name="ExitButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Выход"
+
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/PauseMenu/ContinueButton" to="PauseOverlay/PauseMenu" method="_on_continue_pressed"]
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/PauseMenu/ControlsButton" to="PauseOverlay/PauseMenu" method="_on_controls_pressed"]
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/PauseMenu/ObjectiveButton" to="PauseOverlay/PauseMenu" method="_on_objective_pressed"]
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/PauseMenu/SaveAndExitButton" to="PauseOverlay/PauseMenu" method="_on_save_and_exit_pressed"]
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/ControlsScreen/BackButton" to="PauseOverlay/PauseMenu" method="_on_back_pressed"]
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/ObjectiveScreen/BackButton" to="PauseOverlay/PauseMenu" method="_on_back_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/AmmoButton" to="StationOverlay/StationMenu" method="_on_ammo_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/HealthButton" to="StationOverlay/StationMenu" method="_on_health_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ExitButton" to="StationOverlay/StationMenu" method="_on_exit_pressed"]
