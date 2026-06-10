@@ -1,15 +1,21 @@
 extends Control
 
+const LoreText = preload("res://scripts/lore_text.gd")
+
 @onready var pause_menu: VBoxContainer = $CenterContainer/PauseMenu
 @onready var controls_screen: VBoxContainer = $CenterContainer/ControlsScreen
+@onready var objective_screen: VBoxContainer = $CenterContainer/ObjectiveScreen
 @onready var continue_button: Button = $CenterContainer/PauseMenu/ContinueButton
-@onready var back_button: Button = $CenterContainer/ControlsScreen/BackButton
+@onready var controls_back_button: Button = $CenterContainer/ControlsScreen/BackButton
+@onready var objective_back_button: Button = $CenterContainer/ObjectiveScreen/BackButton
+@onready var objective_text: Label = $CenterContainer/ObjectiveScreen/ObjectiveText
 @onready var map_view: Control = $"../../MapOverlay/MapView"
 @onready var game: Node = $"../.."
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	objective_text.text = LoreText.OBJECTIVE_TEXT
 
 
 func _exit_tree() -> void:
@@ -23,7 +29,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	if not visible:
 		_open_pause_menu()
-	elif controls_screen.visible:
+	elif controls_screen.visible or objective_screen.visible:
 		_show_pause_menu()
 	else:
 		_resume_game()
@@ -38,7 +44,13 @@ func _on_continue_pressed() -> void:
 func _on_controls_pressed() -> void:
 	pause_menu.hide()
 	controls_screen.show()
-	back_button.grab_focus()
+	controls_back_button.grab_focus()
+
+
+func _on_objective_pressed() -> void:
+	pause_menu.hide()
+	objective_screen.show()
+	objective_back_button.grab_focus()
 
 
 func _on_save_and_exit_pressed() -> void:
@@ -63,5 +75,6 @@ func _resume_game() -> void:
 
 func _show_pause_menu() -> void:
 	controls_screen.hide()
+	objective_screen.hide()
 	pause_menu.show()
 	continue_button.grab_focus()

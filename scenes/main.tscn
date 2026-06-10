@@ -135,6 +135,12 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Управление"
 
+[node name="ObjectiveButton" type="Button" parent="PauseOverlay/PauseMenu/CenterContainer/PauseMenu"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Цель игры"
+
 [node name="SaveAndExitButton" type="Button" parent="PauseOverlay/PauseMenu/CenterContainer/PauseMenu"]
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
@@ -178,7 +184,39 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Назад"
 
+[node name="ObjectiveScreen" type="VBoxContainer" parent="PauseOverlay/PauseMenu/CenterContainer"]
+visible = false
+custom_minimum_size = Vector2(720, 0)
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="Title" type="Label" parent="PauseOverlay/PauseMenu/CenterContainer/ObjectiveScreen"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.345, 0.839, 0.961, 1)
+theme_override_font_sizes/font_size = 38
+text = "Источник сигнала"
+horizontal_alignment = 1
+
+[node name="ObjectiveText" type="Label" parent="PauseOverlay/PauseMenu/CenterContainer/ObjectiveScreen"]
+custom_minimum_size = Vector2(0, 310)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.82, 0.88, 0.94, 1)
+theme_override_font_sizes/font_size = 19
+text = "Objective"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+line_spacing = 6
+
+[node name="BackButton" type="Button" parent="PauseOverlay/PauseMenu/CenterContainer/ObjectiveScreen"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Назад"
+
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/PauseMenu/ContinueButton" to="PauseOverlay/PauseMenu" method="_on_continue_pressed"]
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/PauseMenu/ControlsButton" to="PauseOverlay/PauseMenu" method="_on_controls_pressed"]
+[connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/PauseMenu/ObjectiveButton" to="PauseOverlay/PauseMenu" method="_on_objective_pressed"]
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/PauseMenu/SaveAndExitButton" to="PauseOverlay/PauseMenu" method="_on_save_and_exit_pressed"]
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/ControlsScreen/BackButton" to="PauseOverlay/PauseMenu" method="_on_back_pressed"]
+[connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/ObjectiveScreen/BackButton" to="PauseOverlay/PauseMenu" method="_on_back_pressed"]

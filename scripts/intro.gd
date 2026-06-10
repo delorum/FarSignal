@@ -1,0 +1,24 @@
+extends Control
+
+const GAME_SCENE := "res://scenes/main.tscn"
+const LoreText = preload("res://scripts/lore_text.gd")
+
+@onready var objective_text: Label = $MarginContainer/VBoxContainer/ObjectiveText
+
+var _input_enabled := false
+
+
+func _ready() -> void:
+	objective_text.text = LoreText.OBJECTIVE_TEXT
+	await get_tree().process_frame
+	_input_enabled = true
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not _input_enabled or not event is InputEventKey:
+		return
+
+	var key_event := event as InputEventKey
+	if key_event.pressed and not key_event.echo:
+		get_viewport().set_input_as_handled()
+		get_tree().change_scene_to_file(GAME_SCENE)

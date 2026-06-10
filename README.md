@@ -8,7 +8,7 @@ Minimal top-down 2D maze prototype for Godot 4.
 2. Run the project with `F6`/`F5`.
 
 The project starts at the main menu. Select `Новая игра` to generate and enter
-the maze.
+the maze. A short story screen introduces the expedition before a new game.
 
 Controls:
 

@@ -1,6 +1,7 @@
 extends Control
 
 const GAME_SCENE := "res://scenes/main.tscn"
+const INTRO_SCENE := "res://scenes/intro.tscn"
 
 @onready var main_menu: VBoxContainer = $CenterContainer/MainMenu
 @onready var controls_screen: VBoxContainer = $CenterContainer/ControlsScreen
@@ -33,7 +34,7 @@ func _on_continue_pressed() -> void:
 
 func _on_new_game_pressed() -> void:
 	if SaveStore.delete_save():
-		get_tree().change_scene_to_file(GAME_SCENE)
+		get_tree().change_scene_to_file(INTRO_SCENE)
 
 
 func _on_controls_pressed() -> void:
