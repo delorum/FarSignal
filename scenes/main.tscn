@@ -16,6 +16,8 @@ script = ExtResource("1_game")
 [node name="Maze" type="StaticBody2D" parent="." unique_id=2053429230]
 script = ExtResource("2_maze")
 
+[node name="Doors" type="Node2D" parent="."]
+
 [node name="Player" type="CharacterBody2D" parent="." unique_id=1057369580]
 script = ExtResource("3_player")
 
@@ -169,7 +171,7 @@ mouse_filter = 2
 layout_mode = 2
 theme_override_colors/font_color = Color(0.82, 0.88, 0.94, 1)
 theme_override_font_sizes/font_size = 20
-text = "WASD или стрелки — движение\nМышь — направление взгляда\nTab — открыть или закрыть карту\nКолесо мыши — масштаб карты\nEsc — пауза или вернуться назад"
+text = "WASD или стрелки — движение\nМышь — направление взгляда\nE — открыть или закрыть дверь\nTab — открыть или закрыть карту\nКолесо мыши — масштаб карты\nEsc — пауза или вернуться назад"
 horizontal_alignment = 1
 line_spacing = 8
 

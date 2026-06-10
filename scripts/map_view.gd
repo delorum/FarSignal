@@ -12,6 +12,7 @@ const TEXT_COLOR := Color("d8e7f5")
 
 @onready var maze: Maze = $"../../Maze"
 @onready var player: Player = $"../../Player"
+@onready var doors: Node2D = $"../../Doors"
 @onready var pause_menu: Control = $"../../PauseOverlay/PauseMenu"
 @onready var map_viewport: Control = $MapViewport
 @onready var map_content: Control = $MapViewport/MapContent
@@ -24,7 +25,7 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	resized.connect(_on_resized)
 	map_viewport.gui_input.connect(_on_map_viewport_gui_input)
-	map_content.setup(maze, player, _cell_size)
+	map_content.setup(maze, player, doors, _cell_size)
 
 
 func _exit_tree() -> void:

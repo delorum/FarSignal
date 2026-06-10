@@ -4,21 +4,26 @@ const PANEL_COLOR := Color("0c1727")
 const FLOOR_COLOR := Color("172943")
 const WALL_COLOR := Color("3f6688")
 const PLAYER_COLOR := Color("58d6f5")
+const CLOSED_DOOR_COLOR := Color("d0a86f")
+const OPEN_DOOR_COLOR := Color("8a6f4d")
 
 var scroll_position := Vector2.ZERO
 var cell_size := 40.0
 
 var _maze: Maze
 var _player: Player
+var _doors: Node2D
 
 
 func setup(
 	maze: Maze,
 	player: Player,
+	doors: Node2D,
 	cell_size: float
 ) -> void:
 	_maze = maze
 	_player = player
+	_doors = doors
 	self.cell_size = cell_size
 	queue_redraw()
 
@@ -52,9 +57,56 @@ func _draw() -> void:
 			var color := WALL_COLOR if _maze.is_wall(cell) else FLOOR_COLOR
 			draw_rect(cell_rect.grow(-1.0), color)
 
+	_draw_doors(map_origin)
+
 	var player_cell := _maze.world_to_cell(_player.position)
 	var player_position := (
 		map_origin
 		+ (Vector2(player_cell) + Vector2.ONE * 0.5) * cell_size
 	)
 	draw_circle(player_position, cell_size * 0.22, PLAYER_COLOR)
+
+
+func _draw_doors(map_origin: Vector2) -> void:
+	if _doors == null:
+		return
+
+	for door in _doors.get_children():
+		if not _maze.is_cell_explored(door.cell):
+			continue
+
+		var center := (
+			map_origin
+			+ (Vector2(door.cell) + Vector2.ONE * 0.5) * cell_size
+		)
+		var half_length := cell_size * 0.42
+		var line_width := maxf(2.0, cell_size * 0.12)
+		var axis := (
+			Vector2.DOWN
+			if door.horizontal_passage
+			else Vector2.RIGHT
+		)
+
+		if not door.is_open:
+			draw_line(
+				center - axis * half_length,
+				center + axis * half_length,
+				CLOSED_DOOR_COLOR,
+				line_width
+			)
+			continue
+
+		var outer := half_length
+		var inner := half_length * 0.45
+		draw_line(
+			center - axis * outer,
+			center - axis * inner,
+			OPEN_DOOR_COLOR,
+			line_width
+		)
+		draw_line(
+			center + axis * inner,
+			center + axis * outer,
+			OPEN_DOOR_COLOR,
+			line_width
+		)

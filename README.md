@@ -13,6 +13,7 @@ the maze. A short story screen introduces the expedition before a new game.
 Controls:
 
 - `WASD` or arrow keys: move
+- `E`: open or close a nearby door
 - `Tab`: open or close the explored map
 - Mouse wheel: zoom the map
 - `Esc`: pause or return from the controls screen

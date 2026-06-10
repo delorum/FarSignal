@@ -20,6 +20,7 @@ const EXPLORED_WALL_COLOR := Color("14171b")
 const EXPLORED_WALL_EDGE_COLOR := Color("20242a")
 const LOOP_DENSITY := 0.16
 const NARROW_CORRIDOR_RATIO := 0.35
+const DOOR_RATIO := 0.003
 const CARDINAL_DIRECTIONS: Array[Vector2i] = [
 	Vector2i.RIGHT,
 	Vector2i.DOWN,
@@ -42,6 +43,8 @@ var _view_direction := Vector2.ZERO
 var _collision_shapes: Array[CollisionShape2D] = []
 var _generation_seed := 0
 var generation_seed_override := -1
+var _door_specs: Array[Dictionary] = []
+var _closed_door_cells: Dictionary = {}
 
 
 func _ready() -> void:
@@ -79,6 +82,30 @@ func is_cell_explored(cell: Vector2i) -> bool:
 
 func generation_seed() -> int:
 	return _generation_seed
+
+
+func generated_door_specs() -> Array[Dictionary]:
+	return _door_specs.duplicate(true)
+
+
+func set_door_closed(cell: Vector2i, closed: bool) -> void:
+	if closed:
+		_closed_door_cells[cell] = true
+	else:
+		_closed_door_cells.erase(cell)
+	_view_position = Vector2(-1.0, -1.0)
+	queue_redraw()
+
+
+func carve_floor_cell(cell: Vector2i) -> void:
+	if not _is_inside(cell):
+		return
+
+	_cells[cell.y][cell.x] = 0
+	if cell.distance_squared_to(_view_cell) \
+			<= COLLISION_RADIUS * COLLISION_RADIUS:
+		_update_nearby_collisions(_view_cell)
+	queue_redraw()
 
 
 func explored_cells_for_save() -> Array:
@@ -299,6 +326,29 @@ func _rasterize_layout(
 			rng
 		)
 
+	var door_candidates: Array[Dictionary] = []
+	for connector in connectors:
+		if not narrow_connectors.has(connector):
+			continue
+
+		var horizontal := connector.x % 2 == 0
+		var cell := _connector_floor_cell(connector, horizontal)
+		door_candidates.append({
+			"cell": cell,
+			"horizontal_passage": horizontal,
+		})
+
+	var door_count := roundi(door_candidates.size() * DOOR_RATIO)
+	for index in mini(door_count, door_candidates.size()):
+		var candidate_index := rng.randi_range(
+			index,
+			door_candidates.size() - 1
+		)
+		var candidate := door_candidates[candidate_index]
+		door_candidates[candidate_index] = door_candidates[index]
+		door_candidates[index] = candidate
+		_door_specs.append(candidate)
+
 
 func _carve_room(origin: Vector2i) -> void:
 	for offset_y in 2:
@@ -326,6 +376,28 @@ func _carve_connector(
 		for lane in 2:
 			if not narrow or lane == open_lane:
 				_cells[wall_y][left_x + lane] = 0
+
+
+func _connector_floor_cell(
+	layout_cell: Vector2i,
+	horizontal: bool
+) -> Vector2i:
+	if horizontal:
+		var wall_x := (layout_cell.x / 2) * 3
+		var top_y := ((layout_cell.y - 1) / 2) * 3 + 1
+		for lane in 2:
+			var cell := Vector2i(wall_x, top_y + lane)
+			if not _is_wall(cell):
+				return cell
+	else:
+		var wall_y := (layout_cell.y / 2) * 3
+		var left_x := ((layout_cell.x - 1) / 2) * 3 + 1
+		for lane in 2:
+			var cell := Vector2i(left_x + lane, wall_y)
+			if not _is_wall(cell):
+				return cell
+
+	return Vector2i.ZERO
 
 
 func _create_collision_pool() -> void:
@@ -386,6 +458,8 @@ func _reveal_corridor_in_direction(
 		var cell := origin + direction
 		while _is_inside(cell) and not _is_wall(cell):
 			_reveal_floor_with_walls(cell)
+			if _closed_door_cells.has(cell):
+				break
 			cell += direction
 
 
