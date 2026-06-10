@@ -26,6 +26,12 @@ const LEVEL_HEIGHT := 100
 const STATION_ROOM_RADIUS := 3
 const STATION_FLOOR_RADIUS := 2
 const STATION_PLACEMENT_ATTEMPTS := 128
+const PATH_DIRECTIONS: Array[Vector2i] = [
+	Vector2i.RIGHT,
+	Vector2i.DOWN,
+	Vector2i.LEFT,
+	Vector2i.UP,
+]
 const CARDINAL_DIRECTIONS: Array[Vector2i] = [
 	Vector2i.RIGHT,
 	Vector2i.DOWN,
@@ -102,6 +108,105 @@ func station_cell_for_level(level: int) -> Vector2i:
 	if level < 0 or level >= _station_specs.size():
 		return Vector2i(-1, -1)
 	return _station_specs[level].cell
+
+
+func level_for_cell(cell: Vector2i) -> int:
+	return clampi(cell.y / LEVEL_HEIGHT, 0, LEVEL_COUNT - 1)
+
+
+func is_station_room_cell(cell: Vector2i) -> bool:
+	return _is_inside_station(cell)
+
+
+func is_cell_walkable(cell: Vector2i, avoid_station: bool = false) -> bool:
+	if not _is_inside(cell) or _is_wall(cell) or _closed_door_cells.has(cell):
+		return false
+	return not avoid_station or not _is_inside_station(cell)
+
+
+func get_random_floor_cell_in_level(
+	rng: RandomNumberGenerator,
+	level: int,
+	avoid_station: bool = false
+) -> Vector2i:
+	var min_y := clampi(level, 0, LEVEL_COUNT - 1) * LEVEL_HEIGHT
+	var max_y := mini(ROWS - 1, min_y + LEVEL_HEIGHT - 1)
+	for attempt in FLOOR_CELL_SEARCH_ATTEMPTS:
+		var cell := Vector2i(
+			rng.randi_range(1, COLUMNS - 2),
+			rng.randi_range(maxi(1, min_y), mini(ROWS - 2, max_y))
+		)
+		if is_cell_walkable(cell, avoid_station):
+			return cell
+
+	for y in range(maxi(1, min_y), mini(ROWS - 1, max_y + 1)):
+		for x in range(1, COLUMNS - 1):
+			var cell := Vector2i(x, y)
+			if is_cell_walkable(cell, avoid_station):
+				return cell
+	return Vector2i(-1, -1)
+
+
+func find_path(
+	start: Vector2i,
+	target: Vector2i,
+	level: int,
+	avoid_station: bool = false
+) -> Array[Vector2i]:
+	if level_for_cell(start) != level or level_for_cell(target) != level \
+			or not is_cell_walkable(start, false) \
+			or not is_cell_walkable(target, avoid_station):
+		return []
+
+	var frontier: Array[Vector2i] = [start]
+	var frontier_index := 0
+	var came_from: Dictionary = {start: start}
+	while frontier_index < frontier.size():
+		var current := frontier[frontier_index]
+		frontier_index += 1
+		if current == target:
+			break
+
+		for direction in PATH_DIRECTIONS:
+			var next := current + direction
+			if came_from.has(next) or level_for_cell(next) != level \
+					or not is_cell_walkable(next, avoid_station):
+				continue
+			came_from[next] = current
+			frontier.append(next)
+
+	if not came_from.has(target):
+		return []
+
+	var path: Array[Vector2i] = []
+	var current := target
+	while current != start:
+		path.push_front(current)
+		current = came_from[current]
+	return path
+
+
+func has_line_of_sight(
+	from_position: Vector2,
+	to_position: Vector2,
+	max_distance_cells: float = INF
+) -> bool:
+	var from_cell := world_to_cell(from_position)
+	var to_cell := world_to_cell(to_position)
+	if Vector2(to_cell - from_cell).length() > max_distance_cells:
+		return false
+
+	var difference := to_cell - from_cell
+	var steps := maxi(absi(difference.x), absi(difference.y))
+	if steps == 0:
+		return true
+
+	for index in range(1, steps):
+		var progress := float(index) / float(steps)
+		var cell := Vector2i(Vector2(from_cell).lerp(Vector2(to_cell), progress).round())
+		if _is_wall(cell) or _closed_door_cells.has(cell):
+			return false
+	return true
 
 
 func set_door_closed(cell: Vector2i, closed: bool) -> void:

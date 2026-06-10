@@ -3,16 +3,25 @@ extends Node2D
 const DOOR_SCENE := preload("res://scenes/door.tscn")
 const BULLET_SCENE := preload("res://scenes/bullet.tscn")
 const STATION_SCENE := preload("res://scenes/station.tscn")
+const ENEMY_SCENE := preload("res://scenes/enemy.tscn")
 const START_FACING := Vector2.UP
 const BULLET_SPAWN_DISTANCE := 22.0
 const SIGNAL_LEVEL_HEIGHT := 100
 const SIGNAL_RANGE := 100.0
 const SIGNAL_STEP := 10.0
+const START_LEVEL := 9
+const START_ENEMY_COUNT := 3
+const PLAYER_DAMAGE_MIN := 28
+const PLAYER_DAMAGE_MAX := 35
+const ENEMY_DAMAGE_MIN := 20
+const ENEMY_DAMAGE_MAX := 27
+const SHOT_HEARING_RANGE := 60.0
 
-@onready var maze = $Maze
-@onready var player = $Player
+@onready var maze: Maze = $Maze
+@onready var player: Player = $Player
 @onready var doors: Node2D = $Doors
 @onready var stations: Node2D = $Stations
+@onready var enemies: Node2D = $Enemies
 @onready var bullets: Node2D = $Bullets
 @onready var coordinates_label: Label = $GameInterface/Coordinates
 @onready var health_value: Label = $GameInterface/PlayerPanel/Margin/VBox/HealthValue
@@ -20,14 +29,22 @@ const SIGNAL_STEP := 10.0
 @onready var ammo_value: Label = $GameInterface/PlayerPanel/Margin/VBox/AmmoValue
 @onready var ammo_bar: ProgressBar = $GameInterface/PlayerPanel/Margin/VBox/AmmoBar
 @onready var signal_meter: Control = $GameInterface/PlayerPanel/Margin/VBox/SignalMeter
+@onready var enemy_meter: Control = $GameInterface/PlayerPanel/Margin/VBox/EnemyMeter
 @onready var station_menu: Control = $StationOverlay/StationMenu
+@onready var defeat_menu: Control = $DefeatOverlay/DefeatMenu
 
 var _displayed_player_cell := Vector2i(-1, -1)
 var _displayed_health := -1
 var _displayed_ammo := -1
 var _displayed_signal := -1
+var _displayed_enemy_signal := -1
 var _doors: Array[Node] = []
 var _stations: Array[Node] = []
+var _enemies: Array[Node] = []
+var _enemies_killed := 0
+var _levels_passed := 0
+var _defeated := false
+var _rng := RandomNumberGenerator.new()
 
 
 func _enter_tree() -> void:
@@ -39,6 +56,7 @@ func _enter_tree() -> void:
 
 
 func _ready() -> void:
+	_rng.randomize()
 	var save_data := SaveStore.consume_pending_save()
 	if save_data.is_empty():
 		var rng := RandomNumberGenerator.new()
@@ -50,6 +68,7 @@ func _ready() -> void:
 		_create_generated_doors()
 		var start_door_cell := player_cell + Vector2i.DOWN
 		_create_door(start_door_cell, false, true, false)
+		_create_generated_enemies(player_cell)
 	else:
 		_create_generated_stations()
 		_restore_game(save_data)
@@ -61,6 +80,10 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
+	if not _defeated and player.health <= 0:
+		_show_defeat()
+		return
+
 	if Input.is_action_just_pressed("shoot"):
 		_shoot()
 
@@ -71,6 +94,7 @@ func _process(_delta: float) -> void:
 	_update_visibility()
 	_update_coordinates()
 	_update_player_panel()
+	_update_enemies()
 
 
 func _update_visibility() -> void:
@@ -85,6 +109,8 @@ func _update_visibility() -> void:
 			maze.is_cell_visible(station.cell),
 			maze.is_cell_explored(station.cell)
 		)
+	for enemy in _enemies:
+		enemy.update_visibility(maze.is_cell_visible(maze.world_to_cell(enemy.position)))
 
 
 func _update_coordinates() -> void:
@@ -112,6 +138,11 @@ func _update_player_panel() -> void:
 		_displayed_signal = signal_strength
 		signal_meter.strength = signal_strength
 
+	var enemy_signal_strength := _enemy_signal_strength()
+	if enemy_signal_strength != _displayed_enemy_signal:
+		_displayed_enemy_signal = enemy_signal_strength
+		enemy_meter.strength = enemy_signal_strength
+
 
 func save_game() -> bool:
 	var save_data := {
@@ -126,6 +157,9 @@ func save_game() -> bool:
 		"discovered_stations": _stations.filter(
 			func(station: Node): return station.discovered
 		).map(func(station: Node): return station.level),
+		"enemies": _enemies.map(func(enemy: Node): return enemy.save_data()),
+		"enemies_killed": _enemies_killed,
+		"levels_passed": _levels_passed,
 	}
 	return SaveStore.write_save(save_data)
 
@@ -155,6 +189,13 @@ func _restore_game(save_data: Dictionary) -> void:
 		_create_missing_generated_doors()
 	else:
 		_create_generated_doors()
+	_enemies_killed = int(save_data.get("enemies_killed", 0))
+	_levels_passed = int(save_data.get("levels_passed", 0))
+	if save_data.has("enemies"):
+		for index in save_data.enemies.size():
+			_create_enemy_from_save(save_data.enemies[index], index)
+	else:
+		_create_generated_enemies(maze.world_to_cell(player.position))
 
 
 func _create_generated_stations() -> void:
@@ -163,6 +204,57 @@ func _create_generated_stations() -> void:
 		station.setup(station_spec.cell, station_spec.level)
 		stations.add_child(station)
 		_stations.append(station)
+
+
+func _create_generated_enemies(player_cell: Vector2i) -> void:
+	var enemy_rng := RandomNumberGenerator.new()
+	enemy_rng.seed = maze.generation_seed() ^ 0x5e71a9
+	var occupied_cells: Dictionary = {}
+	for index in START_ENEMY_COUNT:
+		var cell: Vector2i = maze.get_random_floor_cell_in_level(
+			enemy_rng,
+			START_LEVEL,
+			true
+		)
+		for attempt in 64:
+			if cell.distance_to(player_cell) >= 15.0 \
+					and not occupied_cells.has(cell):
+				break
+			cell = maze.get_random_floor_cell_in_level(
+				enemy_rng,
+				START_LEVEL,
+				true
+			)
+		occupied_cells[cell] = true
+		_create_enemy(START_LEVEL, cell, enemy_rng.randi())
+
+
+func _create_enemy_from_save(saved_data: Dictionary, index: int) -> void:
+	var level: int = int(saved_data.get("level", START_LEVEL))
+	var saved_position: Array = saved_data.get("position", [])
+	var cell: Vector2i = maze.get_random_floor_cell_in_level(
+		_rng,
+		level,
+		true
+	)
+	if saved_position.size() == 2:
+		cell = maze.world_to_cell(
+			Vector2(float(saved_position[0]), float(saved_position[1]))
+		)
+	var enemy: Node = _create_enemy(
+		level,
+		cell,
+		maze.generation_seed() + index
+	)
+	enemy.restore_state(saved_data)
+
+
+func _create_enemy(level: int, cell: Vector2i, random_seed: int) -> Node:
+	var enemy: Node = ENEMY_SCENE.instantiate()
+	enemy.setup(self, maze, player, level, cell, random_seed)
+	enemies.add_child(enemy)
+	_enemies.append(enemy)
+	return enemy
 
 
 func _create_generated_doors() -> void:
@@ -292,6 +384,81 @@ func refill_health() -> void:
 	_update_player_panel()
 
 
+func is_player_inside_station() -> bool:
+	var player_cell: Vector2i = maze.world_to_cell(player.position)
+	for station in _stations:
+		var offset: Vector2i = player_cell - station.cell
+		if absi(offset.x) <= 2 and absi(offset.y) <= 2:
+			return true
+	return false
+
+
+func spawn_enemy_bullet(start_position: Vector2, direction: Vector2) -> void:
+	var bullet: Node = BULLET_SCENE.instantiate()
+	bullet.setup(
+		start_position + direction * BULLET_SPAWN_DISTANCE,
+		direction,
+		maze,
+		_rng.randi_range(ENEMY_DAMAGE_MIN, ENEMY_DAMAGE_MAX),
+		false
+	)
+	bullets.add_child(bullet)
+
+
+func enemy_killed(_enemy: Node) -> void:
+	_enemies_killed += 1
+
+
+func _update_enemies() -> void:
+	var player_level: int = maze.level_for_cell(
+		maze.world_to_cell(player.position)
+	)
+	_levels_passed = maxi(_levels_passed, START_LEVEL - player_level)
+	for enemy in _enemies:
+		enemy.set_active(enemy.level == player_level)
+
+
+func _enemy_signal_strength() -> int:
+	var player_cell: Vector2i = maze.world_to_cell(player.position)
+	var player_level: int = maze.level_for_cell(player_cell)
+	var closest_distance := INF
+	for enemy in _enemies:
+		if enemy.dead or enemy.level != player_level:
+			continue
+		var enemy_cell: Vector2i = maze.world_to_cell(enemy.position)
+		closest_distance = minf(
+			closest_distance,
+			Vector2(enemy_cell - player_cell).length()
+		)
+
+	if closest_distance <= 10.0:
+		return 3
+	if closest_distance <= 20.0:
+		return 2
+	if closest_distance <= 30.0:
+		return 1
+	return 0
+
+
+func _alert_enemies_to_shot() -> void:
+	if is_player_inside_station():
+		return
+	var player_cell: Vector2i = maze.world_to_cell(player.position)
+	var player_level: int = maze.level_for_cell(player_cell)
+	for enemy in _enemies:
+		if enemy.dead or enemy.level != player_level:
+			continue
+		var enemy_cell: Vector2i = maze.world_to_cell(enemy.position)
+		if Vector2(enemy_cell - player_cell).length() <= SHOT_HEARING_RANGE:
+			enemy.hear_player()
+
+
+func _show_defeat() -> void:
+	_defeated = true
+	player.controls_enabled = false
+	defeat_menu.open(_levels_passed, _enemies_killed)
+
+
 func _signal_strength() -> int:
 	if _stations.is_empty():
 		return 0
@@ -321,7 +488,10 @@ func _shoot() -> void:
 	bullet.setup(
 		player.position + direction * BULLET_SPAWN_DISTANCE,
 		direction,
-		maze
+		maze,
+		_rng.randi_range(PLAYER_DAMAGE_MIN, PLAYER_DAMAGE_MAX),
+		true
 	)
 	bullets.add_child(bullet)
+	_alert_enemies_to_shot()
 	_update_player_panel()

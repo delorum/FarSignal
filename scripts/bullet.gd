@@ -6,18 +6,23 @@ const MAX_LIFETIME := 5.0
 
 var direction := Vector2.RIGHT
 var maze: Maze
+var damage := 0
 var _lifetime := 0.0
 
 
 func setup(
 	start_position: Vector2,
 	shot_direction: Vector2,
-	maze_node: Maze
+	maze_node: Maze,
+	shot_damage: int,
+	from_player: bool
 ) -> void:
 	position = start_position
 	direction = shot_direction.normalized()
 	maze = maze_node
+	damage = shot_damage
 	rotation = direction.angle()
+	collision_mask = 1 | (4 if from_player else 2)
 
 
 func _physics_process(delta: float) -> void:
@@ -28,6 +33,9 @@ func _physics_process(delta: float) -> void:
 
 	var collision := move_and_collide(direction * SPEED * delta)
 	if collision != null:
+		var collider := collision.get_collider()
+		if collider != null and collider.has_method("take_damage"):
+			collider.take_damage(damage)
 		queue_free()
 		return
 

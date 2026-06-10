@@ -58,6 +58,17 @@ func refill_ammo() -> void:
 	ammo = MAX_AMMO
 
 
+func take_damage(amount: int) -> bool:
+	if health <= 0:
+		return false
+	health = maxi(0, health - amount)
+	return health == 0
+
+
+func is_moving() -> bool:
+	return velocity.length_squared() > 1.0
+
+
 func _process(_delta: float) -> void:
 	var mouse_direction := get_local_mouse_position()
 	if mouse_direction.is_zero_approx():

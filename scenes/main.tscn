@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3 uid="uid://dw58ygdj26wbu"]
+[gd_scene load_steps=16 format=3 uid="uid://dw58ygdj26wbu"]
 
 [ext_resource type="Script" uid="uid://b7t1b5rs3b076" path="res://scripts/game.gd" id="1_game"]
 [ext_resource type="Script" uid="uid://1jcmw0g6148v" path="res://scripts/maze.gd" id="2_maze"]
@@ -8,6 +8,8 @@
 [ext_resource type="Script" path="res://scripts/pause_menu.gd" id="7_pause"]
 [ext_resource type="Script" path="res://scripts/signal_meter.gd" id="8_signal"]
 [ext_resource type="Script" path="res://scripts/station_menu.gd" id="9_station_menu"]
+[ext_resource type="Script" path="res://scripts/enemy_meter.gd" id="10_enemy_meter"]
+[ext_resource type="Script" path="res://scripts/defeat_menu.gd" id="11_defeat"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_player"]
 radius = 14.0
@@ -41,9 +43,13 @@ script = ExtResource("2_maze")
 
 [node name="Stations" type="Node2D" parent="."]
 
+[node name="Enemies" type="Node2D" parent="."]
+
 [node name="Bullets" type="Node2D" parent="."]
 
 [node name="Player" type="CharacterBody2D" parent="." unique_id=1057369580]
+collision_layer = 2
+collision_mask = 5
 script = ExtResource("3_player")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Player" unique_id=751310340]
@@ -150,6 +156,23 @@ custom_minimum_size = Vector2(0, 24)
 layout_mode = 2
 mouse_filter = 2
 script = ExtResource("8_signal")
+
+[node name="EnemySpacer" type="Control" parent="GameInterface/PlayerPanel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 26)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="EnemyTitle" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.82, 0.88, 0.94, 1)
+theme_override_font_sizes/font_size = 18
+text = "ШУМ ВРАГА"
+
+[node name="EnemyMeter" type="Control" parent="GameInterface/PlayerPanel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 24)
+layout_mode = 2
+mouse_filter = 2
+script = ExtResource("10_enemy_meter")
 
 [node name="MapOverlay" type="CanvasLayer" parent="."]
 layer = 10
@@ -395,6 +418,71 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Выход"
 
+[node name="DefeatOverlay" type="CanvasLayer" parent="."]
+layer = 40
+
+[node name="DefeatMenu" type="Control" parent="DefeatOverlay"]
+process_mode = 3
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("11_defeat")
+
+[node name="Background" type="ColorRect" parent="DefeatOverlay/DefeatMenu"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.025, 0.02, 0.025, 0.96)
+
+[node name="Center" type="CenterContainer" parent="DefeatOverlay/DefeatMenu/Background"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Menu" type="VBoxContainer" parent="DefeatOverlay/DefeatMenu/Background/Center"]
+custom_minimum_size = Vector2(440, 0)
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="Title" type="Label" parent="DefeatOverlay/DefeatMenu/Background/Center/Menu"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.82, 0.25, 0.27, 1)
+theme_override_font_sizes/font_size = 48
+text = "Поражение"
+horizontal_alignment = 1
+
+[node name="Separator" type="Control" parent="DefeatOverlay/DefeatMenu/Background/Center/Menu"]
+custom_minimum_size = Vector2(0, 24)
+layout_mode = 2
+
+[node name="LevelsValue" type="Label" parent="DefeatOverlay/DefeatMenu/Background/Center/Menu"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Пройдено уровней: 0"
+horizontal_alignment = 1
+
+[node name="KillsValue" type="Label" parent="DefeatOverlay/DefeatMenu/Background/Center/Menu"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Убито врагов: 0"
+horizontal_alignment = 1
+
+[node name="ExitButton" type="Button" parent="DefeatOverlay/DefeatMenu/Background/Center/Menu"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Выход"
+
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/PauseMenu/ContinueButton" to="PauseOverlay/PauseMenu" method="_on_continue_pressed"]
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/PauseMenu/ControlsButton" to="PauseOverlay/PauseMenu" method="_on_controls_pressed"]
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/PauseMenu/ObjectiveButton" to="PauseOverlay/PauseMenu" method="_on_objective_pressed"]
@@ -404,3 +492,4 @@ text = "Выход"
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/AmmoButton" to="StationOverlay/StationMenu" method="_on_ammo_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/HealthButton" to="StationOverlay/StationMenu" method="_on_health_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ExitButton" to="StationOverlay/StationMenu" method="_on_exit_pressed"]
+[connection signal="pressed" from="DefeatOverlay/DefeatMenu/Background/Center/Menu/ExitButton" to="DefeatOverlay/DefeatMenu" method="_on_exit_pressed"]
