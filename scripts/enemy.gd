@@ -13,15 +13,31 @@ const SHOOT_INTERVAL := 2.0
 const STEP_HEARING_RANGE := 20.0
 const VISION_RANGE := 30.0
 const TARGET_ATTEMPTS := 12
+const SEARCH_DURATION := 5.0
+const MANEUVER_CHANCE := 0.4
+const TURN_SPEED := deg_to_rad(150.0)
+const AIM_TOLERANCE := deg_to_rad(10.0)
+
+enum State {
+	PATROL,
+	INVESTIGATE,
+	COMBAT,
+	MANEUVER,
+	SEARCH,
+}
 
 var level := 9
 var health := MAX_HEALTH
 var dead := false
+var state := State.PATROL
 var _facing := Vector2.LEFT
+var _desired_facing := Vector2.LEFT
 var _path: Array[Vector2i] = []
 var _path_index := 0
 var _hearing_cooldown := 0.0
 var _shoot_cooldown := 0.0
+var _search_time_left := 0.0
+var _last_known_player_cell := Vector2i(-1, -1)
 var _active := false
 var _player_was_safe := false
 var _game: Node
@@ -83,7 +99,10 @@ func hear_player() -> void:
 	if dead or not _active or _game.is_player_inside_station() \
 			or _hearing_cooldown > 0.0:
 		return
-	_build_path_to(_maze.world_to_cell(_player.position))
+
+	_last_known_player_cell = _maze.world_to_cell(_player.position)
+	if _build_path_to(_last_known_player_cell):
+		state = State.INVESTIGATE
 	_hearing_cooldown = HEARING_INTERVAL
 
 
@@ -118,14 +137,14 @@ func _physics_process(delta: float) -> void:
 
 	_hearing_cooldown = maxf(0.0, _hearing_cooldown - delta)
 	_shoot_cooldown = maxf(0.0, _shoot_cooldown - delta)
+	_update_facing(delta)
 
 	var player_is_safe: bool = _game.is_player_inside_station()
 	if player_is_safe:
-		if not _player_was_safe or _path.is_empty() \
-				or _path_index >= _path.size():
-			_choose_random_target()
+		if not _player_was_safe or state != State.PATROL:
+			_enter_patrol()
 		_player_was_safe = true
-		_follow_path()
+		_update_patrol()
 		return
 	_player_was_safe = false
 
@@ -133,45 +152,196 @@ func _physics_process(delta: float) -> void:
 	var distance_to_player := Vector2(
 		player_cell - _maze.world_to_cell(position)
 	).length()
+	var direction_to_player := position.direction_to(_player.position)
 	var sees_player := distance_to_player <= VISION_RANGE \
+			and _facing.dot(direction_to_player) > 0.0 \
 			and _maze.has_line_of_sight(position, _player.position, VISION_RANGE)
 
+	if state == State.MANEUVER:
+		if sees_player:
+			_last_known_player_cell = player_cell
+			_desired_facing = direction_to_player
+			_update_maneuver(true)
+		else:
+			_update_maneuver(false)
+		return
+
 	if sees_player:
-		_facing = position.direction_to(_player.position)
-		queue_redraw()
-		if _shoot_cooldown <= 0.0:
+		_last_known_player_cell = player_cell
+		if state != State.COMBAT:
+			_enter_combat()
+		_desired_facing = direction_to_player
+		if _shoot_cooldown <= 0.0 and _is_aimed_at(direction_to_player):
 			_game.spawn_enemy_bullet(position, _facing)
 			_shoot_cooldown = SHOOT_INTERVAL
+			_try_start_combat_maneuver(direction_to_player)
+		return
+
+	if state == State.COMBAT:
+		_enter_search()
 
 	if _player.is_moving() and distance_to_player <= STEP_HEARING_RANGE \
 			and _hearing_cooldown <= 0.0:
 		hear_player()
 
+	match state:
+		State.PATROL:
+			_update_patrol()
+		State.INVESTIGATE:
+			_update_investigate()
+		State.SEARCH:
+			_update_search(delta)
+		State.COMBAT:
+			velocity = Vector2.ZERO
+		State.MANEUVER:
+			velocity = Vector2.ZERO
+
+
+func _enter_patrol() -> void:
+	state = State.PATROL
+	_search_time_left = 0.0
+	_path.clear()
+	_path_index = 0
+	_choose_random_target()
+
+
+func _enter_combat() -> void:
+	state = State.COMBAT
+	velocity = Vector2.ZERO
+	_path.clear()
+	_path_index = 0
+
+
+func _enter_search() -> void:
+	state = State.SEARCH
+	_search_time_left = SEARCH_DURATION
+	if not _build_path_to(_last_known_player_cell):
+		_path.clear()
+		_path_index = 0
+
+
+func _try_start_combat_maneuver(direction_to_player: Vector2) -> bool:
+	if _rng.randf() >= MANEUVER_CHANCE:
+		return false
+
+	var forward := _cardinal_direction(direction_to_player)
+	if forward == Vector2i.ZERO:
+		return false
+	var left := Vector2i(forward.y, -forward.x)
+	var right := -left
+	var current_cell := _maze.world_to_cell(position)
+	var candidates: Array[Vector2i] = []
+
+	if _maze.is_cell_walkable(current_cell + left, true):
+		candidates.append(current_cell + left)
+	if _maze.is_cell_walkable(current_cell + right, true):
+		candidates.append(current_cell + right)
+
+	var target := Vector2i(-1, -1)
+	if not candidates.is_empty():
+		target = candidates[_rng.randi_range(0, candidates.size() - 1)]
+	else:
+		var retreat := current_cell - forward
+		if _maze.is_cell_walkable(retreat, true):
+			target = retreat
+
+	if target.x < 0:
+		return false
+
+	state = State.MANEUVER
+	_path.clear()
+	_path.append(target)
+	_path_index = 0
+	return true
+
+
+func _cardinal_direction(direction: Vector2) -> Vector2i:
+	if absf(direction.x) >= absf(direction.y):
+		return Vector2i(signi(direction.x), 0)
+	return Vector2i(0, signi(direction.y))
+
+
+func _update_facing(delta: float) -> void:
+	if _desired_facing.is_zero_approx():
+		return
+
+	var current_angle := _facing.angle()
+	var target_angle := _desired_facing.angle()
+	var new_angle := rotate_toward(
+		current_angle,
+		target_angle,
+		TURN_SPEED * delta
+	)
+	var new_facing := Vector2.from_angle(new_angle)
+	if not new_facing.is_equal_approx(_facing):
+		_facing = new_facing
+		queue_redraw()
+
+
+func _is_aimed_at(direction: Vector2) -> bool:
+	return absf(_facing.angle_to(direction)) <= AIM_TOLERANCE
+
+
+func _update_patrol() -> void:
 	if _path.is_empty() or _path_index >= _path.size():
 		_choose_random_target()
 	_follow_path()
 
 
-func _follow_path() -> void:
+func _update_investigate() -> void:
+	if _path.is_empty() or _path_index >= _path.size():
+		_enter_search()
+		return
+	_follow_path()
+	if _path_index >= _path.size():
+		_enter_search()
+
+
+func _update_search(delta: float) -> void:
+	if _path_index < _path.size():
+		_follow_path()
+		return
+
+	velocity = Vector2.ZERO
+	_search_time_left = maxf(0.0, _search_time_left - delta)
+	if _search_time_left <= 0.0:
+		_enter_patrol()
+
+
+func _update_maneuver(sees_player: bool) -> void:
+	if _path_index < _path.size():
+		_follow_path(false)
+	if _path_index < _path.size():
+		return
+
+	if sees_player:
+		_enter_combat()
+	else:
+		_enter_search()
+
+
+func _follow_path(update_facing: bool = true) -> void:
 	if _path_index >= _path.size():
 		velocity = Vector2.ZERO
 		return
 
 	if not _maze.is_cell_walkable(_path[_path_index], true):
-		_choose_random_target()
-		if _path_index >= _path.size():
-			velocity = Vector2.ZERO
-			return
+		_path.clear()
+		_path_index = 0
+		velocity = Vector2.ZERO
+		return
 
 	var target_position := _maze.cell_to_world(_path[_path_index])
 	var offset := target_position - position
 	if offset.length() < 5.0:
 		_path_index += 1
-		_follow_path()
+		_follow_path(update_facing)
 		return
 
-	_facing = offset.normalized()
-	velocity = _facing * SPEED
+	var movement_direction := offset.normalized()
+	if update_facing:
+		_desired_facing = movement_direction
+	velocity = movement_direction * SPEED
 	move_and_slide()
 	queue_redraw()
 

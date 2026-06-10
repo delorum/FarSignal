@@ -8,6 +8,8 @@ const CLOSED_DOOR_COLOR := Color("d0a86f")
 const OPEN_DOOR_COLOR := Color("8a6f4d")
 const STATION_COLOR := Color("245d3b")
 const STATION_EDGE_COLOR := Color("3d8155")
+const DEAD_ENEMY_COLOR := Color("3b4148")
+const DEAD_ENEMY_EDGE_COLOR := Color("626b75")
 
 var scroll_position := Vector2.ZERO
 var cell_size := 40.0
@@ -16,6 +18,7 @@ var _maze: Maze
 var _player: Player
 var _doors: Node2D
 var _stations: Node2D
+var _enemies: Node2D
 
 
 func setup(
@@ -23,12 +26,14 @@ func setup(
 	player: Player,
 	doors: Node2D,
 	stations: Node2D,
+	enemies: Node2D,
 	cell_size: float
 ) -> void:
 	_maze = maze
 	_player = player
 	_doors = doors
 	_stations = stations
+	_enemies = enemies
 	self.cell_size = cell_size
 	queue_redraw()
 
@@ -64,6 +69,7 @@ func _draw() -> void:
 
 	_draw_doors(map_origin)
 	_draw_stations(map_origin)
+	_draw_dead_enemies(map_origin)
 
 	var player_cell := _maze.world_to_cell(_player.position)
 	var player_position := (
@@ -141,3 +147,31 @@ func _draw_stations(map_origin: Vector2) -> void:
 		var outline := points.duplicate()
 		outline.append(points[0])
 		draw_polyline(outline, STATION_EDGE_COLOR, 1.0, true)
+
+
+func _draw_dead_enemies(map_origin: Vector2) -> void:
+	if _enemies == null:
+		return
+
+	for enemy in _enemies.get_children():
+		if not enemy.dead:
+			continue
+
+		var enemy_cell: Vector2i = _maze.world_to_cell(enemy.position)
+		if not _maze.is_cell_explored(enemy_cell):
+			continue
+
+		var center := (
+			map_origin
+			+ (Vector2(enemy_cell) + Vector2.ONE * 0.5) * cell_size
+		)
+		var radius := cell_size * 0.22
+		draw_circle(center, radius, DEAD_ENEMY_COLOR)
+		draw_circle(
+			center,
+			radius,
+			DEAD_ENEMY_EDGE_COLOR,
+			false,
+			maxf(1.0, cell_size * 0.05),
+			true
+		)
