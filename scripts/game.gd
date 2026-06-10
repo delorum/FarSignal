@@ -1,11 +1,14 @@
 extends Node2D
 
 const DOOR_SCENE := preload("res://scenes/door.tscn")
+const BULLET_SCENE := preload("res://scenes/bullet.tscn")
 const START_FACING := Vector2.UP
+const BULLET_SPAWN_DISTANCE := 22.0
 
 @onready var maze = $Maze
 @onready var player = $Player
 @onready var doors: Node2D = $Doors
+@onready var bullets: Node2D = $Bullets
 @onready var coordinates_label: Label = $GameInterface/Coordinates
 @onready var health_value: Label = $GameInterface/PlayerPanel/Margin/VBox/HealthValue
 @onready var health_bar: ProgressBar = $GameInterface/PlayerPanel/Margin/VBox/HealthBar
@@ -47,6 +50,9 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
+	if Input.is_action_just_pressed("shoot"):
+		_shoot()
+
 	if Input.is_action_just_pressed("interact"):
 		_interact_with_door()
 
@@ -187,3 +193,18 @@ func _interact_with_door() -> void:
 			closest_door.cell,
 			not closest_door.is_open
 		)
+
+
+func _shoot() -> void:
+	if not player.controls_enabled or not player.consume_ammo():
+		return
+
+	var direction: Vector2 = player.facing_direction()
+	var bullet: Node = BULLET_SCENE.instantiate()
+	bullet.setup(
+		player.position + direction * BULLET_SPAWN_DISTANCE,
+		direction,
+		maze
+	)
+	bullets.add_child(bullet)
+	_update_player_panel()

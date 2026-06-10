@@ -42,6 +42,14 @@ func restore_status(saved_health: int, saved_ammo: int) -> void:
 	ammo = clampi(saved_ammo, 0, MAX_AMMO)
 
 
+func consume_ammo() -> bool:
+	if ammo <= 0:
+		return false
+
+	ammo -= 1
+	return true
+
+
 func _process(_delta: float) -> void:
 	var mouse_direction := get_local_mouse_position()
 	if mouse_direction.is_zero_approx():
