@@ -16,6 +16,9 @@ const PLAYER_DAMAGE_MAX := 35
 const ENEMY_DAMAGE_MIN := 20
 const ENEMY_DAMAGE_MAX := 27
 const SHOT_HEARING_RANGE := 60.0
+const PANEL_WIDTH_RATIO := 0.2
+const MIN_PANEL_WIDTH := 260.0
+const MAX_PANEL_WIDTH := 360.0
 
 @onready var maze: Maze = $Maze
 @onready var player: Player = $Player
@@ -23,7 +26,9 @@ const SHOT_HEARING_RANGE := 60.0
 @onready var stations: Node2D = $Stations
 @onready var enemies: Node2D = $Enemies
 @onready var bullets: Node2D = $Bullets
-@onready var coordinates_label: Label = $GameInterface/Coordinates
+@onready var camera: Camera2D = $Player/Camera2D
+@onready var player_panel: Panel = $GameInterface/PlayerPanel
+@onready var coordinates_label: Label = $GameInterface/PlayerPanel/Coordinates
 @onready var health_value: Label = $GameInterface/PlayerPanel/Margin/VBox/HealthValue
 @onready var health_bar: ProgressBar = $GameInterface/PlayerPanel/Margin/VBox/HealthBar
 @onready var ammo_value: Label = $GameInterface/PlayerPanel/Margin/VBox/AmmoValue
@@ -60,6 +65,8 @@ func _enter_tree() -> void:
 
 func _ready() -> void:
 	_rng.randomize()
+	get_viewport().size_changed.connect(_update_adaptive_layout)
+	_update_adaptive_layout()
 	var save_data := SaveStore.consume_pending_save()
 	if save_data.is_empty():
 		var rng := RandomNumberGenerator.new()
@@ -80,6 +87,17 @@ func _ready() -> void:
 	_update_visibility()
 	_update_coordinates()
 	_update_player_panel()
+
+
+func _update_adaptive_layout() -> void:
+	var viewport_width := get_viewport_rect().size.x
+	var panel_width := clampf(
+		viewport_width * PANEL_WIDTH_RATIO,
+		MIN_PANEL_WIDTH,
+		MAX_PANEL_WIDTH
+	)
+	player_panel.offset_left = -panel_width
+	camera.position.x = panel_width * 0.5
 
 
 func _process(_delta: float) -> void:
