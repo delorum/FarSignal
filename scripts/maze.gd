@@ -156,21 +156,43 @@ func find_path(
 			or not is_cell_walkable(target, avoid_station):
 		return []
 
-	var frontier: Array[Vector2i] = [start]
-	var frontier_index := 0
+	var open_cells: Array[Vector2i] = []
+	var open_priorities: Array[int] = []
+	_path_heap_push(
+		open_cells,
+		open_priorities,
+		start,
+		_manhattan_distance(start, target)
+	)
 	var came_from: Dictionary = {start: start}
-	while frontier_index < frontier.size():
-		var current := frontier[frontier_index]
-		frontier_index += 1
+	var cost_so_far: Dictionary = {start: 0}
+	var closed: Dictionary = {}
+
+	while not open_cells.is_empty():
+		var current := _path_heap_pop(open_cells, open_priorities)
+		if closed.has(current):
+			continue
 		if current == target:
 			break
+		closed[current] = true
 
 		for direction in PATH_DIRECTIONS:
 			var next := current + direction
-			if came_from.has(next) or not is_cell_walkable(next, avoid_station):
+			if closed.has(next) or not is_cell_walkable(next, avoid_station):
 				continue
+
+			var new_cost: int = int(cost_so_far[current]) + 1
+			if cost_so_far.has(next) and new_cost >= int(cost_so_far[next]):
+				continue
+
+			cost_so_far[next] = new_cost
 			came_from[next] = current
-			frontier.append(next)
+			_path_heap_push(
+				open_cells,
+				open_priorities,
+				next,
+				new_cost + _manhattan_distance(next, target)
+			)
 
 	if not came_from.has(target):
 		return []
@@ -181,6 +203,65 @@ func find_path(
 		path.push_front(current)
 		current = came_from[current]
 	return path
+
+
+func _manhattan_distance(from: Vector2i, to: Vector2i) -> int:
+	return absi(from.x - to.x) + absi(from.y - to.y)
+
+
+func _path_heap_push(
+	cells: Array[Vector2i],
+	priorities: Array[int],
+	cell: Vector2i,
+	priority: int
+) -> void:
+	cells.append(cell)
+	priorities.append(priority)
+	var index := cells.size() - 1
+
+	while index > 0:
+		var parent := (index - 1) >> 1
+		if priorities[parent] <= priority:
+			break
+
+		cells[index] = cells[parent]
+		priorities[index] = priorities[parent]
+		index = parent
+
+	cells[index] = cell
+	priorities[index] = priority
+
+
+func _path_heap_pop(
+	cells: Array[Vector2i],
+	priorities: Array[int]
+) -> Vector2i:
+	var result := cells[0]
+	var last_cell: Vector2i = cells.pop_back()
+	var last_priority: int = priorities.pop_back()
+	if cells.is_empty():
+		return result
+
+	var index := 0
+	while true:
+		var left := index * 2 + 1
+		if left >= cells.size():
+			break
+
+		var right := left + 1
+		var child := left
+		if right < cells.size() and priorities[right] < priorities[left]:
+			child = right
+		if priorities[child] >= last_priority:
+			break
+
+		cells[index] = cells[child]
+		priorities[index] = priorities[child]
+		index = child
+
+	cells[index] = last_cell
+	priorities[index] = last_priority
+	return result
 
 
 func has_line_of_sight(
