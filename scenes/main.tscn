@@ -293,6 +293,12 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Продолжить"
 
+[node name="NewGameButton" type="Button" parent="PauseOverlay/PauseMenu/CenterContainer/PauseMenu"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Новая игра"
+
 [node name="ControlsButton" type="Button" parent="PauseOverlay/PauseMenu/CenterContainer/PauseMenu"]
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
@@ -510,6 +516,7 @@ theme_override_font_sizes/font_size = 22
 text = "Выход"
 
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/PauseMenu/ContinueButton" to="PauseOverlay/PauseMenu" method="_on_continue_pressed"]
+[connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/PauseMenu/NewGameButton" to="PauseOverlay/PauseMenu" method="_on_new_game_pressed"]
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/PauseMenu/ControlsButton" to="PauseOverlay/PauseMenu" method="_on_controls_pressed"]
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/PauseMenu/ObjectiveButton" to="PauseOverlay/PauseMenu" method="_on_objective_pressed"]
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/PauseMenu/SaveAndExitButton" to="PauseOverlay/PauseMenu" method="_on_save_and_exit_pressed"]

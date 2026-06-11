@@ -1,6 +1,7 @@
 extends Control
 
 const LoreText = preload("res://scripts/lore_text.gd")
+const INTRO_SCENE := "res://scenes/intro.tscn"
 
 @onready var pause_menu: VBoxContainer = $CenterContainer/PauseMenu
 @onready var controls_screen: VBoxContainer = $CenterContainer/ControlsScreen
@@ -43,6 +44,14 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _on_continue_pressed() -> void:
 	_resume_game()
+
+
+func _on_new_game_pressed() -> void:
+	if not SaveStore.delete_save():
+		return
+
+	get_tree().paused = false
+	get_tree().change_scene_to_file(INTRO_SCENE)
 
 
 func _on_controls_pressed() -> void:

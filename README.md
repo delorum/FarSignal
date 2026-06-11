@@ -3,9 +3,9 @@
 Minimal top-down 2D maze prototype for Godot 4.
 
 Exported builds start in borderless fullscreen mode. The gameplay viewport,
-camera offset, and right HUD panel adapt to the screen resolution. Runs
-embedded in the Godot editor use the full area provided by the editor without
-switching the monitor to fullscreen.
+camera offset, and right HUD panel adapt to the screen resolution. Debug runs
+also use fullscreen when the editor is configured to launch the game in a
+separate window. Embedded runs remain limited to the editor's Game panel.
 
 ## Run
 
