@@ -8,15 +8,13 @@ const EXPLORED_BODY_COLOR := Color("12251c")
 const EXPLORED_EDGE_COLOR := Color("1d3a2b")
 
 var cell := Vector2i.ZERO
-var level := 0
 var discovered := false
 var _currently_visible := false
 var _explored := false
 
 
-func setup(station_cell: Vector2i, station_level: int) -> void:
+func setup(station_cell: Vector2i) -> void:
 	cell = station_cell
-	level = station_level
 	position = (Vector2(cell) + Vector2.ONE * 0.5) * CELL_SIZE
 
 

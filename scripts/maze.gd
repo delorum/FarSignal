@@ -1,10 +1,10 @@
 extends StaticBody2D
 class_name Maze
 
-const COLUMNS := 500
-const ROWS := 1000
-const LOGICAL_COLUMNS := 166
-const LOGICAL_ROWS := 333
+const COLUMNS := 200
+const ROWS := 200
+const LOGICAL_COLUMNS := int((COLUMNS - 1) / 3.0)
+const LOGICAL_ROWS := int((ROWS - 1) / 3.0)
 const LAYOUT_COLUMNS := LOGICAL_COLUMNS * 2 + 1
 const LAYOUT_ROWS := LOGICAL_ROWS * 2 + 1
 const CELL_SIZE := 48.0
@@ -20,10 +20,9 @@ const EXPLORED_WALL_COLOR := Color("14171b")
 const EXPLORED_WALL_EDGE_COLOR := Color("20242a")
 const LOOP_DENSITY := 0.16
 const NARROW_CORRIDOR_RATIO := 0.35
-const LEVEL_COUNT := 10
-const LEVEL_HEIGHT := 100
 const STATION_ROOM_RADIUS := 3
 const STATION_FLOOR_RADIUS := 2
+const MIN_GRID_SIZE := STATION_ROOM_RADIUS * 2 + 5
 const STATION_PLACEMENT_ATTEMPTS := 128
 const PATH_DIRECTIONS: Array[Vector2i] = [
 	Vector2i.RIGHT,
@@ -59,6 +58,11 @@ var _closed_door_cells: Dictionary = {}
 
 
 func _ready() -> void:
+	assert(
+		COLUMNS >= MIN_GRID_SIZE and ROWS >= MIN_GRID_SIZE,
+		"Maze dimensions must be at least %dx%d cells"
+		% [MIN_GRID_SIZE, MIN_GRID_SIZE]
+	)
 	_generate()
 	_create_collision_pool()
 	queue_redraw()
@@ -83,6 +87,10 @@ func grid_size() -> Vector2i:
 	return Vector2i(COLUMNS, ROWS)
 
 
+static func configured_grid_size() -> Vector2i:
+	return Vector2i(COLUMNS, ROWS)
+
+
 func is_wall(cell: Vector2i) -> bool:
 	return _is_inside(cell) and _is_wall(cell)
 
@@ -103,14 +111,10 @@ func generated_station_specs() -> Array[Dictionary]:
 	return _station_specs.duplicate(true)
 
 
-func station_cell_for_level(level: int) -> Vector2i:
-	if level < 0 or level >= _station_specs.size():
+func station_cell() -> Vector2i:
+	if _station_specs.is_empty():
 		return Vector2i(-1, -1)
-	return _station_specs[level].cell
-
-
-func level_for_cell(cell: Vector2i) -> int:
-	return clampi(cell.y / LEVEL_HEIGHT, 0, LEVEL_COUNT - 1)
+	return _station_specs[0].cell
 
 
 func is_station_room_cell(cell: Vector2i) -> bool:
@@ -123,22 +127,19 @@ func is_cell_walkable(cell: Vector2i, avoid_station: bool = false) -> bool:
 	return not avoid_station or not _is_inside_station(cell)
 
 
-func get_random_floor_cell_in_level(
+func get_random_walkable_cell(
 	rng: RandomNumberGenerator,
-	level: int,
 	avoid_station: bool = false
 ) -> Vector2i:
-	var min_y := clampi(level, 0, LEVEL_COUNT - 1) * LEVEL_HEIGHT
-	var max_y := mini(ROWS - 1, min_y + LEVEL_HEIGHT - 1)
 	for attempt in FLOOR_CELL_SEARCH_ATTEMPTS:
 		var cell := Vector2i(
 			rng.randi_range(1, COLUMNS - 2),
-			rng.randi_range(maxi(1, min_y), mini(ROWS - 2, max_y))
+			rng.randi_range(1, ROWS - 2)
 		)
 		if is_cell_walkable(cell, avoid_station):
 			return cell
 
-	for y in range(maxi(1, min_y), mini(ROWS - 1, max_y + 1)):
+	for y in range(1, ROWS - 1):
 		for x in range(1, COLUMNS - 1):
 			var cell := Vector2i(x, y)
 			if is_cell_walkable(cell, avoid_station):
@@ -149,11 +150,9 @@ func get_random_floor_cell_in_level(
 func find_path(
 	start: Vector2i,
 	target: Vector2i,
-	level: int,
 	avoid_station: bool = false
 ) -> Array[Vector2i]:
-	if level_for_cell(start) != level or level_for_cell(target) != level \
-			or not is_cell_walkable(start, false) \
+	if not is_cell_walkable(start, false) \
 			or not is_cell_walkable(target, avoid_station):
 		return []
 
@@ -168,8 +167,7 @@ func find_path(
 
 		for direction in PATH_DIRECTIONS:
 			var next := current + direction
-			if came_from.has(next) or level_for_cell(next) != level \
-					or not is_cell_walkable(next, avoid_station):
+			if came_from.has(next) or not is_cell_walkable(next, avoid_station):
 				continue
 			came_from[next] = current
 			frontier.append(next)
@@ -456,37 +454,30 @@ func _rasterize_layout(
 
 
 func _add_stations(rng: RandomNumberGenerator) -> void:
-	for level in LEVEL_COUNT:
-		var level_start := level * LEVEL_HEIGHT
-		var center := _find_station_center(level_start, rng)
-		_carve_station(center)
+	var center := _find_station_center(rng)
+	_carve_station(center)
 
-		var doors: Array[Dictionary] = []
-		for direction in CARDINAL_DIRECTIONS:
-			var door_cell := center + direction * STATION_ROOM_RADIUS
-			doors.append({
-				"cell": door_cell,
-				"horizontal_passage": direction.x != 0,
-				"station_door": true,
-			})
-			_connect_station_door(door_cell, direction)
-
-		_station_specs.append({
-			"cell": center,
-			"level": level,
-			"doors": doors,
+	var doors: Array[Dictionary] = []
+	for direction in CARDINAL_DIRECTIONS:
+		var door_cell := center + direction * STATION_ROOM_RADIUS
+		doors.append({
+			"cell": door_cell,
+			"horizontal_passage": direction.x != 0,
+			"station_door": true,
 		})
+		_connect_station_door(door_cell, direction)
+
+	_station_specs.append({
+		"cell": center,
+		"doors": doors,
+	})
 
 
 func _find_station_center(
-	level_start: int,
 	rng: RandomNumberGenerator
 ) -> Vector2i:
-	var min_y := level_start + STATION_ROOM_RADIUS + 2
-	var max_y := mini(
-		ROWS - STATION_ROOM_RADIUS - 2,
-		level_start + LEVEL_HEIGHT - STATION_ROOM_RADIUS - 3
-	)
+	var min_y := STATION_ROOM_RADIUS + 2
+	var max_y := ROWS - STATION_ROOM_RADIUS - 3
 	var fallback := Vector2i(
 		rng.randi_range(STATION_ROOM_RADIUS + 2, COLUMNS - STATION_ROOM_RADIUS - 3),
 		rng.randi_range(min_y, max_y)

@@ -11,7 +11,7 @@ const INTRO_SCENE := "res://scenes/intro.tscn"
 
 
 func _ready() -> void:
-	continue_button.visible = SaveStore.has_save()
+	continue_button.visible = SaveStore.has_loadable_save()
 	_focus_first_menu_button()
 
 

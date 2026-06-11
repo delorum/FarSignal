@@ -513,12 +513,6 @@ horizontal_alignment = 1
 custom_minimum_size = Vector2(0, 24)
 layout_mode = 2
 
-[node name="LevelsValue" type="Label" parent="DefeatOverlay/DefeatMenu/Background/Center/Menu"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 24
-text = "Пройдено уровней: 0"
-horizontal_alignment = 1
-
 [node name="KillsValue" type="Label" parent="DefeatOverlay/DefeatMenu/Background/Center/Menu"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24

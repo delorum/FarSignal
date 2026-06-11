@@ -26,7 +26,6 @@ enum State {
 	SEARCH,
 }
 
-var level := 9
 var health := MAX_HEALTH
 var dead := false
 var state := State.PATROL
@@ -38,7 +37,7 @@ var _hearing_cooldown := 0.0
 var _shoot_cooldown := 0.0
 var _search_time_left := 0.0
 var _last_known_player_cell := Vector2i(-1, -1)
-var _active := false
+var _active := true
 var _player_was_safe := false
 var _game: Node
 var _maze: Maze
@@ -52,14 +51,12 @@ func setup(
 	game: Node,
 	maze: Maze,
 	player: Player,
-	enemy_level: int,
 	start_cell: Vector2i,
 	random_seed: int
 ) -> void:
 	_game = game
 	_maze = maze
 	_player = player
-	level = enemy_level
 	position = maze.cell_to_world(start_cell)
 	_rng.seed = random_seed
 	visible = false
@@ -78,7 +75,6 @@ func restore_state(saved_data: Dictionary) -> void:
 
 func save_data() -> Dictionary:
 	return {
-		"level": level,
 		"position": [position.x, position.y],
 		"health": health,
 		"dead": dead,
@@ -349,7 +345,7 @@ func _follow_path(update_facing: bool = true) -> void:
 
 func _choose_random_target() -> void:
 	for attempt in TARGET_ATTEMPTS:
-		var target := _maze.get_random_floor_cell_in_level(_rng, level, true)
+		var target := _maze.get_random_walkable_cell(_rng, true)
 		if target.x < 0:
 			return
 		if _build_path_to(target):
@@ -359,7 +355,7 @@ func _choose_random_target() -> void:
 
 func _build_path_to(target: Vector2i) -> bool:
 	var start := _maze.world_to_cell(position)
-	_path = _maze.find_path(start, target, level, true)
+	_path = _maze.find_path(start, target, true)
 	_path_index = 0
 	return not _path.is_empty()
 

@@ -1,7 +1,7 @@
 extends Node
 
 const SAVE_FILE_NAME := "far_signal_save.json"
-const SAVE_VERSION := 1
+const SAVE_VERSION := 2
 
 var pending_save: Dictionary = {}
 
@@ -15,6 +15,10 @@ func save_file_path() -> String:
 
 func has_save() -> bool:
 	return FileAccess.file_exists(save_file_path())
+
+
+func has_loadable_save() -> bool:
+	return has_save() and not _read_save(false).is_empty()
 
 
 func write_save(save_data: Dictionary) -> bool:
@@ -33,13 +37,18 @@ func write_save(save_data: Dictionary) -> bool:
 
 
 func read_save() -> Dictionary:
+	return _read_save(true)
+
+
+func _read_save(report_error: bool) -> Dictionary:
 	var save_file := FileAccess.open(save_file_path(), FileAccess.READ)
 	if save_file == null:
 		return {}
 
 	var parsed_data = JSON.parse_string(save_file.get_as_text())
 	if not _is_valid_save(parsed_data):
-		push_error("Save file is invalid or uses an unsupported version")
+		if report_error:
+			push_error("Save file is invalid or uses an unsupported version")
 		return {}
 
 	return parsed_data
@@ -75,9 +84,14 @@ func _is_valid_save(save_data) -> bool:
 	if not save_data.has("maze_seed"):
 		return false
 
+	var maze_size = save_data.get("maze_size")
 	var position = save_data.get("player_position")
 	var facing = save_data.get("player_facing")
 	var explored = save_data.get("explored_cells")
-	return position is Array and position.size() == 2 \
+	var configured_size := Maze.configured_grid_size()
+	return maze_size is Array and maze_size.size() == 2 \
+			and int(maze_size[0]) == configured_size.x \
+			and int(maze_size[1]) == configured_size.y \
+			and position is Array and position.size() == 2 \
 			and facing is Array and facing.size() == 2 \
 			and explored is Array
