@@ -1,6 +1,6 @@
 extends CharacterBody2D
 
-const SPEED := 500.0
+const SPEED := 800.0
 const BULLET_COLOR := Color("f2f5f7")
 const MAX_LIFETIME := 5.0
 

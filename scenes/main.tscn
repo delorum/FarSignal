@@ -1,4 +1,4 @@
-[gd_scene load_steps=16 format=3 uid="uid://dw58ygdj26wbu"]
+[gd_scene load_steps=17 format=3 uid="uid://dw58ygdj26wbu"]
 
 [ext_resource type="Script" uid="uid://b7t1b5rs3b076" path="res://scripts/game.gd" id="1_game"]
 [ext_resource type="Script" uid="uid://1jcmw0g6148v" path="res://scripts/maze.gd" id="2_maze"]
@@ -32,6 +32,9 @@ bg_color = Color(0.72, 0.2, 0.22, 1)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ammo_fill"]
 bg_color = Color(0.82, 0.68, 0.32, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_weapon_ready_fill"]
+bg_color = Color(0.345, 0.839, 0.961, 1)
 
 [node name="Game" type="Node2D" unique_id=1970410369]
 script = ExtResource("1_game")
@@ -147,6 +150,19 @@ theme_override_styles/background = SubResource("StyleBoxFlat_bar_background")
 theme_override_styles/fill = SubResource("StyleBoxFlat_ammo_fill")
 max_value = 30.0
 value = 30.0
+show_percentage = false
+
+[node name="WeaponStateValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "ГОТОВО"
+
+[node name="WeaponReadyBar" type="ProgressBar" parent="GameInterface/PlayerPanel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 12)
+layout_mode = 2
+theme_override_styles/background = SubResource("StyleBoxFlat_bar_background")
+theme_override_styles/fill = SubResource("StyleBoxFlat_weapon_ready_fill")
+value = 100.0
 show_percentage = false
 
 [node name="MovementModeSpacer" type="Control" parent="GameInterface/PlayerPanel/Margin/VBox"]

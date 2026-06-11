@@ -11,11 +11,14 @@ const SIGNAL_RANGE := 100.0
 const SIGNAL_STEP := 10.0
 const START_LEVEL := 9
 const START_ENEMY_COUNT := 3
-const PLAYER_DAMAGE_MIN := 28
-const PLAYER_DAMAGE_MAX := 35
-const ENEMY_DAMAGE_MIN := 20
-const ENEMY_DAMAGE_MAX := 27
+const PLAYER_DAMAGE_MIN := 20
+const PLAYER_DAMAGE_MAX := 27
+const ENEMY_DAMAGE_MIN := 27
+const ENEMY_DAMAGE_MAX := 36
 const SHOT_HEARING_RANGE := 60.0
+const PLAYER_SHOOT_INTERVAL := 1.0
+const WEAPON_READY_COLOR := Color("58d68d")
+const WEAPON_BLOCKED_COLOR := Color("d66b6b")
 const PANEL_WIDTH_RATIO := 0.2
 const MIN_PANEL_WIDTH := 260.0
 const MAX_PANEL_WIDTH := 360.0
@@ -33,6 +36,8 @@ const MAX_PANEL_WIDTH := 360.0
 @onready var health_bar: ProgressBar = $GameInterface/PlayerPanel/Margin/VBox/HealthBar
 @onready var ammo_value: Label = $GameInterface/PlayerPanel/Margin/VBox/AmmoValue
 @onready var ammo_bar: ProgressBar = $GameInterface/PlayerPanel/Margin/VBox/AmmoBar
+@onready var weapon_state_value: Label = $GameInterface/PlayerPanel/Margin/VBox/WeaponStateValue
+@onready var weapon_ready_bar: ProgressBar = $GameInterface/PlayerPanel/Margin/VBox/WeaponReadyBar
 @onready var movement_mode_value: Label = $GameInterface/PlayerPanel/Margin/VBox/MovementModeValue
 @onready var signal_meter: Control = $GameInterface/PlayerPanel/Margin/VBox/SignalMeter
 @onready var enemy_meter: Control = $GameInterface/PlayerPanel/Margin/VBox/EnemyMeter
@@ -42,6 +47,7 @@ const MAX_PANEL_WIDTH := 360.0
 var _displayed_player_cell := Vector2i(-1, -1)
 var _displayed_health := -1
 var _displayed_ammo := -1
+var _displayed_weapon_state := ""
 var _displayed_walking := false
 var _movement_mode_initialized := false
 var _displayed_signal := -1
@@ -52,6 +58,7 @@ var _enemies: Array[Node] = []
 var _enemies_killed := 0
 var _levels_passed := 0
 var _defeated := false
+var _shoot_cooldown := 0.0
 var _rng := RandomNumberGenerator.new()
 
 
@@ -76,8 +83,6 @@ func _ready() -> void:
 		player.restore_facing_direction([START_FACING.x, START_FACING.y])
 		_create_generated_stations()
 		_create_generated_doors()
-		var start_door_cell := player_cell + Vector2i.DOWN
-		_create_door(start_door_cell, false, true, false)
 		_create_generated_enemies(player_cell)
 	else:
 		_create_generated_stations()
@@ -100,11 +105,12 @@ func _update_adaptive_layout() -> void:
 	camera.position.x = panel_width * 0.5
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if not _defeated and player.health <= 0:
 		_show_defeat()
 		return
 
+	_shoot_cooldown = maxf(0.0, _shoot_cooldown - delta)
 	if Input.is_action_just_pressed("shoot"):
 		_shoot()
 
@@ -153,6 +159,25 @@ func _update_player_panel() -> void:
 		_displayed_ammo = player.ammo
 		ammo_value.text = "%d / %d" % [player.ammo, player.MAX_AMMO]
 		ammo_bar.value = player.ammo
+
+	var weapon_state := "ГОТОВО"
+	if player.ammo <= 0:
+		weapon_state = "НЕТ ПАТРОНОВ"
+	elif _shoot_cooldown > 0.0:
+		weapon_state = "ПЕРЕЗАРЯДКА"
+	if weapon_state != _displayed_weapon_state:
+		_displayed_weapon_state = weapon_state
+		weapon_state_value.text = weapon_state
+		weapon_state_value.modulate = (
+			WEAPON_READY_COLOR
+			if weapon_state == "ГОТОВО"
+			else WEAPON_BLOCKED_COLOR
+		)
+	weapon_ready_bar.value = (
+		0.0
+		if player.ammo <= 0
+		else (1.0 - _shoot_cooldown / PLAYER_SHOOT_INTERVAL) * 100.0
+	)
 
 	if not _movement_mode_initialized or player.walking != _displayed_walking:
 		_movement_mode_initialized = true
@@ -214,7 +239,8 @@ func _restore_game(save_data: Dictionary) -> void:
 		station.discovered = discovered_stations.has(station.level)
 	if save_data.has("doors"):
 		for door_data in save_data.doors:
-			_create_door_from_save(door_data)
+			if _is_generated_door_data(door_data):
+				_create_door_from_save(door_data)
 		_create_missing_generated_doors()
 	else:
 		_create_generated_doors()
@@ -311,6 +337,18 @@ func _create_missing_generated_doors() -> void:
 func _has_door_at(cell: Vector2i) -> bool:
 	for door in _doors:
 		if door.cell == cell:
+			return true
+	return false
+
+
+func _is_generated_door_data(door_data: Dictionary) -> bool:
+	var saved_cell: Array = door_data.get("cell", [])
+	if saved_cell.size() != 2:
+		return false
+
+	var cell := Vector2i(int(saved_cell[0]), int(saved_cell[1]))
+	for door_spec in maze.generated_door_specs():
+		if door_spec.cell == cell:
 			return true
 	return false
 
@@ -523,7 +561,8 @@ func _signal_strength() -> int:
 
 
 func _shoot() -> void:
-	if not player.controls_enabled or not player.consume_ammo():
+	if _shoot_cooldown > 0.0 or not player.controls_enabled \
+			or not player.consume_ammo():
 		return
 
 	var direction: Vector2 = player.facing_direction()
@@ -536,5 +575,6 @@ func _shoot() -> void:
 		true
 	)
 	bullets.add_child(bullet)
+	_shoot_cooldown = PLAYER_SHOOT_INTERVAL
 	_alert_enemies_to_shot()
 	_update_player_panel()

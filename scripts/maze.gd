@@ -20,7 +20,6 @@ const EXPLORED_WALL_COLOR := Color("14171b")
 const EXPLORED_WALL_EDGE_COLOR := Color("20242a")
 const LOOP_DENSITY := 0.16
 const NARROW_CORRIDOR_RATIO := 0.35
-const DOOR_RATIO := 0.003
 const LEVEL_COUNT := 10
 const LEVEL_HEIGHT := 100
 const STATION_ROOM_RADIUS := 3
@@ -450,31 +449,6 @@ func _rasterize_layout(
 		)
 
 	_add_stations(rng)
-
-	var door_candidates: Array[Dictionary] = []
-	for connector in connectors:
-		if not narrow_connectors.has(connector):
-			continue
-
-		var horizontal := connector.x % 2 == 0
-		var cell := _connector_floor_cell(connector, horizontal)
-		if _is_inside_station(cell):
-			continue
-		door_candidates.append({
-			"cell": cell,
-			"horizontal_passage": horizontal,
-		})
-
-	var door_count := roundi(door_candidates.size() * DOOR_RATIO)
-	for index in mini(door_count, door_candidates.size()):
-		var candidate_index := rng.randi_range(
-			index,
-			door_candidates.size() - 1
-		)
-		var candidate := door_candidates[candidate_index]
-		door_candidates[candidate_index] = door_candidates[index]
-		door_candidates[index] = candidate
-		_door_specs.append(candidate)
 
 	for station_spec in _station_specs:
 		for door_spec in station_spec.doors:
