@@ -20,6 +20,14 @@ const EXPLORED_WALL_COLOR := Color("14171b")
 const EXPLORED_WALL_EDGE_COLOR := Color("20242a")
 const LOOP_DENSITY := 0.16
 const NARROW_CORRIDOR_RATIO := 0.35
+const ROOM_MIN_SIZE := 4
+const ROOM_MAX_SIZE := 10
+const ROOM_PADDING := 5
+const ROOM_PLACEMENT_ATTEMPTS := 4096
+const MIN_ROOM_COUNT_RATIO := 0.9
+const ROOM_ENCOUNTER_SECONDS := 30.0
+const ESTIMATED_PLAYER_SPEED := 230.0
+const ESTIMATED_CORRIDOR_WIDTH := 2.0
 const STATION_ROOM_RADIUS := 3
 const STATION_FLOOR_RADIUS := 2
 const MIN_GRID_SIZE := STATION_ROOM_RADIUS * 2 + 5
@@ -36,13 +44,6 @@ const CARDINAL_DIRECTIONS: Array[Vector2i] = [
 	Vector2i.LEFT,
 	Vector2i.UP,
 ]
-const DIAGONAL_DIRECTIONS: Array[Vector2i] = [
-	Vector2i(1, 1),
-	Vector2i(-1, 1),
-	Vector2i(-1, -1),
-	Vector2i(1, -1),
-]
-
 var _cells: Array[PackedByteArray] = []
 var _visible_cells: Dictionary = {}
 var _explored_cells: Dictionary = {}
@@ -53,6 +54,7 @@ var _collision_shapes: Array[CollisionShape2D] = []
 var _generation_seed := 0
 var generation_seed_override := -1
 var _door_specs: Array[Dictionary] = []
+var _room_specs: Array[Dictionary] = []
 var _station_specs: Array[Dictionary] = []
 var _closed_door_cells: Dictionary = {}
 
@@ -109,6 +111,10 @@ func generated_door_specs() -> Array[Dictionary]:
 
 func generated_station_specs() -> Array[Dictionary]:
 	return _station_specs.duplicate(true)
+
+
+func generated_room_specs() -> Array[Dictionary]:
+	return _room_specs.duplicate(true)
 
 
 func station_cell() -> Vector2i:
@@ -382,15 +388,11 @@ func update_visibility(
 
 	_view_position = viewer_position
 	_view_direction = normalized_direction
-	_visible_cells.clear()
-	_reveal_floor_with_walls(viewer_cell)
-	_reveal_diagonal_walls(viewer_cell)
-
-	for direction in CARDINAL_DIRECTIONS:
-		_reveal_corridor_in_direction(viewer_cell, direction)
-
-	_filter_cells_outside_view(viewer_position, normalized_direction, viewer_cell)
-	_reveal_distant_corner_walls(viewer_position, normalized_direction)
+	_update_visible_cells(
+		viewer_position,
+		normalized_direction,
+		viewer_cell
+	)
 
 	for cell in _visible_cells:
 		_explored_cells[cell] = true
@@ -404,6 +406,7 @@ func is_cell_visible(cell: Vector2i) -> bool:
 
 func _generate() -> void:
 	_door_specs.clear()
+	_room_specs.clear()
 	_station_specs.clear()
 	var rng := RandomNumberGenerator.new()
 	if generation_seed_override >= 0:
@@ -528,10 +531,145 @@ func _rasterize_layout(
 		)
 
 	_add_stations(rng)
+	_remove_disconnected_floor_pockets()
+	_add_rooms(rng)
 
 	for station_spec in _station_specs:
 		for door_spec in station_spec.doors:
 			_door_specs.append(door_spec)
+
+
+func _add_rooms(rng: RandomNumberGenerator) -> void:
+	var target_room_count := _calculate_room_count()
+	var minimum_room_count := ceili(
+		target_room_count * MIN_ROOM_COUNT_RATIO
+	)
+	for index in target_room_count:
+		var room_rect := _find_room_rect(rng)
+		if room_rect.size == Vector2i.ZERO:
+			break
+
+		_carve_rect(room_rect)
+		_room_specs.append({
+			"origin": room_rect.position,
+			"size": room_rect.size,
+		})
+
+	if _room_specs.size() < minimum_room_count:
+		push_warning(
+			"Placed %d maze rooms; expected at least %d of %d"
+			% [
+				_room_specs.size(),
+				minimum_room_count,
+				target_room_count,
+			]
+		)
+
+
+func _calculate_room_count() -> int:
+	var floor_cell_count := 0
+	for y in range(1, ROWS - 1):
+		for x in range(1, COLUMNS - 1):
+			if not _is_wall(Vector2i(x, y)):
+				floor_cell_count += 1
+
+	var travel_distance_cells := (
+		ESTIMATED_PLAYER_SPEED / CELL_SIZE * ROOM_ENCOUNTER_SECONDS
+	)
+	var explored_cells_per_room := (
+		travel_distance_cells * ESTIMATED_CORRIDOR_WIDTH
+	)
+	return maxi(1, roundi(floor_cell_count / explored_cells_per_room))
+
+
+func _find_room_rect(rng: RandomNumberGenerator) -> Rect2i:
+	for attempt in ROOM_PLACEMENT_ATTEMPTS:
+		var size := Vector2i(
+			rng.randi_range(ROOM_MIN_SIZE, ROOM_MAX_SIZE),
+			rng.randi_range(ROOM_MIN_SIZE, ROOM_MAX_SIZE)
+		)
+		var room_rect := Rect2i(
+			Vector2i(
+				rng.randi_range(1, COLUMNS - size.x - 1),
+				rng.randi_range(1, ROWS - size.y - 1)
+			),
+			size
+		)
+		if _room_overlaps_existing_room(room_rect) \
+				or _room_overlaps_station(room_rect) \
+				or not _rect_contains_floor(room_rect):
+			continue
+		return room_rect
+	return Rect2i()
+
+
+func _room_overlaps_existing_room(room_rect: Rect2i) -> bool:
+	var padded_rect := room_rect.grow(ROOM_PADDING)
+	for room_spec in _room_specs:
+		var existing_rect := Rect2i(room_spec.origin, room_spec.size)
+		if padded_rect.intersects(existing_rect):
+			return true
+	return false
+
+
+func _room_overlaps_station(room_rect: Rect2i) -> bool:
+	var padded_room := room_rect.grow(ROOM_PADDING)
+	for station_spec in _station_specs:
+		var center: Vector2i = station_spec.cell
+		var station_rect := Rect2i(
+			center - Vector2i.ONE * STATION_ROOM_RADIUS,
+			Vector2i.ONE * (STATION_ROOM_RADIUS * 2 + 1)
+		)
+		if padded_room.intersects(station_rect):
+			return true
+	return false
+
+
+func _rect_contains_floor(rect: Rect2i) -> bool:
+	for y in range(rect.position.y, rect.end.y):
+		for x in range(rect.position.x, rect.end.x):
+			if not _is_wall(Vector2i(x, y)):
+				return true
+	return false
+
+
+func _carve_rect(rect: Rect2i) -> void:
+	for y in range(rect.position.y, rect.end.y):
+		for x in range(rect.position.x, rect.end.x):
+			_cells[y][x] = 0
+
+
+func _remove_disconnected_floor_pockets() -> void:
+	var visited: Dictionary = {}
+	var largest_component: Array[Vector2i] = []
+	for y in range(1, ROWS - 1):
+		for x in range(1, COLUMNS - 1):
+			var start := Vector2i(x, y)
+			if visited.has(start) or _is_wall(start):
+				continue
+
+			var component: Array[Vector2i] = []
+			var pending: Array[Vector2i] = [start]
+			visited[start] = true
+			var pending_index := 0
+			while pending_index < pending.size():
+				var current := pending[pending_index]
+				pending_index += 1
+				component.append(current)
+				for direction in CARDINAL_DIRECTIONS:
+					var next := current + direction
+					if visited.has(next) or _is_wall(next):
+						continue
+					visited[next] = true
+					pending.append(next)
+
+			if component.size() > largest_component.size():
+				for cell in largest_component:
+					_cells[cell.y][cell.x] = 1
+				largest_component = component
+			else:
+				for cell in component:
+					_cells[cell.y][cell.x] = 1
 
 
 func _add_stations(rng: RandomNumberGenerator) -> void:
@@ -572,10 +710,31 @@ func _find_station_center(
 			),
 			rng.randi_range(min_y, max_y)
 		)
-		if not _is_wall(candidate):
+		if not _is_wall(candidate) and not _station_overlaps_room(candidate):
 			return candidate
 
+	for y in range(min_y, max_y + 1):
+		for x in range(
+			STATION_ROOM_RADIUS + 2,
+			COLUMNS - STATION_ROOM_RADIUS - 2
+		):
+			var candidate := Vector2i(x, y)
+			if not _is_wall(candidate) and not _station_overlaps_room(candidate):
+				return candidate
+
 	return fallback
+
+
+func _station_overlaps_room(center: Vector2i) -> bool:
+	var station_rect := Rect2i(
+		center - Vector2i.ONE * STATION_ROOM_RADIUS,
+		Vector2i.ONE * (STATION_ROOM_RADIUS * 2 + 1)
+	).grow(ROOM_PADDING)
+	for room_spec in _room_specs:
+		var room_rect := Rect2i(room_spec.origin, room_spec.size)
+		if station_rect.intersects(room_rect):
+			return true
+	return false
 
 
 func _carve_station(center: Vector2i) -> void:
@@ -692,97 +851,125 @@ func _update_nearby_collisions(viewer_cell: Vector2i) -> void:
 			shape_index += 1
 
 
-func _reveal_floor_with_walls(cell: Vector2i) -> void:
-	if not _is_inside(cell) or _is_wall(cell):
-		return
-
-	_visible_cells[cell] = true
-	for direction in CARDINAL_DIRECTIONS:
-		var neighbor: Vector2i = cell + direction
-		if _is_inside(neighbor) and _is_wall(neighbor):
-			_visible_cells[neighbor] = true
-
-
-func _reveal_corridor_in_direction(
-	viewer_cell: Vector2i,
-	direction: Vector2i
-) -> void:
-	var perpendicular := Vector2i(-direction.y, direction.x)
-	var ray_origins: Array[Vector2i] = [viewer_cell]
-
-	for side in [-1, 1]:
-		var adjacent: Vector2i = viewer_cell + perpendicular * int(side)
-		if _is_inside(adjacent) and not _is_wall(adjacent):
-			ray_origins.append(adjacent)
-
-	for origin in ray_origins:
-		_reveal_floor_with_walls(origin)
-		var cell := origin + direction
-		while _is_inside(cell) and not _is_wall(cell):
-			_reveal_floor_with_walls(cell)
-			if _closed_door_cells.has(cell):
-				break
-			cell += direction
-
-
-func _reveal_diagonal_walls(cell: Vector2i) -> void:
-	for direction in DIAGONAL_DIRECTIONS:
-		var neighbor := cell + direction
-		if _is_inside(neighbor) and _is_wall(neighbor):
-			_visible_cells[neighbor] = true
-
-
-func _reveal_distant_corner_walls(
-	viewer_position: Vector2,
-	viewer_direction: Vector2
-) -> void:
-	var corner_walls: Dictionary = {}
-	for visible_cell in _visible_cells:
-		var cell: Vector2i = visible_cell
-		if _is_wall(cell):
-			continue
-
-		for diagonal_direction in DIAGONAL_DIRECTIONS:
-			var candidate := cell + diagonal_direction
-			if not _is_inside(candidate) or not _is_wall(candidate) \
-					or _visible_cells.has(candidate):
-				continue
-
-			var direction_to_candidate := (
-				cell_to_world(candidate) - viewer_position
-			)
-			if viewer_direction.dot(direction_to_candidate) <= 0.0:
-				continue
-
-			var horizontal_wall := cell + Vector2i(diagonal_direction.x, 0)
-			var vertical_wall := cell + Vector2i(0, diagonal_direction.y)
-			if _visible_cells.has(horizontal_wall) \
-					and _is_wall(horizontal_wall) \
-					and _visible_cells.has(vertical_wall) \
-					and _is_wall(vertical_wall):
-				corner_walls[candidate] = true
-
-	for wall in corner_walls:
-		_visible_cells[wall] = true
-
-
-func _filter_cells_outside_view(
+func _update_visible_cells(
 	viewer_position: Vector2,
 	viewer_direction: Vector2,
-	viewer_cell: Vector2i
+	viewer_cell: Vector2i,
 ) -> void:
-	var cells_outside_view: Array[Vector2i] = []
-	for visible_cell in _visible_cells:
-		var cell: Vector2i = visible_cell
-		if cell == viewer_cell:
-			continue
+	_visible_cells.clear()
+	_visible_cells[viewer_cell] = true
+	for y in range(
+		maxi(0, viewer_cell.y - DRAW_RADIUS),
+		mini(ROWS, viewer_cell.y + DRAW_RADIUS + 1)
+	):
+		for x in range(
+			maxi(0, viewer_cell.x - DRAW_RADIUS),
+			mini(COLUMNS, viewer_cell.x + DRAW_RADIUS + 1)
+		):
+			var cell := Vector2i(x, y)
+			if cell == viewer_cell \
+					or cell.distance_squared_to(viewer_cell) \
+					> DRAW_RADIUS * DRAW_RADIUS:
+				continue
+			if _cell_is_visible_from(
+				cell,
+				viewer_position,
+				viewer_direction
+			):
+				_visible_cells[cell] = true
 
-		var direction_to_cell := cell_to_world(cell) - viewer_position
-		if viewer_direction.dot(direction_to_cell) <= 0.0:
-			cells_outside_view.append(cell)
 
-	for cell in cells_outside_view:
-		_visible_cells.erase(cell)
+func _cell_is_visible_from(
+	cell: Vector2i,
+	viewer_position: Vector2,
+	viewer_direction: Vector2
+) -> bool:
+	var cell_origin := Vector2(cell) * CELL_SIZE
+	var inset := 1.0
+	var forward_point := cell_origin + Vector2(
+		CELL_SIZE - inset if viewer_direction.x >= 0.0 else inset,
+		CELL_SIZE - inset if viewer_direction.y >= 0.0 else inset
+	)
+	if viewer_direction.dot(forward_point - viewer_position) > 0.0 \
+			and _has_clear_view_to_point(
+				viewer_position,
+				forward_point,
+				cell
+			):
+		return true
+
+	var center := cell_to_world(cell)
+	return viewer_direction.dot(center - viewer_position) > 0.0 \
+			and _has_clear_view_to_point(
+				viewer_position,
+				center,
+				cell
+			)
+
+
+func _has_clear_view_to_point(
+	from_position: Vector2,
+	to_position: Vector2,
+	target_cell: Vector2i
+) -> bool:
+	var direction := to_position - from_position
+	if direction.is_zero_approx():
+		return true
+
+	var current := world_to_cell(from_position)
+	var step := Vector2i(
+		int(signf(direction.x)),
+		int(signf(direction.y))
+	)
+	var delta_t := Vector2(
+		INF if is_zero_approx(direction.x) else CELL_SIZE / absf(direction.x),
+		INF if is_zero_approx(direction.y) else CELL_SIZE / absf(direction.y)
+	)
+	var next_boundary := Vector2(
+		float(current.x + (1 if step.x > 0 else 0)) * CELL_SIZE,
+		float(current.y + (1 if step.y > 0 else 0)) * CELL_SIZE
+	)
+	var max_t := Vector2(
+		INF if step.x == 0 else (
+			next_boundary.x - from_position.x
+		) / direction.x,
+		INF if step.y == 0 else (
+			next_boundary.y - from_position.y
+		) / direction.y
+	)
+
+	while current != target_cell:
+		if max_t.x < max_t.y:
+			current.x += step.x
+			max_t.x += delta_t.x
+		elif max_t.y < max_t.x:
+			current.y += step.y
+			max_t.y += delta_t.y
+		else:
+			var horizontal_cell := current + Vector2i(step.x, 0)
+			var vertical_cell := current + Vector2i(0, step.y)
+			if _cell_blocks_view(horizontal_cell, target_cell) \
+					or _cell_blocks_view(vertical_cell, target_cell):
+				return false
+			current.x += step.x
+			current.y += step.y
+			max_t += delta_t
+
+		if current == target_cell:
+			return true
+		if not _is_inside(current) \
+				or _is_wall(current) \
+				or _closed_door_cells.has(current):
+			return false
+	return true
+
+
+func _cell_blocks_view(cell: Vector2i, target_cell: Vector2i) -> bool:
+	if cell == target_cell:
+		return false
+	return not _is_inside(cell) \
+			or _is_wall(cell) \
+			or _closed_door_cells.has(cell)
 
 
 func _is_inside(cell: Vector2i) -> bool:

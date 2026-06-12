@@ -33,7 +33,10 @@ The 200 by 200 cell maze is randomized on every run.
 Its dimensions are controlled by `COLUMNS` and `ROWS` in `scripts/maze.gd`;
 the internal generation grid is derived automatically.
 The player starts in a random floor cell along the bottom of the maze.
-Five armed enemies patrol the entire maze. Moving can be heard within 20
+Ten armed enemies patrol the entire maze. When one is killed, a replacement
+spawns elsewhere outside the station and away from the player. After firing,
+enemies have a 40% chance to change position before taking another shot.
+Moving can be heard within 20
 cells after about two cells of continuous movement; stopping drains the noise
 meter in about one second. Firing immediately fills the noise meter and
 attracts enemies within 30 cells. The HUD shows only the distance band of the
@@ -43,6 +46,13 @@ restores health and ammunition. The HUD signal meter has a range of 100 cells.
 Extra connections are opened after generation, creating loops and alternate
 routes through parts of the maze. Most corridors are two cells wide while
 roughly 35% of connections narrow to one cell; walls remain one cell thick.
+The generator also carves rectangular rooms from 4 by 4 to 10 by 10 cells.
+Their number scales with the amount of walkable space so that continuous
+exploration should reach a room roughly every 30 seconds. Rooms are kept at
+least five cells apart so neighboring rooms do not merge into larger spaces.
+Generation may place up to 10% fewer rooms when the map has no suitable space.
 All visuals are drawn with Godot primitives; there are no textures or tile
-sets. The camera keeps the player centered, and only the current straight
-corridors and their adjacent walls are visible.
+sets. The camera keeps the player centered. Visibility is calculated uniformly
+for rooms and corridors: cells in front of the player are visible when no wall
+or closed door blocks the line of sight, while cells behind the player remain
+hidden.

@@ -9,12 +9,13 @@ const EDGE_COLOR := Color("ff8a7f")
 const DEAD_COLOR := Color("3b4148")
 const DEAD_EDGE_COLOR := Color("626b75")
 const HEARING_INTERVAL := 5.0
-const SHOOT_INTERVAL := 1.0
+const SHOOT_INTERVAL := 2.0
 const STEP_HEARING_RANGE := 20.0
 const VISION_RANGE := 30.0
 const TARGET_ATTEMPTS := 12
 const SEARCH_DURATION := 5.0
 const MANEUVER_CHANCE := 0.4
+const MANEUVER_DISTANCE := 2
 const TURN_SPEED := deg_to_rad(150.0)
 const AIM_TOLERANCE := deg_to_rad(10.0)
 
@@ -231,35 +232,34 @@ func _try_start_combat_maneuver(direction_to_player: Vector2) -> bool:
 	var left := Vector2i(forward.y, -forward.x)
 	var right := -left
 	var current_cell := _maze.world_to_cell(position)
-	var candidates: Array[Vector2i] = []
+	var side_directions: Array[Vector2i] = [left, right]
+	if _rng.randi_range(0, 1) == 1:
+		side_directions.reverse()
 
-	if _maze.is_cell_walkable(current_cell + left, true):
-		candidates.append(current_cell + left)
-	if _maze.is_cell_walkable(current_cell + right, true):
-		candidates.append(current_cell + right)
+	var maneuver_directions: Array[Vector2i] = side_directions
+	maneuver_directions.append(-forward)
+	maneuver_directions.append(forward)
+	for direction in maneuver_directions:
+		var maneuver_path: Array[Vector2i] = []
+		for step in range(1, MANEUVER_DISTANCE + 1):
+			var target := current_cell + direction * step
+			if not _maze.is_cell_walkable(target, true):
+				break
+			maneuver_path.append(target)
+		if maneuver_path.is_empty():
+			continue
 
-	var target := Vector2i(-1, -1)
-	if not candidates.is_empty():
-		target = candidates[_rng.randi_range(0, candidates.size() - 1)]
-	else:
-		var retreat := current_cell - forward
-		if _maze.is_cell_walkable(retreat, true):
-			target = retreat
-
-	if target.x < 0:
-		return false
-
-	state = State.MANEUVER
-	_path.clear()
-	_path.append(target)
-	_path_index = 0
-	return true
+		state = State.MANEUVER
+		_path = maneuver_path
+		_path_index = 0
+		return true
+	return false
 
 
 func _cardinal_direction(direction: Vector2) -> Vector2i:
 	if absf(direction.x) >= absf(direction.y):
-		return Vector2i(signi(direction.x), 0)
-	return Vector2i(0, signi(direction.y))
+		return Vector2i(int(signf(direction.x)), 0)
+	return Vector2i(0, int(signf(direction.y)))
 
 
 func _update_facing(delta: float) -> void:

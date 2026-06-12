@@ -9,9 +9,10 @@ const START_FACING := Vector2.UP
 const BULLET_SPAWN_DISTANCE := 22.0
 const SIGNAL_RANGE := 100.0
 const SIGNAL_STEP := 10.0
-const START_ENEMY_COUNT := 5
+const ENEMY_COUNT := 10
 const MAX_ENEMY_START_DISTANCE := 15.0
 const ENEMY_START_DISTANCE_RATIO := 0.15
+const ENEMY_SPAWN_ATTEMPTS := 256
 const PLAYER_DAMAGE_MIN := 27
 const PLAYER_DAMAGE_MAX := 36
 const ENEMY_DAMAGE_MIN := 17
@@ -275,7 +276,7 @@ func _restore_game(save_data: Dictionary) -> void:
 			_create_enemy_from_save(save_data.enemies[index], index)
 		_create_generated_enemies(
 			maze.world_to_cell(player.position),
-			maxi(0, START_ENEMY_COUNT - _enemies.size())
+			maxi(0, ENEMY_COUNT - _living_enemy_count())
 		)
 	else:
 		_create_generated_enemies(maze.world_to_cell(player.position))
@@ -291,33 +292,57 @@ func _create_generated_stations() -> void:
 
 func _create_generated_enemies(
 	player_cell: Vector2i,
-	enemy_count: int = START_ENEMY_COUNT
+	enemy_count: int = ENEMY_COUNT
 ) -> void:
 	var enemy_rng := RandomNumberGenerator.new()
 	enemy_rng.seed = maze.generation_seed() ^ 0x5e71a9
-	var occupied_cells: Dictionary = {}
-	for existing_enemy in _enemies:
-		occupied_cells[maze.world_to_cell(existing_enemy.position)] = true
+	var occupied_cells := _occupied_enemy_cells()
+	for index in enemy_count:
+		var cell := _find_enemy_spawn_cell(
+			enemy_rng,
+			player_cell,
+			occupied_cells
+		)
+		if cell.x < 0:
+			push_warning("Could not find a free cell for an enemy")
+			return
+		occupied_cells[cell] = true
+		_create_enemy(cell, enemy_rng.randi())
+
+
+func _find_enemy_spawn_cell(
+	enemy_rng: RandomNumberGenerator,
+	player_cell: Vector2i,
+	occupied_cells: Dictionary
+) -> Vector2i:
 	var grid_size := maze.grid_size()
-	var minimum_start_distance := minf(
+	var minimum_distance := minf(
 		MAX_ENEMY_START_DISTANCE,
 		maxf(2.0, minf(grid_size.x, grid_size.y) * ENEMY_START_DISTANCE_RATIO)
 	)
-	for index in enemy_count:
-		var cell: Vector2i = maze.get_random_walkable_cell(
-			enemy_rng,
-			true
-		)
-		for attempt in 64:
-			if cell.distance_to(player_cell) >= minimum_start_distance \
-					and not occupied_cells.has(cell):
-				break
-			cell = maze.get_random_walkable_cell(
-				enemy_rng,
-				true
-			)
-		occupied_cells[cell] = true
-		_create_enemy(cell, enemy_rng.randi())
+	for attempt in ENEMY_SPAWN_ATTEMPTS:
+		var cell := maze.get_random_walkable_cell(enemy_rng, true)
+		if cell.distance_to(player_cell) < minimum_distance \
+				or occupied_cells.has(cell) \
+				or _has_door_at(cell):
+			continue
+		return cell
+	return Vector2i(-1, -1)
+
+
+func _occupied_enemy_cells() -> Dictionary:
+	var occupied_cells: Dictionary = {}
+	for enemy in _enemies:
+		occupied_cells[maze.world_to_cell(enemy.position)] = true
+	return occupied_cells
+
+
+func _living_enemy_count() -> int:
+	var count := 0
+	for enemy in _enemies:
+		if not enemy.dead:
+			count += 1
+	return count
 
 
 func _create_enemy_from_save(saved_data: Dictionary, index: int) -> void:
@@ -514,6 +539,23 @@ func spawn_damage_number(
 
 func enemy_killed(_enemy: Node) -> void:
 	_enemies_killed += 1
+	call_deferred("_maintain_enemy_population")
+
+
+func _maintain_enemy_population() -> void:
+	var missing_enemies := ENEMY_COUNT - _living_enemy_count()
+	if missing_enemies <= 0 or _defeated:
+		return
+
+	var player_cell := maze.world_to_cell(player.position)
+	var occupied_cells := _occupied_enemy_cells()
+	for index in missing_enemies:
+		var cell := _find_enemy_spawn_cell(_rng, player_cell, occupied_cells)
+		if cell.x < 0:
+			push_warning("Could not respawn an enemy")
+			return
+		occupied_cells[cell] = true
+		_create_enemy(cell, _rng.randi())
 
 
 func _enemy_signal_strength() -> int:
