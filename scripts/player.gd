@@ -8,18 +8,20 @@ const DIRECTION_COLOR := Color("e8fbff")
 const ENEMY_ARROW_COLOR := Color("bd3f43")
 const ENEMY_ARROW_EDGE_COLOR := Color("e0787b")
 const MAX_HEALTH := 100
-const MAX_AMMO := 30
+const MAX_AMMO := 100
 const ENEMY_ARROW_START := 20.0
 const ENEMY_ARROW_LENGTH := 13.0
 const ENEMY_ARROW_RADIUS_STEP := 6.0
 const ENEMY_ARROW_HEAD_LENGTH := 6.0
 const ENEMY_ARROW_HEAD_ANGLE := deg_to_rad(32.0)
-const WALK_SPEED_MULTIPLIER := 0.5
+const CELL_SIZE := 48.0
+const NOISE_BUILDUP_DISTANCE := CELL_SIZE * 2.0
+const NOISE_DECAY_TIME := 1.0
 
 var controls_enabled := true
 var health := MAX_HEALTH
 var ammo := MAX_AMMO
-var walking := false
+var noise_level := 0.0
 var _facing := Vector2.RIGHT
 var _enemy_directions: Array[Vector2] = []
 
@@ -52,10 +54,6 @@ func restore_status(saved_health: int, saved_ammo: int) -> void:
 	ammo = clampi(saved_ammo, 0, MAX_AMMO)
 
 
-func restore_movement_mode(saved_walking: bool) -> void:
-	walking = saved_walking
-
-
 func consume_ammo() -> bool:
 	if ammo <= 0:
 		return false
@@ -79,16 +77,20 @@ func take_damage(amount: int) -> bool:
 	return health == 0
 
 
+func show_damage_number(amount: int, direction: Vector2) -> void:
+	get_parent().spawn_damage_number(position, amount, direction)
+
+
 func is_moving() -> bool:
 	return velocity.length_squared() > 1.0
 
 
-func is_making_step_noise() -> bool:
-	return is_moving() and not walking
+func is_audible() -> bool:
+	return is_equal_approx(noise_level, 1.0)
 
 
-func movement_mode_name() -> String:
-	return "Ходьба" if walking else "Бег"
+func make_shot_noise() -> void:
+	noise_level = 1.0
 
 
 func set_enemy_directions(directions: Array[Vector2]) -> void:
@@ -99,9 +101,6 @@ func set_enemy_directions(directions: Array[Vector2]) -> void:
 
 
 func _process(_delta: float) -> void:
-	if controls_enabled and Input.is_action_just_pressed("toggle_movement_mode"):
-		walking = not walking
-
 	var mouse_direction := get_local_mouse_position()
 	if mouse_direction.is_zero_approx():
 		return
@@ -112,7 +111,7 @@ func _process(_delta: float) -> void:
 		queue_redraw()
 
 
-func _physics_process(_delta: float) -> void:
+func _physics_process(delta: float) -> void:
 	var input_direction := Input.get_vector(
 		"move_left",
 		"move_right",
@@ -125,9 +124,21 @@ func _physics_process(_delta: float) -> void:
 	if not controls_enabled:
 		input_direction = Vector2.ZERO
 
-	var movement_speed := speed * WALK_SPEED_MULTIPLIER if walking else speed
-	velocity = input_direction * movement_speed
+	velocity = input_direction * speed
 	move_and_slide()
+
+	if is_moving():
+		noise_level = move_toward(
+			noise_level,
+			1.0,
+			velocity.length() * delta / NOISE_BUILDUP_DISTANCE
+		)
+	else:
+		noise_level = move_toward(
+			noise_level,
+			0.0,
+			delta / NOISE_DECAY_TIME
+		)
 
 
 func _draw() -> void:

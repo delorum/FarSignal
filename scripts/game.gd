@@ -2,23 +2,26 @@ extends Node2D
 
 const DOOR_SCENE := preload("res://scenes/door.tscn")
 const BULLET_SCENE := preload("res://scenes/bullet.tscn")
+const DAMAGE_NUMBER_SCENE := preload("res://scenes/damage_number.tscn")
 const STATION_SCENE := preload("res://scenes/station.tscn")
 const ENEMY_SCENE := preload("res://scenes/enemy.tscn")
 const START_FACING := Vector2.UP
 const BULLET_SPAWN_DISTANCE := 22.0
 const SIGNAL_RANGE := 100.0
 const SIGNAL_STEP := 10.0
-const START_ENEMY_COUNT := 3
+const START_ENEMY_COUNT := 5
 const MAX_ENEMY_START_DISTANCE := 15.0
 const ENEMY_START_DISTANCE_RATIO := 0.15
-const PLAYER_DAMAGE_MIN := 20
-const PLAYER_DAMAGE_MAX := 27
-const ENEMY_DAMAGE_MIN := 27
-const ENEMY_DAMAGE_MAX := 36
-const SHOT_HEARING_RANGE := 60.0
+const PLAYER_DAMAGE_MIN := 27
+const PLAYER_DAMAGE_MAX := 36
+const ENEMY_DAMAGE_MIN := 17
+const ENEMY_DAMAGE_MAX := 24
+const ENEMY_AUDIBLE_RANGE := 30.0
+const ENEMY_HEALTH_DISPLAY_RANGE := 10.0
+const SHOT_HEARING_RANGE := ENEMY_AUDIBLE_RANGE
 const PLAYER_SHOOT_INTERVAL := 1.0
-const WEAPON_READY_COLOR := Color("58d68d")
-const WEAPON_BLOCKED_COLOR := Color("d66b6b")
+const NOISE_SILENT_COLOR := Color("58d68d")
+const NOISE_AUDIBLE_COLOR := Color("d66b6b")
 const PANEL_WIDTH_RATIO := 0.2
 const MIN_PANEL_WIDTH := 260.0
 const MAX_PANEL_WIDTH := 360.0
@@ -29,6 +32,7 @@ const MAX_PANEL_WIDTH := 360.0
 @onready var stations: Node2D = $Stations
 @onready var enemies: Node2D = $Enemies
 @onready var bullets: Node2D = $Bullets
+@onready var damage_numbers: Node2D = $DamageNumbers
 @onready var camera: Camera2D = $Player/Camera2D
 @onready var player_panel: Panel = $GameInterface/PlayerPanel
 @onready var coordinates_label: Label = $GameInterface/PlayerPanel/Coordinates
@@ -36,20 +40,21 @@ const MAX_PANEL_WIDTH := 360.0
 @onready var health_bar: ProgressBar = $GameInterface/PlayerPanel/Margin/VBox/HealthBar
 @onready var ammo_value: Label = $GameInterface/PlayerPanel/Margin/VBox/AmmoValue
 @onready var ammo_bar: ProgressBar = $GameInterface/PlayerPanel/Margin/VBox/AmmoBar
-@onready var weapon_state_value: Label = $GameInterface/PlayerPanel/Margin/VBox/WeaponStateValue
 @onready var weapon_ready_bar: ProgressBar = $GameInterface/PlayerPanel/Margin/VBox/WeaponReadyBar
-@onready var movement_mode_value: Label = $GameInterface/PlayerPanel/Margin/VBox/MovementModeValue
+@onready var noise_state_value: Label = $GameInterface/PlayerPanel/Margin/VBox/NoiseStateValue
+@onready var noise_bar: ProgressBar = $GameInterface/PlayerPanel/Margin/VBox/NoiseBar
 @onready var signal_meter: Control = $GameInterface/PlayerPanel/Margin/VBox/SignalMeter
 @onready var enemy_meter: Control = $GameInterface/PlayerPanel/Margin/VBox/EnemyMeter
+@onready var nearby_enemy_health: VBoxContainer = $GameInterface/PlayerPanel/Margin/VBox/NearbyEnemyHealth
+@onready var nearby_enemy_health_value: Label = $GameInterface/PlayerPanel/Margin/VBox/NearbyEnemyHealth/Value
+@onready var nearby_enemy_health_bar: ProgressBar = $GameInterface/PlayerPanel/Margin/VBox/NearbyEnemyHealth/Bar
 @onready var station_menu: Control = $StationOverlay/StationMenu
 @onready var defeat_menu: Control = $DefeatOverlay/DefeatMenu
 
 var _displayed_player_cell := Vector2i(-1, -1)
 var _displayed_health := -1
 var _displayed_ammo := -1
-var _displayed_weapon_state := ""
-var _displayed_walking := false
-var _movement_mode_initialized := false
+var _displayed_noise_state := ""
 var _displayed_signal := -1
 var _displayed_enemy_signal := -1
 var _doors: Array[Node] = []
@@ -157,30 +162,26 @@ func _update_player_panel() -> void:
 		_displayed_ammo = player.ammo
 		ammo_value.text = "%d / %d" % [player.ammo, player.MAX_AMMO]
 		ammo_bar.value = player.ammo
-
-	var weapon_state := "ГОТОВО"
-	if player.ammo <= 0:
-		weapon_state = "НЕТ ПАТРОНОВ"
-	elif _shoot_cooldown > 0.0:
-		weapon_state = "ПЕРЕЗАРЯДКА"
-	if weapon_state != _displayed_weapon_state:
-		_displayed_weapon_state = weapon_state
-		weapon_state_value.text = weapon_state
-		weapon_state_value.modulate = (
-			WEAPON_READY_COLOR
-			if weapon_state == "ГОТОВО"
-			else WEAPON_BLOCKED_COLOR
-		)
 	weapon_ready_bar.value = (
 		0.0
 		if player.ammo <= 0
 		else (1.0 - _shoot_cooldown / PLAYER_SHOOT_INTERVAL) * 100.0
 	)
 
-	if not _movement_mode_initialized or player.walking != _displayed_walking:
-		_movement_mode_initialized = true
-		_displayed_walking = player.walking
-		movement_mode_value.text = player.movement_mode_name()
+	var noise_state := (
+		"ВАС СЛЫШНО"
+		if player.is_audible()
+		else "НЕ СЛЫШНО"
+	)
+	if noise_state != _displayed_noise_state:
+		_displayed_noise_state = noise_state
+		noise_state_value.text = noise_state
+		noise_state_value.modulate = (
+			NOISE_AUDIBLE_COLOR
+			if player.is_audible()
+			else NOISE_SILENT_COLOR
+		)
+	noise_bar.value = player.noise_level * 100.0
 
 	var signal_strength := _signal_strength()
 	if signal_strength != _displayed_signal:
@@ -191,7 +192,34 @@ func _update_player_panel() -> void:
 	if enemy_signal_strength != _displayed_enemy_signal:
 		_displayed_enemy_signal = enemy_signal_strength
 		enemy_meter.strength = enemy_signal_strength
+	_update_nearby_enemy_health()
 	player.set_enemy_directions(_audible_enemy_directions())
+
+
+func _update_nearby_enemy_health() -> void:
+	var closest_enemy: Enemy
+	var closest_distance := INF
+	var player_cell: Vector2i = maze.world_to_cell(player.position)
+	for enemy in _enemies:
+		if enemy.dead:
+			continue
+
+		var enemy_cell: Vector2i = maze.world_to_cell(enemy.position)
+		var distance := Vector2(enemy_cell - player_cell).length()
+		if distance <= ENEMY_HEALTH_DISPLAY_RANGE \
+				and distance < closest_distance:
+			closest_enemy = enemy
+			closest_distance = distance
+
+	nearby_enemy_health.visible = closest_enemy != null
+	if closest_enemy == null:
+		return
+
+	nearby_enemy_health_value.text = "%d / %d" % [
+		closest_enemy.health,
+		closest_enemy.MAX_HEALTH,
+	]
+	nearby_enemy_health_bar.value = closest_enemy.health
 
 
 func save_game() -> bool:
@@ -203,7 +231,6 @@ func save_game() -> bool:
 		"player_facing": player.facing_direction_for_save(),
 		"player_health": player.health,
 		"player_ammo": player.ammo,
-		"player_walking": player.walking,
 		"explored_cells": maze.explored_cells_for_save(),
 		"doors": _doors.map(func(door: Node): return door.save_data()),
 		"station_discovered": (
@@ -230,7 +257,6 @@ func _restore_game(save_data: Dictionary) -> void:
 		int(save_data.get("player_health", player.MAX_HEALTH)),
 		int(save_data.get("player_ammo", player.MAX_AMMO))
 	)
-	player.restore_movement_mode(bool(save_data.get("player_walking", false)))
 	maze.restore_explored_cells(save_data.explored_cells)
 	if not _stations.is_empty():
 		_stations[0].discovered = bool(
@@ -247,6 +273,10 @@ func _restore_game(save_data: Dictionary) -> void:
 	if save_data.has("enemies"):
 		for index in save_data.enemies.size():
 			_create_enemy_from_save(save_data.enemies[index], index)
+		_create_generated_enemies(
+			maze.world_to_cell(player.position),
+			maxi(0, START_ENEMY_COUNT - _enemies.size())
+		)
 	else:
 		_create_generated_enemies(maze.world_to_cell(player.position))
 
@@ -259,16 +289,21 @@ func _create_generated_stations() -> void:
 		_stations.append(station)
 
 
-func _create_generated_enemies(player_cell: Vector2i) -> void:
+func _create_generated_enemies(
+	player_cell: Vector2i,
+	enemy_count: int = START_ENEMY_COUNT
+) -> void:
 	var enemy_rng := RandomNumberGenerator.new()
 	enemy_rng.seed = maze.generation_seed() ^ 0x5e71a9
 	var occupied_cells: Dictionary = {}
+	for existing_enemy in _enemies:
+		occupied_cells[maze.world_to_cell(existing_enemy.position)] = true
 	var grid_size := maze.grid_size()
 	var minimum_start_distance := minf(
 		MAX_ENEMY_START_DISTANCE,
 		maxf(2.0, minf(grid_size.x, grid_size.y) * ENEMY_START_DISTANCE_RATIO)
 	)
-	for index in START_ENEMY_COUNT:
+	for index in enemy_count:
 		var cell: Vector2i = maze.get_random_walkable_cell(
 			enemy_rng,
 			true
@@ -467,6 +502,16 @@ func spawn_enemy_bullet(start_position: Vector2, direction: Vector2) -> void:
 	bullets.add_child(bullet)
 
 
+func spawn_damage_number(
+	start_position: Vector2,
+	damage: int,
+	direction: Vector2
+) -> void:
+	var damage_number: Node = DAMAGE_NUMBER_SCENE.instantiate()
+	damage_number.setup(start_position, damage, direction)
+	damage_numbers.add_child(damage_number)
+
+
 func enemy_killed(_enemy: Node) -> void:
 	_enemies_killed += 1
 
@@ -487,7 +532,7 @@ func _enemy_signal_strength() -> int:
 		return 3
 	if closest_distance <= 20.0:
 		return 2
-	if closest_distance <= 30.0:
+	if closest_distance <= ENEMY_AUDIBLE_RANGE:
 		return 1
 	return 0
 
@@ -499,7 +544,7 @@ func _audible_enemy_directions() -> Array[Vector2]:
 			continue
 
 		var offset: Vector2 = enemy.position - player.position
-		if offset.length() <= 30.0 * Maze.CELL_SIZE:
+		if offset.length() <= ENEMY_AUDIBLE_RANGE * Maze.CELL_SIZE:
 			directions.append(offset.normalized())
 	return directions
 
@@ -550,5 +595,6 @@ func _shoot() -> void:
 	)
 	bullets.add_child(bullet)
 	_shoot_cooldown = PLAYER_SHOOT_INTERVAL
+	player.make_shot_noise()
 	_alert_enemies_to_shot()
 	_update_player_panel()

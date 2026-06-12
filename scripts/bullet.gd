@@ -1,6 +1,6 @@
 extends CharacterBody2D
 
-const SPEED := 800.0
+const SPEED := 650.0
 const BULLET_COLOR := Color("f2f5f7")
 const MAX_LIFETIME := 5.0
 
@@ -36,6 +36,8 @@ func _physics_process(delta: float) -> void:
 		var collider := collision.get_collider()
 		if collider != null and collider.has_method("take_damage"):
 			collider.take_damage(damage)
+			if collider.has_method("show_damage_number"):
+				collider.show_damage_number(damage, direction)
 		queue_free()
 		return
 

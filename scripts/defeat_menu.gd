@@ -1,5 +1,7 @@
 extends Control
 
+const MAIN_MENU_SCENE := "res://scenes/menu.tscn"
+
 @onready var kills_value: Label = $Background/Center/Menu/KillsValue
 
 
@@ -13,5 +15,6 @@ func open(enemies_killed: int) -> void:
 	get_tree().paused = true
 
 
-func _on_exit_pressed() -> void:
-	get_tree().quit()
+func _on_main_menu_pressed() -> void:
+	get_tree().paused = false
+	get_tree().change_scene_to_file(MAIN_MENU_SCENE)

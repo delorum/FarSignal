@@ -18,7 +18,6 @@ the maze. A short story screen introduces the expedition before a new game.
 Controls:
 
 - `WASD` or arrow keys: move
-- Left `Shift`: toggle running or silent walking
 - Left mouse button: fire one bullet
 - `E`: open or close a nearby door, interact with a station
 - `Tab`: open or close the explored map
@@ -34,9 +33,11 @@ The 200 by 200 cell maze is randomized on every run.
 Its dimensions are controlled by `COLUMNS` and `ROWS` in `scripts/maze.gd`;
 the internal generation grid is derived automatically.
 The player starts in a random floor cell along the bottom of the maze.
-Three armed enemies patrol the entire maze. Moving can be heard within 20
-cells, while shots attract enemies within 60 cells. The HUD shows only the
-distance band of the nearest living enemy, without revealing its direction.
+Five armed enemies patrol the entire maze. Moving can be heard within 20
+cells after about two cells of continuous movement; stopping drains the noise
+meter in about one second. Firing immediately fills the noise meter and
+attracts enemies within 30 cells. The HUD shows only the distance band of the
+nearest living enemy, without revealing its direction.
 The maze contains one station room with four doors. Its central machine
 restores health and ammunition. The HUD signal meter has a range of 100 cells.
 Extra connections are opened after generation, creating loops and alternate

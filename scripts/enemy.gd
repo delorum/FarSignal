@@ -119,6 +119,10 @@ func take_damage(amount: int) -> bool:
 	return true
 
 
+func show_damage_number(amount: int, direction: Vector2) -> void:
+	_game.spawn_damage_number(position, amount, direction)
+
+
 func _apply_dead_state() -> void:
 	collision_layer = 0
 	collision_mask = 0
@@ -176,7 +180,7 @@ func _physics_process(delta: float) -> void:
 	if state == State.COMBAT:
 		_enter_search()
 
-	if _player.is_making_step_noise() \
+	if _player.is_audible() \
 			and distance_to_player <= STEP_HEARING_RANGE \
 			and _hearing_cooldown <= 0.0:
 		hear_player()

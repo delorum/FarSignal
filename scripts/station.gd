@@ -16,16 +16,17 @@ var _explored := false
 func setup(station_cell: Vector2i) -> void:
 	cell = station_cell
 	position = (Vector2(cell) + Vector2.ONE * 0.5) * CELL_SIZE
+	visible = false
 
 
 func update_visibility(currently_visible: bool, explored: bool) -> void:
-	if _currently_visible == currently_visible and _explored == explored:
-		return
-
+	var visibility_changed := _currently_visible != currently_visible \
+			or _explored != explored
 	_currently_visible = currently_visible
 	_explored = explored
 	visible = currently_visible or explored
-	queue_redraw()
+	if visibility_changed:
+		queue_redraw()
 
 
 func discover() -> void:

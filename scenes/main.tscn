@@ -1,4 +1,4 @@
-[gd_scene load_steps=17 format=3 uid="uid://dw58ygdj26wbu"]
+[gd_scene load_steps=18 format=3 uid="uid://dw58ygdj26wbu"]
 
 [ext_resource type="Script" uid="uid://b7t1b5rs3b076" path="res://scripts/game.gd" id="1_game"]
 [ext_resource type="Script" uid="uid://1jcmw0g6148v" path="res://scripts/maze.gd" id="2_maze"]
@@ -36,6 +36,9 @@ bg_color = Color(0.82, 0.68, 0.32, 1)
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_weapon_ready_fill"]
 bg_color = Color(0.345, 0.839, 0.961, 1)
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_noise_fill"]
+bg_color = Color(0.82, 0.25, 0.27, 1)
+
 [node name="Game" type="Node2D" unique_id=1970410369]
 script = ExtResource("1_game")
 
@@ -49,6 +52,9 @@ script = ExtResource("2_maze")
 [node name="Enemies" type="Node2D" parent="."]
 
 [node name="Bullets" type="Node2D" parent="."]
+
+[node name="DamageNumbers" type="Node2D" parent="."]
+z_index = 100
 
 [node name="Player" type="CharacterBody2D" parent="." unique_id=1057369580]
 collision_layer = 2
@@ -141,21 +147,16 @@ text = "ПАТРОНЫ"
 layout_mode = 2
 theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
 theme_override_font_sizes/font_size = 24
-text = "30 / 30"
+text = "100 / 100"
 
 [node name="AmmoBar" type="ProgressBar" parent="GameInterface/PlayerPanel/Margin/VBox"]
 custom_minimum_size = Vector2(0, 18)
 layout_mode = 2
 theme_override_styles/background = SubResource("StyleBoxFlat_bar_background")
 theme_override_styles/fill = SubResource("StyleBoxFlat_ammo_fill")
-max_value = 30.0
-value = 30.0
+max_value = 100.0
+value = 100.0
 show_percentage = false
-
-[node name="WeaponStateValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 18
-text = "ГОТОВО"
 
 [node name="WeaponReadyBar" type="ProgressBar" parent="GameInterface/PlayerPanel/Margin/VBox"]
 custom_minimum_size = Vector2(0, 12)
@@ -165,22 +166,22 @@ theme_override_styles/fill = SubResource("StyleBoxFlat_weapon_ready_fill")
 value = 100.0
 show_percentage = false
 
-[node name="MovementModeSpacer" type="Control" parent="GameInterface/PlayerPanel/Margin/VBox"]
+[node name="NoiseSpacer" type="Control" parent="GameInterface/PlayerPanel/Margin/VBox"]
 custom_minimum_size = Vector2(0, 18)
 layout_mode = 2
 mouse_filter = 2
 
-[node name="MovementModeTitle" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
+[node name="NoiseStateValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.82, 0.88, 0.94, 1)
 theme_override_font_sizes/font_size = 18
-text = "РЕЖИМ ДВИЖЕНИЯ"
+text = "НЕ СЛЫШНО"
 
-[node name="MovementModeValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
+[node name="NoiseBar" type="ProgressBar" parent="GameInterface/PlayerPanel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 12)
 layout_mode = 2
-theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
-theme_override_font_sizes/font_size = 24
-text = "Бег"
+theme_override_styles/background = SubResource("StyleBoxFlat_bar_background")
+theme_override_styles/fill = SubResource("StyleBoxFlat_noise_fill")
+show_percentage = false
 
 [node name="SignalSpacer" type="Control" parent="GameInterface/PlayerPanel/Margin/VBox"]
 custom_minimum_size = Vector2(0, 26)
@@ -215,6 +216,36 @@ custom_minimum_size = Vector2(0, 24)
 layout_mode = 2
 mouse_filter = 2
 script = ExtResource("10_enemy_meter")
+
+[node name="NearbyEnemyHealth" type="VBoxContainer" parent="GameInterface/PlayerPanel/Margin/VBox"]
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Spacer" type="Control" parent="GameInterface/PlayerPanel/Margin/VBox/NearbyEnemyHealth"]
+custom_minimum_size = Vector2(0, 16)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Title" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox/NearbyEnemyHealth"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.42, 0.42, 1)
+theme_override_font_sizes/font_size = 18
+text = "ЗДОРОВЬЕ ВРАГА"
+
+[node name="Value" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox/NearbyEnemyHealth"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
+theme_override_font_sizes/font_size = 22
+text = "100 / 100"
+
+[node name="Bar" type="ProgressBar" parent="GameInterface/PlayerPanel/Margin/VBox/NearbyEnemyHealth"]
+custom_minimum_size = Vector2(0, 18)
+layout_mode = 2
+theme_override_styles/background = SubResource("StyleBoxFlat_bar_background")
+theme_override_styles/fill = SubResource("StyleBoxFlat_health_fill")
+value = 100.0
+show_percentage = false
 
 [node name="MapOverlay" type="CanvasLayer" parent="."]
 layer = 10
@@ -355,7 +386,7 @@ mouse_filter = 2
 layout_mode = 2
 theme_override_colors/font_color = Color(0.82, 0.88, 0.94, 1)
 theme_override_font_sizes/font_size = 20
-text = "WASD или стрелки — движение\nЛевый Shift — переключить бег или ходьбу\nМышь — направление взгляда\nЛевая кнопка мыши — выстрел\nE — дверь или взаимодействие со станцией\nTab — открыть или закрыть карту\nКолесо мыши — масштаб карты\nEsc — пауза или вернуться назад"
+text = "WASD или стрелки — движение\nМышь — направление взгляда\nЛевая кнопка мыши — выстрел\nE — дверь или взаимодействие со станцией\nTab — открыть или закрыть карту\nКолесо мыши — масштаб карты\nEsc — пауза или вернуться назад"
 horizontal_alignment = 1
 line_spacing = 8
 
@@ -519,11 +550,11 @@ theme_override_font_sizes/font_size = 24
 text = "Убито врагов: 0"
 horizontal_alignment = 1
 
-[node name="ExitButton" type="Button" parent="DefeatOverlay/DefeatMenu/Background/Center/Menu"]
+[node name="MainMenuButton" type="Button" parent="DefeatOverlay/DefeatMenu/Background/Center/Menu"]
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
-text = "Выход"
+text = "Главное меню"
 
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/PauseMenu/ContinueButton" to="PauseOverlay/PauseMenu" method="_on_continue_pressed"]
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/PauseMenu/NewGameButton" to="PauseOverlay/PauseMenu" method="_on_new_game_pressed"]
@@ -535,4 +566,4 @@ text = "Выход"
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/AmmoButton" to="StationOverlay/StationMenu" method="_on_ammo_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/HealthButton" to="StationOverlay/StationMenu" method="_on_health_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ExitButton" to="StationOverlay/StationMenu" method="_on_exit_pressed"]
-[connection signal="pressed" from="DefeatOverlay/DefeatMenu/Background/Center/Menu/ExitButton" to="DefeatOverlay/DefeatMenu" method="_on_exit_pressed"]
+[connection signal="pressed" from="DefeatOverlay/DefeatMenu/Background/Center/Menu/MainMenuButton" to="DefeatOverlay/DefeatMenu" method="_on_main_menu_pressed"]
