@@ -8,6 +8,8 @@ const BODY_COLOR := Color("c84545")
 const EDGE_COLOR := Color("ff8a7f")
 const DEAD_COLOR := Color("3b4148")
 const DEAD_EDGE_COLOR := Color("626b75")
+const DEAD_Z_INDEX := 0
+const ALIVE_Z_INDEX := 1
 const HEARING_INTERVAL := 5.0
 const SHOOT_INTERVAL := 2.0
 const STEP_HEARING_RANGE := 20.0
@@ -60,6 +62,7 @@ func setup(
 	_player = player
 	position = maze.cell_to_world(start_cell)
 	_rng.seed = random_seed
+	z_index = ALIVE_Z_INDEX
 	visible = false
 
 
@@ -125,6 +128,7 @@ func show_damage_number(amount: int, direction: Vector2) -> void:
 
 
 func _apply_dead_state() -> void:
+	z_index = DEAD_Z_INDEX
 	collision_layer = 0
 	collision_mask = 0
 	if collision_shape != null:
