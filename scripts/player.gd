@@ -7,6 +7,8 @@ const BODY_COLOR := Color("58d6f5")
 const DIRECTION_COLOR := Color("e8fbff")
 const ENEMY_ARROW_COLOR := Color("bd3f43")
 const ENEMY_ARROW_EDGE_COLOR := Color("e0787b")
+const PATROL_ARROW_COLOR := Color("69717a")
+const PATROL_ARROW_EDGE_COLOR := Color("929ba5")
 const MAX_HEALTH := 100
 const MAX_AMMO := 100
 const ENEMY_ARROW_START := 20.0
@@ -23,7 +25,7 @@ var health := MAX_HEALTH
 var ammo := MAX_AMMO
 var noise_level := 0.0
 var _facing := Vector2.RIGHT
-var _enemy_directions: Array[Vector2] = []
+var _enemy_indicators: Array[Dictionary] = []
 
 
 func facing_direction() -> Vector2:
@@ -93,10 +95,10 @@ func make_shot_noise() -> void:
 	noise_level = 1.0
 
 
-func set_enemy_directions(directions: Array[Vector2]) -> void:
-	if _enemy_directions == directions:
+func set_enemy_indicators(indicators: Array[Dictionary]) -> void:
+	if _enemy_indicators == indicators:
 		return
-	_enemy_directions = directions.duplicate()
+	_enemy_indicators = indicators.duplicate(true)
 	queue_redraw()
 
 
@@ -149,18 +151,26 @@ func _draw() -> void:
 
 
 func _draw_enemy_directions() -> void:
-	for index in _enemy_directions.size():
-		var direction := _enemy_directions[index]
+	for index in _enemy_indicators.size():
+		var indicator: Dictionary = _enemy_indicators[index]
+		var direction: Vector2 = indicator.direction
 		if direction.is_zero_approx():
 			continue
 
+		var alerted := bool(indicator.alerted)
+		var arrow_color := (
+			ENEMY_ARROW_COLOR if alerted else PATROL_ARROW_COLOR
+		)
+		var edge_color := (
+			ENEMY_ARROW_EDGE_COLOR if alerted else PATROL_ARROW_EDGE_COLOR
+		)
 		direction = direction.normalized()
 		var start_distance := (
 			ENEMY_ARROW_START + float(index) * ENEMY_ARROW_RADIUS_STEP
 		)
 		var start := direction * start_distance
 		var tip := start + direction * ENEMY_ARROW_LENGTH
-		draw_line(start, tip, ENEMY_ARROW_COLOR, 2.0, true)
+		draw_line(start, tip, arrow_color, 2.0, true)
 
 		var back := -direction
 		var left_head := tip + back.rotated(
@@ -169,5 +179,5 @@ func _draw_enemy_directions() -> void:
 		var right_head := tip + back.rotated(
 			-ENEMY_ARROW_HEAD_ANGLE
 		) * ENEMY_ARROW_HEAD_LENGTH
-		draw_line(tip, left_head, ENEMY_ARROW_EDGE_COLOR, 2.0, true)
-		draw_line(tip, right_head, ENEMY_ARROW_EDGE_COLOR, 2.0, true)
+		draw_line(tip, left_head, edge_color, 2.0, true)
+		draw_line(tip, right_head, edge_color, 2.0, true)

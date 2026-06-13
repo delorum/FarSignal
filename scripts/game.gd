@@ -194,7 +194,7 @@ func _update_player_panel() -> void:
 		_displayed_enemy_signal = enemy_signal_strength
 		enemy_meter.strength = enemy_signal_strength
 	_update_nearby_enemy_health()
-	player.set_enemy_directions(_audible_enemy_directions())
+	player.set_enemy_indicators(_audible_enemy_indicators())
 
 
 func _update_nearby_enemy_health() -> void:
@@ -579,16 +579,19 @@ func _enemy_signal_strength() -> int:
 	return 0
 
 
-func _audible_enemy_directions() -> Array[Vector2]:
-	var directions: Array[Vector2] = []
+func _audible_enemy_indicators() -> Array[Dictionary]:
+	var indicators: Array[Dictionary] = []
 	for enemy in _enemies:
 		if enemy.dead:
 			continue
 
 		var offset: Vector2 = enemy.position - player.position
 		if offset.length() <= ENEMY_AUDIBLE_RANGE * Maze.CELL_SIZE:
-			directions.append(offset.normalized())
-	return directions
+			indicators.append({
+				"direction": offset.normalized(),
+				"alerted": enemy.state != Enemy.State.PATROL,
+			})
+	return indicators
 
 
 func _alert_enemies_to_shot() -> void:
