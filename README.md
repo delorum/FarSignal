@@ -20,6 +20,7 @@ Controls:
 - `WASD` or arrow keys: move
 - Left mouse button: fire one bullet
 - Left Shift: toggle ambush mode
+- `P`: place or remove a door in the adjacent cell ahead
 - `E`: open or close a nearby door, interact with a station
 - `Tab`: open or close the explored map
 - Mouse wheel: zoom the map

@@ -121,6 +121,9 @@ func _process(delta: float) -> void:
 		player.toggle_ambush_mode()
 	if Input.is_action_just_pressed("shoot"):
 		_shoot()
+	if Input.is_action_just_pressed("place_door") \
+			and player.controls_enabled:
+		_toggle_player_door()
 
 	if Input.is_action_just_pressed("interact"):
 		if not _interact_with_station():
@@ -277,7 +280,8 @@ func _restore_game(save_data: Dictionary) -> void:
 		)
 	if save_data.has("doors"):
 		for door_data in save_data.doors:
-			if _is_generated_door_data(door_data):
+			if _is_generated_door_data(door_data) \
+					or bool(door_data.get("player_placed", false)):
 				_create_door_from_save(door_data)
 		_create_missing_generated_doors()
 	else:
@@ -429,7 +433,8 @@ func _create_door_from_save(door_data: Dictionary) -> void:
 		Vector2i(int(saved_cell[0]), int(saved_cell[1])),
 		bool(door_data.get("horizontal_passage", true)),
 		bool(door_data.get("locked", false)),
-		bool(door_data.get("open", false))
+		bool(door_data.get("open", false)),
+		bool(door_data.get("player_placed", false))
 	)
 
 
@@ -437,18 +442,81 @@ func _create_door(
 	cell: Vector2i,
 	horizontal_passage: bool,
 	locked: bool,
-	is_open: bool
-) -> void:
+	is_open: bool,
+	player_placed: bool = false
+) -> Door:
 	if locked:
 		maze.carve_floor_cell(cell)
 	elif maze.is_wall(cell):
-		return
+		return null
 
-	var door: Node = DOOR_SCENE.instantiate()
-	door.setup(cell, horizontal_passage, locked, is_open)
+	var door: Door = DOOR_SCENE.instantiate()
+	door.setup(
+		cell,
+		horizontal_passage,
+		locked,
+		is_open,
+		player_placed
+	)
 	doors.add_child(door)
 	_doors.append(door)
 	maze.set_door_closed(cell, not is_open)
+	return door
+
+
+func _toggle_player_door() -> void:
+	var direction := _cardinal_facing_direction()
+	if direction == Vector2i.ZERO:
+		return
+
+	var player_cell := maze.world_to_cell(player.position)
+	var target_cell := player_cell + direction
+	var existing_door := _door_at(target_cell)
+	if existing_door != null:
+		if existing_door.player_placed:
+			_remove_player_door(existing_door)
+		return
+
+	if maze.is_wall(target_cell):
+		return
+
+	var horizontal_passage := direction.x != 0
+	var wall_axis := (
+		Vector2i.UP
+		if horizontal_passage
+		else Vector2i.LEFT
+	)
+	if not maze.is_wall(target_cell + wall_axis) \
+			or not maze.is_wall(target_cell - wall_axis):
+		return
+
+	_create_door(
+		target_cell,
+		horizontal_passage,
+		false,
+		false,
+		true
+	)
+
+
+func _cardinal_facing_direction() -> Vector2i:
+	var facing := player.facing_direction()
+	if absf(facing.x) >= absf(facing.y):
+		return Vector2i(int(signf(facing.x)), 0)
+	return Vector2i(0, int(signf(facing.y)))
+
+
+func _door_at(cell: Vector2i) -> Door:
+	for door: Door in _doors:
+		if door.cell == cell:
+			return door
+	return null
+
+
+func _remove_player_door(door: Door) -> void:
+	maze.set_door_closed(door.cell, false)
+	_doors.erase(door)
+	door.queue_free()
 
 
 func _interact_with_door() -> void:

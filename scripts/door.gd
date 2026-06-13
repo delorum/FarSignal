@@ -14,6 +14,7 @@ var cell := Vector2i.ZERO
 var horizontal_passage := true
 var locked := false
 var is_open := false
+var player_placed := false
 var _currently_visible := false
 var _explored := false
 
@@ -24,12 +25,14 @@ func setup(
 	door_cell: Vector2i,
 	is_horizontal_passage: bool,
 	is_locked: bool = false,
-	starts_open: bool = false
+	starts_open: bool = false,
+	is_player_placed: bool = false
 ) -> void:
 	cell = door_cell
 	horizontal_passage = is_horizontal_passage
 	locked = is_locked
 	is_open = starts_open
+	player_placed = is_player_placed
 	position = (Vector2(cell) + Vector2.ONE * 0.5) * CELL_SIZE
 
 
@@ -63,6 +66,7 @@ func save_data() -> Dictionary:
 		"horizontal_passage": horizontal_passage,
 		"locked": locked,
 		"open": is_open,
+		"player_placed": player_placed,
 	}
 
 
