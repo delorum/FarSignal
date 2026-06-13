@@ -116,6 +116,9 @@ func _process(delta: float) -> void:
 		return
 
 	_shoot_cooldown = maxf(0.0, _shoot_cooldown - delta)
+	if Input.is_action_just_pressed("toggle_ambush") \
+			and player.controls_enabled:
+		player.toggle_ambush_mode()
 	if Input.is_action_just_pressed("shoot"):
 		_shoot()
 
@@ -141,7 +144,10 @@ func _update_visibility() -> void:
 			maze.is_cell_explored(station.cell)
 		)
 	for enemy in _enemies:
-		enemy.update_visibility(maze.is_cell_visible(maze.world_to_cell(enemy.position)))
+		enemy.update_visibility(
+			maze.is_cell_visible(maze.world_to_cell(enemy.position)),
+			player.ambush_mode and _is_enemy_audible(enemy)
+		)
 
 
 func _update_coordinates() -> void:
@@ -170,19 +176,25 @@ func _update_player_panel() -> void:
 	)
 
 	var noise_state := (
-		"ВАС СЛЫШНО"
-		if player.is_audible()
-		else "НЕ СЛЫШНО"
+		"РЕЖИМ ЗАСАДЫ"
+		if player.ambush_mode
+		else (
+			"ВАС СЛЫШНО"
+			if player.is_audible()
+			else "НЕ СЛЫШНО"
+		)
 	)
 	if noise_state != _displayed_noise_state:
 		_displayed_noise_state = noise_state
 		noise_state_value.text = noise_state
 		noise_state_value.modulate = (
-			NOISE_AUDIBLE_COLOR
-			if player.is_audible()
-			else NOISE_SILENT_COLOR
+			NOISE_SILENT_COLOR
+			if player.ambush_mode or not player.is_audible()
+			else NOISE_AUDIBLE_COLOR
 		)
-	noise_bar.value = player.noise_level * 100.0
+	noise_bar.visible = not player.ambush_mode
+	if noise_bar.visible:
+		noise_bar.value = player.noise_level * 100.0
 
 	var signal_strength := _signal_strength()
 	if signal_strength != _displayed_signal:
@@ -586,12 +598,18 @@ func _audible_enemy_indicators() -> Array[Dictionary]:
 			continue
 
 		var offset: Vector2 = enemy.position - player.position
-		if offset.length() <= ENEMY_AUDIBLE_RANGE * Maze.CELL_SIZE:
+		if _is_enemy_audible(enemy):
 			indicators.append({
 				"direction": offset.normalized(),
 				"alerted": enemy.state != Enemy.State.PATROL,
 			})
 	return indicators
+
+
+func _is_enemy_audible(enemy: Enemy) -> bool:
+	return not enemy.dead \
+			and enemy.position.distance_to(player.position) \
+			<= ENEMY_AUDIBLE_RANGE * Maze.CELL_SIZE
 
 
 func _alert_enemies_to_shot() -> void:

@@ -24,6 +24,7 @@ var controls_enabled := true
 var health := MAX_HEALTH
 var ammo := MAX_AMMO
 var noise_level := 0.0
+var ambush_mode := false
 var _facing := Vector2.RIGHT
 var _enemy_indicators: Array[Dictionary] = []
 
@@ -88,11 +89,18 @@ func is_moving() -> bool:
 
 
 func is_audible() -> bool:
-	return is_equal_approx(noise_level, 1.0)
+	return not ambush_mode and is_equal_approx(noise_level, 1.0)
 
 
 func make_shot_noise() -> void:
+	ambush_mode = false
 	noise_level = 1.0
+
+
+func toggle_ambush_mode() -> void:
+	ambush_mode = not ambush_mode
+	if ambush_mode:
+		noise_level = 0.0
 
 
 func set_enemy_indicators(indicators: Array[Dictionary]) -> void:
@@ -129,7 +137,9 @@ func _physics_process(delta: float) -> void:
 	velocity = input_direction * speed
 	move_and_slide()
 
-	if is_moving():
+	if ambush_mode:
+		noise_level = 0.0
+	elif is_moving():
 		noise_level = move_toward(
 			noise_level,
 			1.0,

@@ -10,6 +10,9 @@ const STATION_COLOR := Color("245d3b")
 const STATION_EDGE_COLOR := Color("3d8155")
 const DEAD_ENEMY_COLOR := Color("3b4148")
 const DEAD_ENEMY_EDGE_COLOR := Color("626b75")
+const ENEMY_ARROW_COLOR := Color("bd3f43")
+const PATROL_ARROW_COLOR := Color("69717a")
+const AMBUSH_ENEMY_RANGE := 30.0
 
 var scroll_position := Vector2.ZERO
 var cell_size := 40.0
@@ -76,6 +79,7 @@ func _draw() -> void:
 		map_origin
 		+ (Vector2(player_cell) + Vector2.ONE * 0.5) * cell_size
 	)
+	_draw_ambush_enemies(map_origin)
 	draw_circle(player_position, cell_size * 0.22, PLAYER_COLOR)
 
 
@@ -175,3 +179,63 @@ func _draw_dead_enemies(map_origin: Vector2) -> void:
 			maxf(1.0, cell_size * 0.05),
 			true
 		)
+
+
+func _draw_ambush_enemies(map_origin: Vector2) -> void:
+	if not _player.ambush_mode or _enemies == null:
+		return
+
+	for indicator in _ambush_enemy_indicators():
+		var enemy_cell: Vector2i = indicator.cell
+		var center := (
+			map_origin
+			+ (Vector2(enemy_cell) + Vector2.ONE * 0.5) * cell_size
+		)
+		var direction: Vector2 = indicator.facing
+		var start := center - direction * cell_size * 0.18
+		var tip := center + direction * cell_size * 0.3
+		var color := (
+			PATROL_ARROW_COLOR
+			if not bool(indicator.alerted)
+			else ENEMY_ARROW_COLOR
+		)
+		var line_width := maxf(1.5, cell_size * 0.08)
+		draw_line(start, tip, color, line_width, true)
+		var back := -direction
+		var head_length := cell_size * 0.18
+		draw_line(
+			tip,
+			tip + back.rotated(deg_to_rad(32.0)) * head_length,
+			color,
+			line_width,
+			true
+		)
+		draw_line(
+			tip,
+			tip + back.rotated(deg_to_rad(-32.0)) * head_length,
+			color,
+			line_width,
+			true
+		)
+
+
+func _ambush_enemy_indicators() -> Array[Dictionary]:
+	var indicators: Array[Dictionary] = []
+	if not _player.ambush_mode or _enemies == null:
+		return indicators
+
+	var player_cell := _maze.world_to_cell(_player.position)
+	for enemy: Enemy in _enemies.get_children():
+		if enemy.dead:
+			continue
+
+		var enemy_cell := _maze.world_to_cell(enemy.position)
+		var offset := Vector2(enemy_cell - player_cell)
+		if offset.is_zero_approx() or offset.length() > AMBUSH_ENEMY_RANGE:
+			continue
+		indicators.append({
+			"cell": enemy_cell,
+			"facing": enemy.facing_direction(),
+			"alerted": enemy.state != Enemy.State.PATROL,
+		})
+	return indicators

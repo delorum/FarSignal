@@ -37,6 +37,14 @@ func _exit_tree() -> void:
 		get_tree().paused = false
 
 
+func _unhandled_input(event: InputEvent) -> void:
+	if not visible or not event.is_action_pressed("ui_cancel"):
+		return
+
+	_close_map()
+	get_viewport().set_input_as_handled()
+
+
 func _process(delta: float) -> void:
 	if Input.is_action_just_pressed("toggle_map"):
 		if pause_menu.visible or station_menu.visible or defeat_menu.visible:
@@ -161,7 +169,7 @@ func _draw() -> void:
 	draw_string(
 		ThemeDB.fallback_font,
 		Vector2(MAP_MARGIN, 48.0),
-		"MAP    WASD / arrows - scroll    Wheel - zoom    Tab - close",
+		"MAP    WASD / arrows - scroll    Wheel - zoom    Tab / Esc - close",
 		HORIZONTAL_ALIGNMENT_LEFT,
 		-1.0,
 		20,

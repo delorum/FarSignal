@@ -8,8 +8,13 @@ const BODY_COLOR := Color("c84545")
 const EDGE_COLOR := Color("ff8a7f")
 const DEAD_COLOR := Color("3b4148")
 const DEAD_EDGE_COLOR := Color("626b75")
+const AMBUSH_PATROL_COLOR := Color("69717a")
+const AMBUSH_ALERT_COLOR := Color("bd3f43")
 const DEAD_Z_INDEX := 0
 const ALIVE_Z_INDEX := 1
+const AMBUSH_ARROW_LENGTH := 24.0
+const AMBUSH_ARROW_HEAD_LENGTH := 7.0
+const AMBUSH_ARROW_HEAD_ANGLE := deg_to_rad(32.0)
 const HEARING_INTERVAL := 5.0
 const SHOOT_INTERVAL := 2.0
 const STEP_HEARING_RANGE := 20.0
@@ -42,6 +47,8 @@ var _search_time_left := 0.0
 var _last_known_player_cell := Vector2i(-1, -1)
 var _active := true
 var _player_was_safe := false
+var _normally_visible := false
+var _ambush_revealed := false
 var _game: Node
 var _maze: Maze
 var _player: Player
@@ -85,14 +92,31 @@ func save_data() -> Dictionary:
 	}
 
 
+func facing_direction() -> Vector2:
+	return _facing
+
+
+func uses_ambush_marker() -> bool:
+	return _ambush_revealed and not _normally_visible and not dead
+
+
 func set_active(active: bool) -> void:
 	_active = active and not dead
 	if not _active:
 		velocity = Vector2.ZERO
 
 
-func update_visibility(currently_visible: bool) -> void:
-	visible = currently_visible
+func update_visibility(
+	currently_visible: bool,
+	ambush_revealed: bool = false
+) -> void:
+	if _normally_visible == currently_visible \
+			and _ambush_revealed == ambush_revealed:
+		return
+	_normally_visible = currently_visible
+	_ambush_revealed = ambush_revealed and not dead
+	visible = _normally_visible or _ambush_revealed
+	queue_redraw()
 
 
 func hear_player() -> void:
@@ -369,9 +393,41 @@ func _build_path_to(target: Vector2i) -> bool:
 
 
 func _draw() -> void:
+	if uses_ambush_marker():
+		_draw_ambush_arrow()
+		return
+
 	var body_color := DEAD_COLOR if dead else BODY_COLOR
 	var edge_color := DEAD_EDGE_COLOR if dead else EDGE_COLOR
 	draw_circle(Vector2.ZERO, 14.0, body_color)
 	draw_circle(Vector2.ZERO, 14.0, edge_color, false, 2.0, true)
 	if not dead:
 		draw_line(Vector2.ZERO, _facing * 11.0, edge_color, 3.0, true)
+
+
+func _draw_ambush_arrow() -> void:
+	var color := (
+		AMBUSH_PATROL_COLOR
+		if state == State.PATROL
+		else AMBUSH_ALERT_COLOR
+	)
+	var tail := -_facing * AMBUSH_ARROW_LENGTH * 0.35
+	var tip := _facing * AMBUSH_ARROW_LENGTH * 0.65
+	draw_line(tail, tip, color, 3.0, true)
+	var back := -_facing
+	draw_line(
+		tip,
+		tip + back.rotated(AMBUSH_ARROW_HEAD_ANGLE)
+				* AMBUSH_ARROW_HEAD_LENGTH,
+		color,
+		3.0,
+		true
+	)
+	draw_line(
+		tip,
+		tip + back.rotated(-AMBUSH_ARROW_HEAD_ANGLE)
+				* AMBUSH_ARROW_HEAD_LENGTH,
+		color,
+		3.0,
+		true
+	)

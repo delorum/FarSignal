@@ -19,6 +19,7 @@ Controls:
 
 - `WASD` or arrow keys: move
 - Left mouse button: fire one bullet
+- Left Shift: toggle ambush mode
 - `E`: open or close a nearby door, interact with a station
 - `Tab`: open or close the explored map
 - Mouse wheel: zoom the map
@@ -42,6 +43,10 @@ meter in about one second. Firing immediately fills the noise meter and
 attracts enemies within 30 cells. The HUD shows only the distance band of the
 nearest living enemy. Audible enemies are indicated by arrows around the
 player: gray while patrolling and red after they become alerted.
+Ambush mode suppresses movement noise. Audible living enemies remain marked
+by direction arrows around the player and also appear as facing-direction
+arrows in the game world and on the map. Firing leaves ambush mode and can
+still alert enemies.
 The maze contains one station room with four doors. Its central machine
 restores health and ammunition. The HUD signal meter has a range of 100 cells.
 Extra connections are opened after generation, creating loops and alternate
