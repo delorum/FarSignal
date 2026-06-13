@@ -3,6 +3,7 @@ extends CharacterBody2D
 const SPEED := 650.0
 const BULLET_COLOR := Color("f2f5f7")
 const MAX_LIFETIME := 5.0
+const BACKSTAB_DAMAGE_MULTIPLIER := 3
 
 var direction := Vector2.RIGHT
 var maze: Maze
@@ -35,14 +36,28 @@ func _physics_process(delta: float) -> void:
 	if collision != null:
 		var collider := collision.get_collider()
 		if collider != null and collider.has_method("take_damage"):
-			collider.take_damage(damage)
+			var applied_damage := _damage_against(collider)
+			collider.take_damage(applied_damage)
 			if collider.has_method("show_damage_number"):
-				collider.show_damage_number(damage, direction)
+				collider.show_damage_number(applied_damage, direction)
 		queue_free()
 		return
 
 	if maze != null and maze.is_wall(maze.world_to_cell(position)):
 		queue_free()
+
+
+func _damage_against(collider: Object) -> int:
+	if not collider.has_method("facing_direction"):
+		return damage
+
+	var target_facing: Vector2 = collider.facing_direction()
+	if target_facing.is_zero_approx():
+		return damage
+
+	if target_facing.normalized().dot(direction) > 0.0:
+		return damage * BACKSTAB_DAMAGE_MULTIPLIER
+	return damage
 
 
 func _draw() -> void:

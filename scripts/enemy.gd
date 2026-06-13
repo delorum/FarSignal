@@ -2,7 +2,8 @@ extends CharacterBody2D
 class_name Enemy
 
 const MAX_HEALTH := 100
-const SPEED := 175.0
+const PATROL_SPEED := 100.0
+const ALERT_SPEED := 175.0
 const CELL_SIZE := 48.0
 const BODY_COLOR := Color("c84545")
 const EDGE_COLOR := Color("ff8a7f")
@@ -370,7 +371,10 @@ func _follow_path(update_facing: bool = true) -> void:
 	var movement_direction := offset.normalized()
 	if update_facing:
 		_desired_facing = movement_direction
-	velocity = movement_direction * SPEED
+	var movement_speed := (
+		PATROL_SPEED if state == State.PATROL else ALERT_SPEED
+	)
+	velocity = movement_direction * movement_speed
 	move_and_slide()
 	queue_redraw()
 
