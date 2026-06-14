@@ -5,10 +5,7 @@ const BULLET_SCENE := preload("res://scenes/bullet.tscn")
 const DAMAGE_NUMBER_SCENE := preload("res://scenes/damage_number.tscn")
 const STATION_SCENE := preload("res://scenes/station.tscn")
 const ENEMY_SCENE := preload("res://scenes/enemy.tscn")
-const START_FACING := Vector2.UP
 const BULLET_SPAWN_DISTANCE := 22.0
-const SIGNAL_RANGE := 100.0
-const SIGNAL_STEP := 10.0
 const ENEMY_COUNT := 10
 const MAX_ENEMY_START_DISTANCE := 15.0
 const ENEMY_START_DISTANCE_RATIO := 0.15
@@ -45,7 +42,6 @@ const MAX_PANEL_WIDTH := 360.0
 @onready var weapon_ready_bar: ProgressBar = $GameInterface/PlayerPanel/Margin/VBox/WeaponReadyBar
 @onready var noise_state_value: Label = $GameInterface/PlayerPanel/Margin/VBox/NoiseStateValue
 @onready var noise_bar: ProgressBar = $GameInterface/PlayerPanel/Margin/VBox/NoiseBar
-@onready var signal_meter: Control = $GameInterface/PlayerPanel/Margin/VBox/SignalMeter
 @onready var enemy_meter: Control = $GameInterface/PlayerPanel/Margin/VBox/EnemyMeter
 @onready var nearby_enemy_health: VBoxContainer = $GameInterface/PlayerPanel/Margin/VBox/NearbyEnemyHealth
 @onready var nearby_enemy_health_value: Label = $GameInterface/PlayerPanel/Margin/VBox/NearbyEnemyHealth/Value
@@ -57,7 +53,6 @@ var _displayed_player_cell := Vector2i(-1, -1)
 var _displayed_health := -1
 var _displayed_ammo := -1
 var _displayed_noise_state := ""
-var _displayed_signal := -1
 var _displayed_enemy_signal := -1
 var _doors: Array[Node] = []
 var _stations: Array[Node] = []
@@ -82,13 +77,15 @@ func _ready() -> void:
 	_update_adaptive_layout()
 	var save_data := SaveStore.consume_pending_save()
 	if save_data.is_empty():
-		var rng := RandomNumberGenerator.new()
-		rng.randomize()
-		var player_cell: Vector2i = maze.get_random_bottom_floor_cell(rng)
-		player.position = maze.cell_to_world(player_cell)
-		player.restore_facing_direction([START_FACING.x, START_FACING.y])
 		_create_generated_stations()
+		var player_cell := maze.station_start_cell()
+		player.position = maze.cell_to_world(player_cell)
+		var start_facing := maze.station_start_facing()
+		player.restore_facing_direction([start_facing.x, start_facing.y])
+		for station in _stations:
+			station.discover()
 		_create_generated_doors()
+		_refresh_safe_zone()
 		_create_generated_enemies(player_cell)
 	else:
 		_create_generated_stations()
@@ -202,11 +199,6 @@ func _update_player_panel() -> void:
 	if noise_bar.visible:
 		noise_bar.value = player.noise_level * 100.0
 
-	var signal_strength := _signal_strength()
-	if signal_strength != _displayed_signal:
-		_displayed_signal = signal_strength
-		signal_meter.strength = signal_strength
-
 	var enemy_signal_strength := _enemy_signal_strength()
 	if enemy_signal_strength != _displayed_enemy_signal:
 		_displayed_enemy_signal = enemy_signal_strength
@@ -289,6 +281,7 @@ func _restore_game(save_data: Dictionary) -> void:
 		_create_missing_generated_doors()
 	else:
 		_create_generated_doors()
+	_refresh_safe_zone()
 	_enemies_killed = int(save_data.get("enemies_killed", 0))
 	if save_data.has("enemies"):
 		for index in save_data.enemies.size():
@@ -343,7 +336,8 @@ func _find_enemy_spawn_cell(
 		var cell := maze.get_random_walkable_cell(enemy_rng, true)
 		if cell.distance_to(player_cell) < minimum_distance \
 				or occupied_cells.has(cell) \
-				or _has_door_at(cell):
+				or _has_door_at(cell) \
+				or maze.is_cell_safe(cell):
 			continue
 		return cell
 	return Vector2i(-1, -1)
@@ -391,7 +385,7 @@ func _create_generated_doors() -> void:
 		_create_door(
 			door_spec.cell,
 			door_spec.horizontal_passage,
-			false,
+			bool(door_spec.get("locked", false)),
 			false
 		)
 
@@ -403,7 +397,7 @@ func _create_missing_generated_doors() -> void:
 		_create_door(
 			door_spec.cell,
 			door_spec.horizontal_passage,
-			false,
+			bool(door_spec.get("locked", false)),
 			false
 		)
 
@@ -432,13 +426,32 @@ func _create_door_from_save(door_data: Dictionary) -> void:
 	if saved_cell.size() != 2:
 		return
 
+	var cell := Vector2i(int(saved_cell[0]), int(saved_cell[1]))
+	var generated_spec := _generated_door_spec_at(cell)
+	var is_generated := not generated_spec.is_empty()
+	var locked := (
+		bool(generated_spec.get("locked", false))
+		if is_generated
+		else bool(door_data.get("locked", false))
+	)
 	_create_door(
-		Vector2i(int(saved_cell[0]), int(saved_cell[1])),
-		bool(door_data.get("horizontal_passage", true)),
-		bool(door_data.get("locked", false)),
-		bool(door_data.get("open", false)),
+		cell,
+		bool(
+			generated_spec.get("horizontal_passage", true)
+			if is_generated
+			else door_data.get("horizontal_passage", true)
+		),
+		locked,
+		false if locked else bool(door_data.get("open", false)),
 		bool(door_data.get("player_placed", false))
 	)
+
+
+func _generated_door_spec_at(cell: Vector2i) -> Dictionary:
+	for door_spec in maze.generated_door_specs():
+		if door_spec.cell == cell:
+			return door_spec
+	return {}
 
 
 func _create_door(
@@ -492,13 +505,15 @@ func _toggle_player_door_at(target_cell: Vector2i) -> void:
 			or not maze.is_wall(target_cell - wall_axis):
 		return
 
-	_create_door(
+	var door := _create_door(
 		target_cell,
 		horizontal_passage,
 		false,
 		false,
 		true
 	)
+	if door != null:
+		_refresh_safe_zone()
 
 
 func _door_at(cell: Vector2i) -> Door:
@@ -512,6 +527,20 @@ func _remove_player_door(door: Door) -> void:
 	maze.set_door_closed(door.cell, false)
 	_doors.erase(door)
 	door.queue_free()
+	_refresh_safe_zone()
+
+
+func _refresh_safe_zone() -> void:
+	var door_cells: Array[Vector2i] = []
+	for door: Door in _doors:
+		door_cells.append(door.cell)
+
+	var station_door_cells: Array[Vector2i] = []
+	for door_spec in maze.generated_door_specs():
+		if bool(door_spec.get("station_door", false)):
+			station_door_cells.append(door_spec.cell)
+
+	maze.update_safe_zone(door_cells, station_door_cells)
 
 
 func _interact_with_door() -> void:
@@ -579,15 +608,6 @@ func refill_ammo() -> void:
 func refill_health() -> void:
 	player.refill_health()
 	_update_player_panel()
-
-
-func is_player_inside_station() -> bool:
-	var player_cell: Vector2i = maze.world_to_cell(player.position)
-	for station in _stations:
-		var offset: Vector2i = player_cell - station.cell
-		if absi(offset.x) <= 2 and absi(offset.y) <= 2:
-			return true
-	return false
 
 
 func spawn_enemy_bullet(start_position: Vector2, direction: Vector2) -> void:
@@ -676,9 +696,6 @@ func _is_enemy_audible(enemy: Enemy) -> bool:
 
 
 func _alert_enemies_to_shot(shot_cell: Vector2i) -> void:
-	if is_player_inside_station():
-		return
-
 	await get_tree().create_timer(
 		SHOT_REACTION_DELAY,
 		false
@@ -698,18 +715,6 @@ func _show_defeat() -> void:
 	_defeated = true
 	player.controls_enabled = false
 	defeat_menu.open(_enemies_killed)
-
-
-func _signal_strength() -> int:
-	if _stations.is_empty():
-		return 0
-
-	var player_cell: Vector2i = maze.world_to_cell(player.position)
-	var station_cell: Vector2i = _stations[0].cell
-	var distance := Vector2(player_cell - station_cell).length()
-	if distance >= SIGNAL_RANGE:
-		return 0
-	return clampi(10 - floori(distance / SIGNAL_STEP), 1, 10)
 
 
 func _shoot() -> void:

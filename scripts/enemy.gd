@@ -47,7 +47,6 @@ var _shoot_cooldown := 0.0
 var _search_time_left := 0.0
 var _last_known_player_cell := Vector2i(-1, -1)
 var _active := true
-var _player_was_safe := false
 var _normally_visible := false
 var _ambush_revealed := false
 var _game: Node
@@ -121,9 +120,6 @@ func update_visibility(
 
 
 func hear_player() -> void:
-	if _game.is_player_inside_station():
-		return
-
 	hear_position(_maze.world_to_cell(_player.position))
 
 
@@ -174,15 +170,6 @@ func _physics_process(delta: float) -> void:
 	_hearing_cooldown = maxf(0.0, _hearing_cooldown - delta)
 	_shoot_cooldown = maxf(0.0, _shoot_cooldown - delta)
 	_update_facing(delta)
-
-	var player_is_safe: bool = _game.is_player_inside_station()
-	if player_is_safe:
-		if not _player_was_safe or state != State.PATROL:
-			_enter_patrol()
-		_player_was_safe = true
-		_update_patrol()
-		return
-	_player_was_safe = false
 
 	var player_cell := _maze.world_to_cell(_player.position)
 	var distance_to_player := Vector2(
@@ -278,7 +265,7 @@ func _try_start_combat_maneuver(direction_to_player: Vector2) -> bool:
 		var maneuver_path: Array[Vector2i] = []
 		for step in range(1, MANEUVER_DISTANCE + 1):
 			var target := current_cell + direction * step
-			if not _maze.is_cell_walkable(target, true):
+			if not _maze.is_cell_walkable(target):
 				break
 			maneuver_path.append(target)
 		if maneuver_path.is_empty():
@@ -361,7 +348,7 @@ func _follow_path(update_facing: bool = true) -> void:
 		velocity = Vector2.ZERO
 		return
 
-	if not _maze.is_cell_walkable(_path[_path_index], true):
+	if not _maze.is_cell_walkable(_path[_path_index]):
 		_path.clear()
 		_path_index = 0
 		velocity = Vector2.ZERO
@@ -397,7 +384,7 @@ func _choose_random_target() -> void:
 
 func _build_path_to(target: Vector2i) -> bool:
 	var start := _maze.world_to_cell(position)
-	_path = _maze.find_path(start, target, true)
+	_path = _maze.find_path(start, target)
 	_path_index = 0
 	return not _path.is_empty()
 

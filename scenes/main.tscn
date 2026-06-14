@@ -1,4 +1,4 @@
-[gd_scene load_steps=18 format=3 uid="uid://dw58ygdj26wbu"]
+[gd_scene load_steps=17 format=3 uid="uid://dw58ygdj26wbu"]
 
 [ext_resource type="Script" uid="uid://b7t1b5rs3b076" path="res://scripts/game.gd" id="1_game"]
 [ext_resource type="Script" uid="uid://1jcmw0g6148v" path="res://scripts/maze.gd" id="2_maze"]
@@ -6,7 +6,6 @@
 [ext_resource type="Script" path="res://scripts/map_view.gd" id="5_map"]
 [ext_resource type="Script" path="res://scripts/map_content.gd" id="6_map_content"]
 [ext_resource type="Script" path="res://scripts/pause_menu.gd" id="7_pause"]
-[ext_resource type="Script" path="res://scripts/signal_meter.gd" id="8_signal"]
 [ext_resource type="Script" path="res://scripts/station_menu.gd" id="9_station_menu"]
 [ext_resource type="Script" path="res://scripts/enemy_meter.gd" id="10_enemy_meter"]
 [ext_resource type="Script" path="res://scripts/defeat_menu.gd" id="11_defeat"]
@@ -182,23 +181,6 @@ layout_mode = 2
 theme_override_styles/background = SubResource("StyleBoxFlat_bar_background")
 theme_override_styles/fill = SubResource("StyleBoxFlat_noise_fill")
 show_percentage = false
-
-[node name="SignalSpacer" type="Control" parent="GameInterface/PlayerPanel/Margin/VBox"]
-custom_minimum_size = Vector2(0, 26)
-layout_mode = 2
-mouse_filter = 2
-
-[node name="SignalTitle" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.82, 0.88, 0.94, 1)
-theme_override_font_sizes/font_size = 18
-text = "СИЛА СИГНАЛА"
-
-[node name="SignalMeter" type="Control" parent="GameInterface/PlayerPanel/Margin/VBox"]
-custom_minimum_size = Vector2(0, 24)
-layout_mode = 2
-mouse_filter = 2
-script = ExtResource("8_signal")
 
 [node name="EnemySpacer" type="Control" parent="GameInterface/PlayerPanel/Margin/VBox"]
 custom_minimum_size = Vector2(0, 26)

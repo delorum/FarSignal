@@ -14,6 +14,8 @@ const FLOOR_CELL_SEARCH_ATTEMPTS := 256
 const DRAW_RADIUS := 16
 const FLOOR_COLOR := Color("101b2d")
 const FLOOR_EDGE_COLOR := Color("172943")
+const SAFE_FLOOR_COLOR := Color("102820")
+const SAFE_FLOOR_EDGE_COLOR := Color("24513d")
 const WALL_COLOR := Color("29415f")
 const WALL_EDGE_COLOR := Color("3f6688")
 const EXPLORED_WALL_COLOR := Color("14171b")
@@ -31,7 +33,6 @@ const ESTIMATED_CORRIDOR_WIDTH := 2.0
 const STATION_ROOM_RADIUS := 3
 const STATION_FLOOR_RADIUS := 2
 const MIN_GRID_SIZE := STATION_ROOM_RADIUS * 2 + 5
-const STATION_PLACEMENT_ATTEMPTS := 128
 const PATH_DIRECTIONS: Array[Vector2i] = [
 	Vector2i.RIGHT,
 	Vector2i.DOWN,
@@ -57,6 +58,7 @@ var _door_specs: Array[Dictionary] = []
 var _room_specs: Array[Dictionary] = []
 var _station_specs: Array[Dictionary] = []
 var _closed_door_cells: Dictionary = {}
+var _safe_cell_mask := PackedByteArray()
 
 
 func _ready() -> void:
@@ -66,6 +68,8 @@ func _ready() -> void:
 		% [MIN_GRID_SIZE, MIN_GRID_SIZE]
 	)
 	_generate()
+	_safe_cell_mask.resize(COLUMNS * ROWS)
+	_safe_cell_mask.fill(0)
 	_create_collision_pool()
 	queue_redraw()
 
@@ -101,6 +105,10 @@ func is_cell_explored(cell: Vector2i) -> bool:
 	return _explored_cells.has(cell)
 
 
+func is_cell_safe(cell: Vector2i) -> bool:
+	return _is_inside(cell) and _safe_cell_mask[_cell_index(cell)] == 1
+
+
 func generation_seed() -> int:
 	return _generation_seed
 
@@ -121,6 +129,18 @@ func station_cell() -> Vector2i:
 	if _station_specs.is_empty():
 		return Vector2i(-1, -1)
 	return _station_specs[0].cell
+
+
+func station_start_cell() -> Vector2i:
+	if _station_specs.is_empty():
+		return Vector2i(-1, -1)
+	return _station_specs[0].start_cell
+
+
+func station_start_facing() -> Vector2i:
+	if _station_specs.is_empty():
+		return Vector2i.UP
+	return _station_specs[0].start_facing
 
 
 func is_station_room_cell(cell: Vector2i) -> bool:
@@ -302,6 +322,133 @@ func set_door_closed(cell: Vector2i, closed: bool) -> void:
 	queue_redraw()
 
 
+func update_safe_zone(
+	door_cells: Array[Vector2i],
+	station_door_cells: Array[Vector2i]
+) -> void:
+	var cell_count := COLUMNS * ROWS
+	_safe_cell_mask.resize(cell_count)
+	_safe_cell_mask.fill(0)
+
+	var door_mask := PackedByteArray()
+	door_mask.resize(cell_count)
+	door_mask.fill(0)
+	for cell in door_cells:
+		if _is_inside(cell):
+			door_mask[_cell_index(cell)] = 1
+	var station_door_mask := PackedByteArray()
+	station_door_mask.resize(cell_count)
+	station_door_mask.fill(0)
+	for cell in station_door_cells:
+		if _is_inside(cell):
+			station_door_mask[_cell_index(cell)] = 1
+
+	var component_ids := PackedInt32Array()
+	component_ids.resize(cell_count)
+	component_ids.fill(-1)
+	var component_sizes: Array[int] = []
+	var component_touches_station_door: Array[bool] = []
+	var largest_component := -1
+	var largest_component_size := 0
+
+	for y in ROWS:
+		for x in COLUMNS:
+			var start := Vector2i(x, y)
+			var start_index := _cell_index(start)
+			if component_ids[start_index] >= 0 \
+					or _is_wall(start) \
+					or door_mask[start_index] == 1:
+				continue
+
+			var component_id := component_sizes.size()
+			var component_size := 0
+			var touches_station_door := false
+			var pending := PackedInt32Array([start_index])
+			component_ids[start_index] = component_id
+			var pending_index := 0
+			while pending_index < pending.size():
+				var current_index := pending[pending_index]
+				pending_index += 1
+				component_size += 1
+				var current_x := current_index % COLUMNS
+				var current_y := current_index / COLUMNS
+				var neighbor_indices := PackedInt32Array()
+				if current_x > 0:
+					neighbor_indices.append(current_index - 1)
+				if current_x < COLUMNS - 1:
+					neighbor_indices.append(current_index + 1)
+				if current_y > 0:
+					neighbor_indices.append(current_index - COLUMNS)
+				if current_y < ROWS - 1:
+					neighbor_indices.append(current_index + COLUMNS)
+
+				for next_index in neighbor_indices:
+					if station_door_mask[next_index] == 1:
+						touches_station_door = true
+					if component_ids[next_index] >= 0 \
+							or door_mask[next_index] == 1:
+						continue
+					var next_x := next_index % COLUMNS
+					var next_y := next_index / COLUMNS
+					if _cells[next_y][next_x] == 1:
+						continue
+					component_ids[next_index] = component_id
+					pending.append(next_index)
+
+			component_sizes.append(component_size)
+			component_touches_station_door.append(touches_station_door)
+			if component_size > largest_component_size:
+				largest_component = component_id
+				largest_component_size = component_size
+
+	var safe_components: Dictionary = {}
+	var component_neighbors: Dictionary = {}
+	for door_cell in door_cells:
+		if not _is_inside(door_cell):
+			continue
+
+		var adjacent_components: Array[int] = []
+		for direction in CARDINAL_DIRECTIONS:
+			var neighbor := door_cell + direction
+			if not _is_inside(neighbor):
+				continue
+			var component_id := component_ids[_cell_index(neighbor)]
+			if component_id >= 0 \
+					and not adjacent_components.has(component_id):
+				adjacent_components.append(component_id)
+
+		for component_id in adjacent_components:
+			if not component_neighbors.has(component_id):
+				component_neighbors[component_id] = []
+			for neighbor_id in adjacent_components:
+				if neighbor_id != component_id \
+						and not component_neighbors[component_id].has(neighbor_id):
+					component_neighbors[component_id].append(neighbor_id)
+
+	var pending_safe_components: Array[int] = []
+	for component_id in component_sizes.size():
+		if component_id != largest_component \
+				and component_touches_station_door[component_id]:
+			safe_components[component_id] = true
+			pending_safe_components.append(component_id)
+
+	var pending_safe_index := 0
+	while pending_safe_index < pending_safe_components.size():
+		var component_id := pending_safe_components[pending_safe_index]
+		pending_safe_index += 1
+		for neighbor_id in component_neighbors.get(component_id, []):
+			if neighbor_id == largest_component \
+					or safe_components.has(neighbor_id):
+				continue
+			safe_components[neighbor_id] = true
+			pending_safe_components.append(neighbor_id)
+
+	for index in cell_count:
+		if safe_components.has(component_ids[index]):
+			_safe_cell_mask[index] = 1
+	queue_redraw()
+
+
 func carve_floor_cell(cell: Vector2i) -> void:
 	if not _is_inside(cell):
 		return
@@ -347,23 +494,6 @@ func get_random_floor_cell(rng: RandomNumberGenerator) -> Vector2i:
 			var cell := Vector2i(x, y)
 			if not _is_wall(cell):
 				return cell
-
-	push_error("Generated maze contains no floor cells")
-	return Vector2i.ZERO
-
-
-func get_random_bottom_floor_cell(
-	rng: RandomNumberGenerator
-) -> Vector2i:
-	for y in range(ROWS - 2, 0, -1):
-		var floor_cells: Array[Vector2i] = []
-		for x in range(1, COLUMNS - 1):
-			var cell := Vector2i(x, y)
-			if not _is_wall(cell):
-				floor_cells.append(cell)
-
-		if not floor_cells.is_empty():
-			return floor_cells[rng.randi_range(0, floor_cells.size() - 1)]
 
 	push_error("Generated maze contains no floor cells")
 	return Vector2i.ZERO
@@ -658,7 +788,9 @@ func _remove_disconnected_floor_pockets() -> void:
 				component.append(current)
 				for direction in CARDINAL_DIRECTIONS:
 					var next := current + direction
-					if visited.has(next) or _is_wall(next):
+					if not _is_inside(next) \
+							or visited.has(next) \
+							or _is_wall(next):
 						continue
 					visited[next] = true
 					pending.append(next)
@@ -673,68 +805,40 @@ func _remove_disconnected_floor_pockets() -> void:
 
 
 func _add_stations(rng: RandomNumberGenerator) -> void:
+	var exterior_direction := Vector2i.DOWN
 	var center := _find_station_center(rng)
 	_carve_station(center)
 
 	var doors: Array[Dictionary] = []
 	for direction in CARDINAL_DIRECTIONS:
 		var door_cell := center + direction * STATION_ROOM_RADIUS
+		var locked := direction == exterior_direction
 		doors.append({
 			"cell": door_cell,
 			"horizontal_passage": direction.x != 0,
 			"station_door": true,
+			"locked": locked,
 		})
-		_connect_station_door(door_cell, direction)
+		if not locked:
+			_connect_station_door(door_cell, direction)
 
 	_station_specs.append({
 		"cell": center,
 		"doors": doors,
+		"start_cell": center
+				+ exterior_direction * STATION_FLOOR_RADIUS,
+		"start_facing": -exterior_direction,
 	})
 
 
 func _find_station_center(
 	rng: RandomNumberGenerator
 ) -> Vector2i:
-	var min_y := STATION_ROOM_RADIUS + 2
-	var max_y := ROWS - STATION_ROOM_RADIUS - 3
-	var fallback := Vector2i(
-		rng.randi_range(STATION_ROOM_RADIUS + 2, COLUMNS - STATION_ROOM_RADIUS - 3),
-		rng.randi_range(min_y, max_y)
+	var horizontal_margin := STATION_ROOM_RADIUS + 2
+	return Vector2i(
+		rng.randi_range(horizontal_margin, COLUMNS - horizontal_margin - 1),
+		ROWS - STATION_ROOM_RADIUS - 1
 	)
-
-	for attempt in STATION_PLACEMENT_ATTEMPTS:
-		var candidate := Vector2i(
-			rng.randi_range(
-				STATION_ROOM_RADIUS + 2,
-				COLUMNS - STATION_ROOM_RADIUS - 3
-			),
-			rng.randi_range(min_y, max_y)
-		)
-		if not _is_wall(candidate) and not _station_overlaps_room(candidate):
-			return candidate
-
-	for y in range(min_y, max_y + 1):
-		for x in range(
-			STATION_ROOM_RADIUS + 2,
-			COLUMNS - STATION_ROOM_RADIUS - 2
-		):
-			var candidate := Vector2i(x, y)
-			if not _is_wall(candidate) and not _station_overlaps_room(candidate):
-				return candidate
-
-	return fallback
-
-
-func _station_overlaps_room(center: Vector2i) -> bool:
-	var station_rect := Rect2i(
-		center - Vector2i.ONE * STATION_ROOM_RADIUS,
-		Vector2i.ONE * (STATION_ROOM_RADIUS * 2 + 1)
-	).grow(ROOM_PADDING)
-	for room_spec in _room_specs:
-		var room_rect := Rect2i(room_spec.origin, room_spec.size)
-		if station_rect.intersects(room_rect):
-			return true
-	return false
 
 
 func _carve_station(center: Vector2i) -> void:
@@ -980,6 +1084,10 @@ func _is_wall(cell: Vector2i) -> bool:
 	return _cells[cell.y][cell.x] == 1
 
 
+func _cell_index(cell: Vector2i) -> int:
+	return cell.y * COLUMNS + cell.x
+
+
 func _draw() -> void:
 	for y in range(
 		maxi(0, _view_cell.y - DRAW_RADIUS),
@@ -1014,5 +1122,11 @@ func _draw() -> void:
 			draw_rect(rect, WALL_COLOR)
 			draw_rect(rect.grow(-2.0), WALL_EDGE_COLOR, false, 2.0)
 		else:
-			draw_rect(rect, FLOOR_COLOR)
-			draw_rect(rect.grow(-2.0), FLOOR_EDGE_COLOR, false, 1.0)
+			var safe := is_cell_safe(cell)
+			draw_rect(rect, SAFE_FLOOR_COLOR if safe else FLOOR_COLOR)
+			draw_rect(
+				rect.grow(-2.0),
+				SAFE_FLOOR_EDGE_COLOR if safe else FLOOR_EDGE_COLOR,
+				false,
+				1.0
+			)

@@ -2,6 +2,7 @@ extends Control
 
 const PANEL_COLOR := Color("0c1727")
 const FLOOR_COLOR := Color("172943")
+const SAFE_FLOOR_COLOR := Color("24513d")
 const WALL_COLOR := Color("3f6688")
 const PLAYER_COLOR := Color("58d6f5")
 const CLOSED_DOOR_COLOR := Color("d0a86f")
@@ -67,7 +68,15 @@ func _draw() -> void:
 				map_origin + Vector2(cell) * cell_size,
 				Vector2.ONE * cell_size
 			)
-			var color := WALL_COLOR if _maze.is_wall(cell) else FLOOR_COLOR
+			var color := (
+				WALL_COLOR
+				if _maze.is_wall(cell)
+				else (
+					SAFE_FLOOR_COLOR
+					if _maze.is_cell_safe(cell)
+					else FLOOR_COLOR
+				)
+			)
 			draw_rect(cell_rect.grow(-1.0), color)
 
 	_draw_doors(map_origin)

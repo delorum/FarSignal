@@ -48,8 +48,16 @@ Ambush mode suppresses movement noise. Audible living enemies remain marked
 by direction arrows around the player and also appear as facing-direction
 arrows in the game world and on the map. Firing leaves ambush mode and can
 still alert enemies.
-The maze contains one station room with four doors. Its central machine
-restores health and ammunition. The HUD signal meter has a range of 100 cells.
+The player starts inside a station room built into the bottom maze boundary.
+The exterior door behind the player is permanently locked; the player faces
+up into the room, and the other three doors can be opened normally. The
+station's central machine restores health and ammunition.
+Player-built doors can enclose parts of the maze. A separated floor component
+that touches a station door is marked as a safe zone in green in the game and
+on the map. Safety also propagates through doors to adjacent enclosed
+components without crossing the main open maze. Enemies never spawn inside
+safe zones. The zone topology is recalculated only when a door is placed,
+removed, or restored from a save.
 Extra connections are opened after generation, creating loops and alternate
 routes through parts of the maze. Most corridors are two cells wide while
 roughly 35% of connections narrow to one cell; walls remain one cell thick.
