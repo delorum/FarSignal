@@ -20,6 +20,7 @@ const ENEMY_DAMAGE_MAX := 24
 const ENEMY_AUDIBLE_RANGE := 30.0
 const ENEMY_HEALTH_DISPLAY_RANGE := 10.0
 const SHOT_HEARING_RANGE := ENEMY_AUDIBLE_RANGE
+const SHOT_REACTION_DELAY := 1.0
 const PLAYER_SHOOT_INTERVAL := 1.0
 const NOISE_SILENT_COLOR := Color("58d68d")
 const NOISE_AUDIBLE_COLOR := Color("d66b6b")
@@ -123,7 +124,9 @@ func _process(delta: float) -> void:
 		_shoot()
 	if Input.is_action_just_pressed("place_door") \
 			and player.controls_enabled:
-		_toggle_player_door()
+		_toggle_player_door_at(
+			maze.world_to_cell(get_global_mouse_position())
+		)
 
 	if Input.is_action_just_pressed("interact"):
 		if not _interact_with_station():
@@ -464,13 +467,12 @@ func _create_door(
 	return door
 
 
-func _toggle_player_door() -> void:
-	var direction := _cardinal_facing_direction()
-	if direction == Vector2i.ZERO:
+func _toggle_player_door_at(target_cell: Vector2i) -> void:
+	var player_cell := maze.world_to_cell(player.position)
+	var cell_offset := target_cell - player_cell
+	if absi(cell_offset.x) + absi(cell_offset.y) != 1:
 		return
 
-	var player_cell := maze.world_to_cell(player.position)
-	var target_cell := player_cell + direction
 	var existing_door := _door_at(target_cell)
 	if existing_door != null:
 		if existing_door.player_placed:
@@ -480,7 +482,7 @@ func _toggle_player_door() -> void:
 	if maze.is_wall(target_cell):
 		return
 
-	var horizontal_passage := direction.x != 0
+	var horizontal_passage := cell_offset.x != 0
 	var wall_axis := (
 		Vector2i.UP
 		if horizontal_passage
@@ -497,13 +499,6 @@ func _toggle_player_door() -> void:
 		false,
 		true
 	)
-
-
-func _cardinal_facing_direction() -> Vector2i:
-	var facing := player.facing_direction()
-	if absf(facing.x) >= absf(facing.y):
-		return Vector2i(int(signf(facing.x)), 0)
-	return Vector2i(0, int(signf(facing.y)))
 
 
 func _door_at(cell: Vector2i) -> Door:
@@ -680,16 +675,23 @@ func _is_enemy_audible(enemy: Enemy) -> bool:
 			<= ENEMY_AUDIBLE_RANGE * Maze.CELL_SIZE
 
 
-func _alert_enemies_to_shot() -> void:
+func _alert_enemies_to_shot(shot_cell: Vector2i) -> void:
 	if is_player_inside_station():
 		return
-	var player_cell: Vector2i = maze.world_to_cell(player.position)
+
+	await get_tree().create_timer(
+		SHOT_REACTION_DELAY,
+		false
+	).timeout
+	if _defeated:
+		return
+
 	for enemy in _enemies:
 		if enemy.dead:
 			continue
 		var enemy_cell: Vector2i = maze.world_to_cell(enemy.position)
-		if Vector2(enemy_cell - player_cell).length() <= SHOT_HEARING_RANGE:
-			enemy.hear_player()
+		if Vector2(enemy_cell - shot_cell).length() <= SHOT_HEARING_RANGE:
+			enemy.hear_position(shot_cell)
 
 
 func _show_defeat() -> void:
@@ -727,5 +729,5 @@ func _shoot() -> void:
 	bullets.add_child(bullet)
 	_shoot_cooldown = PLAYER_SHOOT_INTERVAL
 	player.make_shot_noise()
-	_alert_enemies_to_shot()
+	_alert_enemies_to_shot(maze.world_to_cell(player.position))
 	_update_player_panel()

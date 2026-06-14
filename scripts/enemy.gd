@@ -121,11 +121,17 @@ func update_visibility(
 
 
 func hear_player() -> void:
-	if dead or not _active or _game.is_player_inside_station() \
-			or _hearing_cooldown > 0.0:
+	if _game.is_player_inside_station():
 		return
 
-	_last_known_player_cell = _maze.world_to_cell(_player.position)
+	hear_position(_maze.world_to_cell(_player.position))
+
+
+func hear_position(source_cell: Vector2i) -> void:
+	if dead or not _active or _hearing_cooldown > 0.0:
+		return
+
+	_last_known_player_cell = source_cell
 	if _build_path_to(_last_known_player_cell):
 		state = State.INVESTIGATE
 	_hearing_cooldown = HEARING_INTERVAL
