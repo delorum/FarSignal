@@ -17,14 +17,19 @@ const ENEMY_DAMAGE_MAX := 24
 const ENEMY_AUDIBLE_RANGE := 30.0
 const ENEMY_HEALTH_DISPLAY_RANGE := 10.0
 const SHOT_HEARING_RANGE := ENEMY_AUDIBLE_RANGE
-const SHOT_REACTION_DELAY := 1.0
+const SHOT_REACTION_DELAY := 2.0
+const SUPPRESSING_FIRE_ENABLED := false
+const SUPPRESSION_RANGE := 30.0
+const SUPPRESSION_HALF_WIDTH := Maze.CELL_SIZE * 1.1
 const PLAYER_SHOOT_INTERVAL := 1.0
 const ROUTE_UPDATE_INTERVAL := 5.0
+const ROUTE_COMPLETION_DISTANCE := 3.0
 const NOISE_SILENT_COLOR := Color("58d68d")
 const NOISE_AUDIBLE_COLOR := Color("d66b6b")
 const PANEL_WIDTH_RATIO := 0.2
 const MIN_PANEL_WIDTH := 260.0
 const MAX_PANEL_WIDTH := 360.0
+const HIT_FLASH_DURATION := 0.25
 
 @onready var maze: Maze = $Maze
 @onready var player: Player = $Player
@@ -33,8 +38,10 @@ const MAX_PANEL_WIDTH := 360.0
 @onready var enemies: Node2D = $Enemies
 @onready var bullets: Node2D = $Bullets
 @onready var damage_numbers: Node2D = $DamageNumbers
+@onready var enemy_target_markers: Node2D = $EnemyTargetMarkers
 @onready var camera: Camera2D = $Player/Camera2D
 @onready var player_panel: Panel = $GameInterface/PlayerPanel
+@onready var hit_flash: Panel = $GameInterface/HitFlash
 @onready var coordinates_label: Label = $GameInterface/PlayerPanel/Coordinates
 @onready var health_value: Label = $GameInterface/PlayerPanel/Margin/VBox/HealthValue
 @onready var health_bar: ProgressBar = $GameInterface/PlayerPanel/Margin/VBox/HealthBar
@@ -63,6 +70,7 @@ var _defeated := false
 var _shoot_cooldown := 0.0
 var _route_update_time_left := ROUTE_UPDATE_INTERVAL
 var _rng := RandomNumberGenerator.new()
+var _hit_flash_tween: Tween
 
 
 func _enter_tree() -> void:
@@ -75,7 +83,9 @@ func _enter_tree() -> void:
 
 func _ready() -> void:
 	_rng.randomize()
+	enemy_target_markers.setup(maze, enemies)
 	get_viewport().size_changed.connect(_update_adaptive_layout)
+	player.damaged.connect(_show_hit_flash)
 	_update_adaptive_layout()
 	var save_data := SaveStore.consume_pending_save()
 	if save_data.is_empty():
@@ -107,7 +117,21 @@ func _update_adaptive_layout() -> void:
 		MAX_PANEL_WIDTH
 	)
 	player_panel.offset_left = -panel_width
+	hit_flash.offset_right = -panel_width
 	camera.position.x = panel_width * 0.5
+
+
+func _show_hit_flash() -> void:
+	if _hit_flash_tween != null:
+		_hit_flash_tween.kill()
+	hit_flash.modulate.a = 1.0
+	_hit_flash_tween = create_tween()
+	_hit_flash_tween.tween_property(
+		hit_flash,
+		"modulate:a",
+		0.0,
+		HIT_FLASH_DURATION
+	)
 
 
 func _process(delta: float) -> void:
@@ -152,7 +176,7 @@ func _update_visibility() -> void:
 	for enemy in _enemies:
 		enemy.update_visibility(
 			maze.is_cell_visible(maze.world_to_cell(enemy.position)),
-			player.ambush_mode and _is_enemy_audible(enemy)
+			_is_enemy_audible(enemy)
 		)
 
 
@@ -166,7 +190,14 @@ func _update_coordinates() -> void:
 
 
 func _update_route(delta: float) -> void:
-	if maze.route_target().x < 0:
+	var target := maze.route_target()
+	if target.x < 0:
+		_route_update_time_left = ROUTE_UPDATE_INTERVAL
+		return
+
+	var player_cell := maze.world_to_cell(player.position)
+	if player_cell.distance_to(target) <= ROUTE_COMPLETION_DISTANCE:
+		maze.clear_route()
 		_route_update_time_left = ROUTE_UPDATE_INTERVAL
 		return
 
@@ -174,7 +205,7 @@ func _update_route(delta: float) -> void:
 	if _route_update_time_left > 0.0:
 		return
 
-	maze.update_route(maze.world_to_cell(player.position))
+	maze.update_route(player_cell)
 	_route_update_time_left = ROUTE_UPDATE_INTERVAL
 
 
@@ -642,7 +673,11 @@ func refill_health() -> void:
 	_update_player_panel()
 
 
-func spawn_enemy_bullet(start_position: Vector2, direction: Vector2) -> void:
+func spawn_enemy_bullet(
+	start_position: Vector2,
+	direction: Vector2,
+	shooter: Enemy
+) -> void:
 	var bullet: Node = BULLET_SCENE.instantiate()
 	bullet.setup(
 		start_position + direction * BULLET_SPAWN_DISTANCE,
@@ -652,6 +687,10 @@ func spawn_enemy_bullet(start_position: Vector2, direction: Vector2) -> void:
 		false
 	)
 	bullets.add_child(bullet)
+	_alert_enemies_to_shot(
+		maze.world_to_cell(start_position),
+		shooter
+	)
 
 
 func spawn_damage_number(
@@ -727,7 +766,10 @@ func _is_enemy_audible(enemy: Enemy) -> bool:
 			<= ENEMY_AUDIBLE_RANGE * Maze.CELL_SIZE
 
 
-func _alert_enemies_to_shot(shot_cell: Vector2i) -> void:
+func _alert_enemies_to_shot(
+	shot_cell: Vector2i,
+	shooter: Enemy = null
+) -> void:
 	await get_tree().create_timer(
 		SHOT_REACTION_DELAY,
 		false
@@ -736,11 +778,41 @@ func _alert_enemies_to_shot(shot_cell: Vector2i) -> void:
 		return
 
 	for enemy in _enemies:
-		if enemy.dead:
+		if enemy.dead or enemy == shooter:
 			continue
 		var enemy_cell: Vector2i = maze.world_to_cell(enemy.position)
 		if Vector2(enemy_cell - shot_cell).length() <= SHOT_HEARING_RANGE:
 			enemy.hear_position(shot_cell)
+
+
+func _apply_suppressing_fire(
+	shot_origin: Vector2,
+	shot_direction: Vector2
+) -> void:
+	if not SUPPRESSING_FIRE_ENABLED:
+		return
+
+	var normalized_direction := shot_direction.normalized()
+	var max_distance := SUPPRESSION_RANGE * Maze.CELL_SIZE
+	for enemy: Enemy in _enemies:
+		if enemy.dead:
+			continue
+
+		var offset := enemy.position - shot_origin
+		var forward_distance := offset.dot(normalized_direction)
+		if forward_distance <= 0.0 or forward_distance > max_distance:
+			continue
+
+		var lateral_distance := absf(offset.cross(normalized_direction))
+		if lateral_distance > SUPPRESSION_HALF_WIDTH:
+			continue
+
+		if maze.has_line_of_sight(
+			shot_origin,
+			enemy.position,
+			SUPPRESSION_RANGE
+		):
+			enemy.apply_suppression(shot_origin)
 
 
 func _show_defeat() -> void:
@@ -764,6 +836,8 @@ func _shoot() -> void:
 		true
 	)
 	bullets.add_child(bullet)
+	_apply_suppressing_fire(player.position, direction)
+	player.apply_recoil(direction)
 	_shoot_cooldown = PLAYER_SHOOT_INTERVAL
 	player.make_shot_noise()
 	_alert_enemies_to_shot(maze.world_to_cell(player.position))

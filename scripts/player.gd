@@ -1,6 +1,8 @@
 extends CharacterBody2D
 class_name Player
 
+signal damaged
+
 @export var speed := 230.0
 
 const BODY_COLOR := Color("58d6f5")
@@ -17,7 +19,8 @@ const ENEMY_ARROW_RADIUS_STEP := 6.0
 const ENEMY_ARROW_HEAD_LENGTH := 6.0
 const ENEMY_ARROW_HEAD_ANGLE := deg_to_rad(32.0)
 const CELL_SIZE := 48.0
-const NOISE_BUILDUP_DISTANCE := CELL_SIZE * 2.0
+const RECOIL_DISTANCE := CELL_SIZE
+const NOISE_BUILDUP_DISTANCE := CELL_SIZE * 3.0
 const NOISE_DECAY_TIME := 1.0
 
 var controls_enabled := true
@@ -77,6 +80,7 @@ func take_damage(amount: int) -> bool:
 	if health <= 0:
 		return false
 	health = maxi(0, health - amount)
+	damaged.emit()
 	return health == 0
 
 
@@ -95,6 +99,12 @@ func is_audible() -> bool:
 func make_shot_noise() -> void:
 	ambush_mode = false
 	noise_level = 1.0
+
+
+func apply_recoil(shot_direction: Vector2) -> void:
+	if shot_direction.is_zero_approx():
+		return
+	move_and_collide(-shot_direction.normalized() * RECOIL_DISTANCE)
 
 
 func toggle_ambush_mode() -> void:

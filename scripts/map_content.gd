@@ -15,7 +15,7 @@ const DEAD_ENEMY_COLOR := Color("3b4148")
 const DEAD_ENEMY_EDGE_COLOR := Color("626b75")
 const ENEMY_ARROW_COLOR := Color("bd3f43")
 const PATROL_ARROW_COLOR := Color("69717a")
-const AMBUSH_ENEMY_RANGE := 30.0
+const AUDIBLE_ENEMY_RANGE := 30.0
 
 var scroll_position := Vector2.ZERO
 var cell_size := 40.0
@@ -91,7 +91,7 @@ func _draw() -> void:
 		map_origin
 		+ (Vector2(player_cell) + Vector2.ONE * 0.5) * cell_size
 	)
-	_draw_ambush_enemies(map_origin)
+	_draw_audible_enemies(map_origin)
 	draw_circle(player_position, cell_size * 0.22, PLAYER_COLOR)
 
 
@@ -232,11 +232,11 @@ func _draw_dead_enemies(map_origin: Vector2) -> void:
 		)
 
 
-func _draw_ambush_enemies(map_origin: Vector2) -> void:
-	if not _player.ambush_mode or _enemies == null:
+func _draw_audible_enemies(map_origin: Vector2) -> void:
+	if _enemies == null:
 		return
 
-	for indicator in _ambush_enemy_indicators():
+	for indicator in _audible_enemy_indicators():
 		var enemy_cell: Vector2i = indicator.cell
 		var center := (
 			map_origin
@@ -270,9 +270,9 @@ func _draw_ambush_enemies(map_origin: Vector2) -> void:
 		)
 
 
-func _ambush_enemy_indicators() -> Array[Dictionary]:
+func _audible_enemy_indicators() -> Array[Dictionary]:
 	var indicators: Array[Dictionary] = []
-	if not _player.ambush_mode or _enemies == null:
+	if _enemies == null:
 		return indicators
 
 	var player_cell := _maze.world_to_cell(_player.position)
@@ -282,7 +282,7 @@ func _ambush_enemy_indicators() -> Array[Dictionary]:
 
 		var enemy_cell := _maze.world_to_cell(enemy.position)
 		var offset := Vector2(enemy_cell - player_cell)
-		if offset.is_zero_approx() or offset.length() > AMBUSH_ENEMY_RANGE:
+		if offset.is_zero_approx() or offset.length() > AUDIBLE_ENEMY_RANGE:
 			continue
 		indicators.append({
 			"cell": enemy_cell,

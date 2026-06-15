@@ -4,9 +4,12 @@ class_name Enemy
 const MAX_HEALTH := 100
 const PATROL_SPEED := 100.0
 const ALERT_SPEED := 175.0
+const SUPPRESSED_SPEED := 60.0
 const CELL_SIZE := 48.0
 const BODY_COLOR := Color("c84545")
 const EDGE_COLOR := Color("ff8a7f")
+const SUPPRESSED_COLOR := Color("3d9b5f")
+const SUPPRESSED_EDGE_COLOR := Color("7de39d")
 const DEAD_COLOR := Color("3b4148")
 const DEAD_EDGE_COLOR := Color("626b75")
 const AMBUSH_PATROL_COLOR := Color("69717a")
@@ -26,6 +29,7 @@ const MANEUVER_CHANCE := 0.4
 const MANEUVER_DISTANCE := 2
 const TURN_SPEED := deg_to_rad(150.0)
 const AIM_TOLERANCE := deg_to_rad(10.0)
+const SUPPRESSION_DURATION := 2.5
 
 enum State {
 	PATROL,
@@ -45,6 +49,8 @@ var _path_index := 0
 var _hearing_cooldown := 0.0
 var _shoot_cooldown := 0.0
 var _search_time_left := 0.0
+var _suppression_time_left := 0.0
+var _suppression_source := Vector2.ZERO
 var _last_known_player_cell := Vector2i(-1, -1)
 var _active := true
 var _normally_visible := false
@@ -96,6 +102,12 @@ func facing_direction() -> Vector2:
 	return _facing
 
 
+func pursuit_target_cell() -> Vector2i:
+	if dead or state == State.PATROL:
+		return Vector2i(-1, -1)
+	return _last_known_player_cell
+
+
 func uses_ambush_marker() -> bool:
 	return _ambush_revealed and not _normally_visible and not dead
 
@@ -131,6 +143,18 @@ func hear_position(source_cell: Vector2i) -> void:
 	if _build_path_to(_last_known_player_cell):
 		state = State.INVESTIGATE
 	_hearing_cooldown = HEARING_INTERVAL
+
+
+func apply_suppression(source_position: Vector2) -> void:
+	if dead or not _active:
+		return
+	_suppression_source = source_position
+	_suppression_time_left = SUPPRESSION_DURATION
+	queue_redraw()
+
+
+func is_suppressed() -> bool:
+	return _suppression_time_left > 0.0
 
 
 func take_damage(amount: int) -> bool:
@@ -169,6 +193,10 @@ func _physics_process(delta: float) -> void:
 
 	_hearing_cooldown = maxf(0.0, _hearing_cooldown - delta)
 	_shoot_cooldown = maxf(0.0, _shoot_cooldown - delta)
+	var was_suppressed := is_suppressed()
+	_suppression_time_left = maxf(0.0, _suppression_time_left - delta)
+	if was_suppressed and not is_suppressed():
+		queue_redraw()
 	_update_facing(delta)
 
 	var player_cell := _maze.world_to_cell(_player.position)
@@ -195,7 +223,7 @@ func _physics_process(delta: float) -> void:
 			_enter_combat()
 		_desired_facing = direction_to_player
 		if _shoot_cooldown <= 0.0 and _is_aimed_at(direction_to_player):
-			_game.spawn_enemy_bullet(position, _facing)
+			_game.spawn_enemy_bullet(position, _facing, self)
 			_shoot_cooldown = SHOOT_INTERVAL
 			_try_start_combat_maneuver(direction_to_player)
 		return
@@ -224,6 +252,7 @@ func _physics_process(delta: float) -> void:
 func _enter_patrol() -> void:
 	state = State.PATROL
 	_search_time_left = 0.0
+	_last_known_player_cell = Vector2i(-1, -1)
 	_path.clear()
 	_path_index = 0
 	_choose_random_target()
@@ -364,9 +393,20 @@ func _follow_path(update_facing: bool = true) -> void:
 	var movement_direction := offset.normalized()
 	if update_facing:
 		_desired_facing = movement_direction
+	if is_suppressed():
+		var current_distance := position.distance_squared_to(_suppression_source)
+		var next_distance := target_position.distance_squared_to(
+			_suppression_source
+		)
+		if next_distance < current_distance:
+			velocity = Vector2.ZERO
+			_desired_facing = position.direction_to(_suppression_source)
+			return
 	var movement_speed := (
 		PATROL_SPEED if state == State.PATROL else ALERT_SPEED
 	)
+	if is_suppressed():
+		movement_speed = minf(movement_speed, SUPPRESSED_SPEED)
 	velocity = movement_direction * movement_speed
 	move_and_slide()
 	queue_redraw()
@@ -394,8 +434,16 @@ func _draw() -> void:
 		_draw_ambush_arrow()
 		return
 
-	var body_color := DEAD_COLOR if dead else BODY_COLOR
-	var edge_color := DEAD_EDGE_COLOR if dead else EDGE_COLOR
+	var body_color := (
+		DEAD_COLOR
+		if dead
+		else SUPPRESSED_COLOR if is_suppressed() else BODY_COLOR
+	)
+	var edge_color := (
+		DEAD_EDGE_COLOR
+		if dead
+		else SUPPRESSED_EDGE_COLOR if is_suppressed() else EDGE_COLOR
+	)
 	draw_circle(Vector2.ZERO, 14.0, body_color)
 	draw_circle(Vector2.ZERO, 14.0, edge_color, false, 2.0, true)
 	if not dead:
@@ -404,9 +452,13 @@ func _draw() -> void:
 
 func _draw_ambush_arrow() -> void:
 	var color := (
-		AMBUSH_PATROL_COLOR
-		if state == State.PATROL
-		else AMBUSH_ALERT_COLOR
+		SUPPRESSED_EDGE_COLOR
+		if is_suppressed()
+		else (
+			AMBUSH_PATROL_COLOR
+			if state == State.PATROL
+			else AMBUSH_ALERT_COLOR
+		)
 	)
 	var tail := -_facing * AMBUSH_ARROW_LENGTH * 0.35
 	var tip := _facing * AMBUSH_ARROW_LENGTH * 0.65
