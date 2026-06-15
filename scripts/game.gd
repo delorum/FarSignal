@@ -19,6 +19,7 @@ const ENEMY_HEALTH_DISPLAY_RANGE := 10.0
 const SHOT_HEARING_RANGE := ENEMY_AUDIBLE_RANGE
 const SHOT_REACTION_DELAY := 1.0
 const PLAYER_SHOOT_INTERVAL := 1.0
+const ROUTE_UPDATE_INTERVAL := 5.0
 const NOISE_SILENT_COLOR := Color("58d68d")
 const NOISE_AUDIBLE_COLOR := Color("d66b6b")
 const PANEL_WIDTH_RATIO := 0.2
@@ -60,6 +61,7 @@ var _enemies: Array[Node] = []
 var _enemies_killed := 0
 var _defeated := false
 var _shoot_cooldown := 0.0
+var _route_update_time_left := ROUTE_UPDATE_INTERVAL
 var _rng := RandomNumberGenerator.new()
 
 
@@ -114,6 +116,7 @@ func _process(delta: float) -> void:
 		return
 
 	_shoot_cooldown = maxf(0.0, _shoot_cooldown - delta)
+	_update_route(delta)
 	if Input.is_action_just_pressed("toggle_ambush") \
 			and player.controls_enabled:
 		player.toggle_ambush_mode()
@@ -160,6 +163,19 @@ func _update_coordinates() -> void:
 
 	_displayed_player_cell = player_cell
 	coordinates_label.text = "X: %d  Y: %d" % [player_cell.x, player_cell.y]
+
+
+func _update_route(delta: float) -> void:
+	if maze.route_target().x < 0:
+		_route_update_time_left = ROUTE_UPDATE_INTERVAL
+		return
+
+	_route_update_time_left -= delta
+	if _route_update_time_left > 0.0:
+		return
+
+	maze.update_route(maze.world_to_cell(player.position))
+	_route_update_time_left = ROUTE_UPDATE_INTERVAL
 
 
 func _update_player_panel() -> void:
@@ -247,6 +263,11 @@ func save_game() -> bool:
 		"station_discovered": (
 			not _stations.is_empty() and _stations[0].discovered
 		),
+		"route_target": (
+			[maze.route_target().x, maze.route_target().y]
+			if maze.route_target().x >= 0
+			else []
+		),
 		"enemies": _enemies.map(func(enemy: Node): return enemy.save_data()),
 		"enemies_killed": _enemies_killed,
 	}
@@ -282,6 +303,17 @@ func _restore_game(save_data: Dictionary) -> void:
 	else:
 		_create_generated_doors()
 	_refresh_safe_zone()
+	var saved_route_target: Array = save_data.get("route_target", [])
+	if saved_route_target.size() == 2:
+		var target := Vector2i(
+			int(saved_route_target[0]),
+			int(saved_route_target[1])
+		)
+		if maze.is_cell_explored(target) and not maze.is_wall(target):
+			maze.set_route_target(
+				target,
+				maze.world_to_cell(player.position)
+			)
 	_enemies_killed = int(save_data.get("enemies_killed", 0))
 	if save_data.has("enemies"):
 		for index in save_data.enemies.size():

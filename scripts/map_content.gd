@@ -4,6 +4,8 @@ const PANEL_COLOR := Color("0c1727")
 const FLOOR_COLOR := Color("172943")
 const SAFE_FLOOR_COLOR := Color("24513d")
 const WALL_COLOR := Color("3f6688")
+const ROUTE_COLOR := Color("8fd8c0")
+const ROUTE_TARGET_COLOR := Color("c3f5e5")
 const PLAYER_COLOR := Color("58d6f5")
 const CLOSED_DOOR_COLOR := Color("d0a86f")
 const OPEN_DOOR_COLOR := Color("8a6f4d")
@@ -79,6 +81,7 @@ func _draw() -> void:
 			)
 			draw_rect(cell_rect.grow(-1.0), color)
 
+	_draw_route(map_origin)
 	_draw_doors(map_origin)
 	_draw_stations(map_origin)
 	_draw_dead_enemies(map_origin)
@@ -90,6 +93,45 @@ func _draw() -> void:
 	)
 	_draw_ambush_enemies(map_origin)
 	draw_circle(player_position, cell_size * 0.22, PLAYER_COLOR)
+
+
+func _draw_route(map_origin: Vector2) -> void:
+	var target := _maze.route_target()
+	if target.x < 0:
+		return
+
+	var points := PackedVector2Array()
+	var route_start := _maze.route_start()
+	if route_start.x >= 0:
+		points.append(
+			map_origin
+					+ (Vector2(route_start) + Vector2.ONE * 0.5) * cell_size
+		)
+	for cell in _maze.route_path():
+		points.append(
+			map_origin + (Vector2(cell) + Vector2.ONE * 0.5) * cell_size
+		)
+	if points.size() >= 2:
+		draw_polyline(
+			points,
+			ROUTE_COLOR,
+			maxf(2.0, cell_size * 0.1),
+			true
+		)
+
+	var target_position := (
+		map_origin + (Vector2(target) + Vector2.ONE * 0.5) * cell_size
+	)
+	var radius := cell_size * 0.2
+	draw_circle(target_position, radius, ROUTE_TARGET_COLOR)
+	draw_circle(
+		target_position,
+		radius,
+		ROUTE_COLOR,
+		false,
+		maxf(1.0, cell_size * 0.06),
+		true
+	)
 
 
 func _draw_doors(map_origin: Vector2) -> void:

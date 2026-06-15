@@ -16,6 +16,8 @@ const FLOOR_COLOR := Color("101b2d")
 const FLOOR_EDGE_COLOR := Color("172943")
 const SAFE_FLOOR_COLOR := Color("102820")
 const SAFE_FLOOR_EDGE_COLOR := Color("24513d")
+const ROUTE_COLOR := Color("8fd8c0")
+const ROUTE_TARGET_COLOR := Color("c3f5e5")
 const WALL_COLOR := Color("29415f")
 const WALL_EDGE_COLOR := Color("3f6688")
 const EXPLORED_WALL_COLOR := Color("14171b")
@@ -59,6 +61,9 @@ var _room_specs: Array[Dictionary] = []
 var _station_specs: Array[Dictionary] = []
 var _closed_door_cells: Dictionary = {}
 var _safe_cell_mask := PackedByteArray()
+var _route_target := Vector2i(-1, -1)
+var _route_start := Vector2i(-1, -1)
+var _route_path: Array[Vector2i] = []
 
 
 func _ready() -> void:
@@ -107,6 +112,43 @@ func is_cell_explored(cell: Vector2i) -> bool:
 
 func is_cell_safe(cell: Vector2i) -> bool:
 	return _is_inside(cell) and _safe_cell_mask[_cell_index(cell)] == 1
+
+
+func route_target() -> Vector2i:
+	return _route_target
+
+
+func route_start() -> Vector2i:
+	return _route_start
+
+
+func route_path() -> Array[Vector2i]:
+	return _route_path.duplicate()
+
+
+func set_route_target(target: Vector2i, start: Vector2i) -> void:
+	_route_target = target
+	update_route(start)
+
+
+func clear_route() -> void:
+	_route_target = Vector2i(-1, -1)
+	_route_start = Vector2i(-1, -1)
+	_route_path.clear()
+	queue_redraw()
+
+
+func update_route(start: Vector2i) -> void:
+	_route_start = start
+	_route_path.clear()
+	if not _is_inside(_route_target) \
+			or not is_cell_explored(_route_target) \
+			or _is_wall(_route_target):
+		queue_redraw()
+		return
+
+	_route_path = find_path(start, _route_target, false, true, true)
+	queue_redraw()
 
 
 func generation_seed() -> int:
@@ -176,10 +218,24 @@ func get_random_walkable_cell(
 func find_path(
 	start: Vector2i,
 	target: Vector2i,
-	avoid_station: bool = false
+	avoid_station: bool = false,
+	explored_only: bool = false,
+	ignore_closed_doors: bool = false
 ) -> Array[Vector2i]:
-	if not is_cell_walkable(start, false) \
-			or not is_cell_walkable(target, avoid_station):
+	if not _is_path_cell_walkable(
+			start,
+			false,
+			ignore_closed_doors
+		) \
+			or not _is_path_cell_walkable(
+				target,
+				avoid_station,
+				ignore_closed_doors
+			) \
+			or explored_only and (
+				not is_cell_explored(start)
+				or not is_cell_explored(target)
+			):
 		return []
 
 	var open_cells: Array[Vector2i] = []
@@ -204,7 +260,13 @@ func find_path(
 
 		for direction in PATH_DIRECTIONS:
 			var next := current + direction
-			if closed.has(next) or not is_cell_walkable(next, avoid_station):
+			if closed.has(next) \
+					or not _is_path_cell_walkable(
+						next,
+						avoid_station,
+						ignore_closed_doors
+					) \
+					or explored_only and not is_cell_explored(next):
 				continue
 
 			var new_cost: int = int(cost_so_far[current]) + 1
@@ -229,6 +291,18 @@ func find_path(
 		path.push_front(current)
 		current = came_from[current]
 	return path
+
+
+func _is_path_cell_walkable(
+	cell: Vector2i,
+	avoid_station: bool,
+	ignore_closed_doors: bool
+) -> bool:
+	if not _is_inside(cell) or _is_wall(cell):
+		return false
+	if not ignore_closed_doors and _closed_door_cells.has(cell):
+		return false
+	return not avoid_station or not _is_inside_station(cell)
 
 
 func _manhattan_distance(from: Vector2i, to: Vector2i) -> int:
@@ -1130,3 +1204,31 @@ func _draw() -> void:
 				false,
 				1.0
 			)
+	_draw_route()
+
+
+func _draw_route() -> void:
+	if _route_target.x < 0:
+		return
+
+	var points := PackedVector2Array()
+	if _route_start.x >= 0:
+		points.append(cell_to_world(_route_start))
+	for cell in _route_path:
+		points.append(cell_to_world(cell))
+	if points.size() >= 2:
+		draw_polyline(points, ROUTE_COLOR, 4.0, true)
+
+	draw_circle(
+		cell_to_world(_route_target),
+		CELL_SIZE * 0.15,
+		ROUTE_TARGET_COLOR
+	)
+	draw_circle(
+		cell_to_world(_route_target),
+		CELL_SIZE * 0.15,
+		ROUTE_COLOR,
+		false,
+		2.0,
+		true
+	)

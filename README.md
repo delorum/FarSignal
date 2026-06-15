@@ -24,6 +24,7 @@ Controls:
 - `E`: open or close a nearby door, interact with a station
 - `Tab`: open or close the explored map
 - Mouse wheel: zoom the map
+- Right mouse button on the map: set or clear a route destination
 - `Esc`: pause or return from the controls screen
 
 `Сохранить и выйти` writes `far_signal_save.json` next to the exported game
@@ -58,6 +59,9 @@ on the map. Safety also propagates through doors to adjacent enclosed
 components without crossing the main open maze. Enemies never spawn inside
 safe zones. The zone topology is recalculated only when a door is placed,
 removed, or restored from a save.
+The map can plot a route to a previously explored floor cell. Routes use only
+known floor cells, may pass through doors regardless of their current state,
+and refresh from the player's current position every five seconds.
 Extra connections are opened after generation, creating loops and alternate
 routes through parts of the maze. Most corridors are two cells wide while
 roughly 35% of connections narrow to one cell; walls remain one cell thick.
