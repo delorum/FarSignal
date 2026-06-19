@@ -18,9 +18,6 @@ const ENEMY_AUDIBLE_RANGE := 30.0
 const ENEMY_HEALTH_DISPLAY_RANGE := 10.0
 const SHOT_HEARING_RANGE := ENEMY_AUDIBLE_RANGE
 const SHOT_REACTION_DELAY := 2.0
-const SUPPRESSING_FIRE_ENABLED := false
-const SUPPRESSION_RANGE := 30.0
-const SUPPRESSION_HALF_WIDTH := Maze.CELL_SIZE * 1.1
 const PLAYER_SHOOT_INTERVAL := 1.0
 const ROUTE_UPDATE_INTERVAL := 5.0
 const ROUTE_COMPLETION_DISTANCE := 3.0
@@ -785,36 +782,6 @@ func _alert_enemies_to_shot(
 			enemy.hear_position(shot_cell)
 
 
-func _apply_suppressing_fire(
-	shot_origin: Vector2,
-	shot_direction: Vector2
-) -> void:
-	if not SUPPRESSING_FIRE_ENABLED:
-		return
-
-	var normalized_direction := shot_direction.normalized()
-	var max_distance := SUPPRESSION_RANGE * Maze.CELL_SIZE
-	for enemy: Enemy in _enemies:
-		if enemy.dead:
-			continue
-
-		var offset := enemy.position - shot_origin
-		var forward_distance := offset.dot(normalized_direction)
-		if forward_distance <= 0.0 or forward_distance > max_distance:
-			continue
-
-		var lateral_distance := absf(offset.cross(normalized_direction))
-		if lateral_distance > SUPPRESSION_HALF_WIDTH:
-			continue
-
-		if maze.has_line_of_sight(
-			shot_origin,
-			enemy.position,
-			SUPPRESSION_RANGE
-		):
-			enemy.apply_suppression(shot_origin)
-
-
 func _show_defeat() -> void:
 	_defeated = true
 	player.controls_enabled = false
@@ -836,7 +803,6 @@ func _shoot() -> void:
 		true
 	)
 	bullets.add_child(bullet)
-	_apply_suppressing_fire(player.position, direction)
 	player.apply_recoil(direction)
 	_shoot_cooldown = PLAYER_SHOOT_INTERVAL
 	player.make_shot_noise()
