@@ -6,6 +6,7 @@ const INTRO_SCENE := "res://scenes/intro.tscn"
 @onready var pause_menu: VBoxContainer = $CenterContainer/PauseMenu
 @onready var controls_screen: VBoxContainer = $CenterContainer/ControlsScreen
 @onready var objective_screen: VBoxContainer = $CenterContainer/ObjectiveScreen
+@onready var settings_menu: Control = $CenterContainer/SettingsMenu
 @onready var continue_button: Button = $CenterContainer/PauseMenu/ContinueButton
 @onready var controls_back_button: Button = $CenterContainer/ControlsScreen/BackButton
 @onready var objective_back_button: Button = $CenterContainer/ObjectiveScreen/BackButton
@@ -34,7 +35,10 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	if not visible:
 		_open_pause_menu()
-	elif controls_screen.visible or objective_screen.visible:
+	elif settings_menu.visible and settings_menu.close_submenu():
+		pass
+	elif controls_screen.visible or objective_screen.visible \
+			or settings_menu.visible:
 		_show_pause_menu()
 	else:
 		_resume_game()
@@ -66,6 +70,15 @@ func _on_objective_pressed() -> void:
 	objective_back_button.grab_focus()
 
 
+func _on_settings_pressed() -> void:
+	pause_menu.hide()
+	settings_menu.open()
+
+
+func _on_settings_back_requested() -> void:
+	_show_pause_menu()
+
+
 func _on_save_and_exit_pressed() -> void:
 	if game.save_game():
 		get_tree().quit()
@@ -89,5 +102,6 @@ func _resume_game() -> void:
 func _show_pause_menu() -> void:
 	controls_screen.hide()
 	objective_screen.hide()
+	settings_menu.hide()
 	pause_menu.show()
 	continue_button.grab_focus()

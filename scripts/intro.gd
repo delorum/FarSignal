@@ -9,6 +9,7 @@ var _input_enabled := false
 
 
 func _ready() -> void:
+	AudioManager.set_combat_active(false)
 	objective_text.text = LoreText.OBJECTIVE_TEXT
 	await get_tree().process_frame
 	_input_enabled = true

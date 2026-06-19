@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/main_menu.gd" id="1_menu"]
+[ext_resource type="PackedScene" path="res://scenes/settings_menu.tscn" id="2_settings"]
 
 [node name="MainMenu" type="Control"]
 layout_mode = 3
@@ -64,6 +65,12 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Управление"
 
+[node name="SettingsButton" type="Button" parent="CenterContainer/MainMenu"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Настройки"
+
 [node name="ExitButton" type="Button" parent="CenterContainer/MainMenu"]
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
@@ -107,8 +114,13 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Назад"
 
+[node name="SettingsMenu" parent="CenterContainer" instance=ExtResource("2_settings")]
+layout_mode = 2
+
 [connection signal="pressed" from="CenterContainer/MainMenu/NewGameButton" to="." method="_on_new_game_pressed"]
 [connection signal="pressed" from="CenterContainer/MainMenu/ContinueButton" to="." method="_on_continue_pressed"]
 [connection signal="pressed" from="CenterContainer/MainMenu/ControlsButton" to="." method="_on_controls_pressed"]
+[connection signal="pressed" from="CenterContainer/MainMenu/SettingsButton" to="." method="_on_settings_pressed"]
 [connection signal="pressed" from="CenterContainer/MainMenu/ExitButton" to="." method="_on_exit_pressed"]
 [connection signal="pressed" from="CenterContainer/ControlsScreen/BackButton" to="." method="_on_back_pressed"]
+[connection signal="back_requested" from="CenterContainer/SettingsMenu" to="." method="_on_settings_back_requested"]

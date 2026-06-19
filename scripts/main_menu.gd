@@ -5,18 +5,25 @@ const INTRO_SCENE := "res://scenes/intro.tscn"
 
 @onready var main_menu: VBoxContainer = $CenterContainer/MainMenu
 @onready var controls_screen: VBoxContainer = $CenterContainer/ControlsScreen
+@onready var settings_menu: Control = $CenterContainer/SettingsMenu
 @onready var continue_button: Button = $CenterContainer/MainMenu/ContinueButton
 @onready var new_game_button: Button = $CenterContainer/MainMenu/NewGameButton
 @onready var back_button: Button = $CenterContainer/ControlsScreen/BackButton
 
 
 func _ready() -> void:
+	AudioManager.set_combat_active(false)
 	continue_button.visible = SaveStore.has_loadable_save()
 	_focus_first_menu_button()
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("ui_cancel") and controls_screen.visible:
+	if not event.is_action_pressed("ui_cancel"):
+		return
+	if settings_menu.visible and settings_menu.close_submenu():
+		get_viewport().set_input_as_handled()
+		return
+	if controls_screen.visible or settings_menu.visible:
 		_show_main_menu()
 		get_viewport().set_input_as_handled()
 
@@ -43,6 +50,15 @@ func _on_controls_pressed() -> void:
 	back_button.grab_focus()
 
 
+func _on_settings_pressed() -> void:
+	main_menu.hide()
+	settings_menu.open()
+
+
+func _on_settings_back_requested() -> void:
+	_show_main_menu()
+
+
 func _on_exit_pressed() -> void:
 	get_tree().quit()
 
@@ -53,6 +69,7 @@ func _on_back_pressed() -> void:
 
 func _show_main_menu() -> void:
 	controls_screen.hide()
+	settings_menu.hide()
 	main_menu.show()
 	_focus_first_menu_button()
 

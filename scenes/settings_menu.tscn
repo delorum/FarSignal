@@ -1,0 +1,143 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/settings_menu.gd" id="1_settings"]
+
+[node name="SettingsMenu" type="Control"]
+visible = false
+custom_minimum_size = Vector2(460, 420)
+layout_mode = 3
+anchors_preset = 0
+script = ExtResource("1_settings")
+
+[node name="SettingsScreen" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 18
+
+[node name="Title" type="Label" parent="SettingsScreen"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.345, 0.839, 0.961, 1)
+theme_override_font_sizes/font_size = 38
+text = "Настройки"
+horizontal_alignment = 1
+
+[node name="TitleSeparator" type="Control" parent="SettingsScreen"]
+custom_minimum_size = Vector2(0, 24)
+layout_mode = 2
+
+[node name="AudioButton" type="Button" parent="SettingsScreen"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Аудио"
+
+[node name="Spacer" type="Control" parent="SettingsScreen"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="BackButton" type="Button" parent="SettingsScreen"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Назад"
+
+[node name="AudioScreen" type="VBoxContainer" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 14
+
+[node name="Title" type="Label" parent="AudioScreen"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.345, 0.839, 0.961, 1)
+theme_override_font_sizes/font_size = 38
+text = "Аудио"
+horizontal_alignment = 1
+
+[node name="TitleSeparator" type="Control" parent="AudioScreen"]
+custom_minimum_size = Vector2(0, 12)
+layout_mode = 2
+
+[node name="MusicEnabled" type="CheckButton" parent="AudioScreen"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Музыка включена"
+
+[node name="MusicVolumeLabel" type="Label" parent="AudioScreen"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Громкость музыки"
+
+[node name="MusicVolumeRow" type="HBoxContainer" parent="AudioScreen"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="MusicVolume" type="HSlider" parent="AudioScreen/MusicVolumeRow"]
+custom_minimum_size = Vector2(360, 36)
+layout_mode = 2
+size_flags_horizontal = 3
+max_value = 100.0
+step = 1.0
+
+[node name="Value" type="Label" parent="AudioScreen/MusicVolumeRow"]
+custom_minimum_size = Vector2(58, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "80%"
+horizontal_alignment = 2
+
+[node name="SoundsEnabled" type="CheckButton" parent="AudioScreen"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Звуки включены"
+
+[node name="SoundsVolumeLabel" type="Label" parent="AudioScreen"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Громкость звуков"
+
+[node name="SoundsVolumeRow" type="HBoxContainer" parent="AudioScreen"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="SoundsVolume" type="HSlider" parent="AudioScreen/SoundsVolumeRow"]
+custom_minimum_size = Vector2(360, 36)
+layout_mode = 2
+size_flags_horizontal = 3
+max_value = 100.0
+step = 1.0
+
+[node name="Value" type="Label" parent="AudioScreen/SoundsVolumeRow"]
+custom_minimum_size = Vector2(58, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "100%"
+horizontal_alignment = 2
+
+[node name="Spacer" type="Control" parent="AudioScreen"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="BackButton" type="Button" parent="AudioScreen"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Назад"
+
+[connection signal="pressed" from="SettingsScreen/AudioButton" to="." method="_on_audio_pressed"]
+[connection signal="pressed" from="SettingsScreen/BackButton" to="." method="_on_settings_back_pressed"]
+[connection signal="toggled" from="AudioScreen/MusicEnabled" to="." method="_on_music_enabled_toggled"]
+[connection signal="value_changed" from="AudioScreen/MusicVolumeRow/MusicVolume" to="." method="_on_music_volume_changed"]
+[connection signal="toggled" from="AudioScreen/SoundsEnabled" to="." method="_on_sounds_enabled_toggled"]
+[connection signal="value_changed" from="AudioScreen/SoundsVolumeRow/SoundsVolume" to="." method="_on_sounds_volume_changed"]
+[connection signal="pressed" from="AudioScreen/BackButton" to="." method="_on_audio_back_pressed"]

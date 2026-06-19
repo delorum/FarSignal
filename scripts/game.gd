@@ -70,6 +70,7 @@ var _shoot_cooldown := 0.0
 var _route_update_time_left := ROUTE_UPDATE_INTERVAL
 var _rng := RandomNumberGenerator.new()
 var _hit_flash_tween: Tween
+var _combat_music_active := false
 
 
 func _enter_tree() -> void:
@@ -81,6 +82,7 @@ func _enter_tree() -> void:
 
 
 func _ready() -> void:
+	AudioManager.set_combat_active(false)
 	_rng.randomize()
 	enemy_target_markers.setup(maze, enemies)
 	get_viewport().size_changed.connect(_update_adaptive_layout)
@@ -158,6 +160,18 @@ func _process(delta: float) -> void:
 	_update_visibility()
 	_update_coordinates()
 	_update_player_panel()
+	_update_music_state()
+
+
+func _update_music_state() -> void:
+	var combat_active := false
+	for enemy: Enemy in _enemies:
+		if not enemy.dead and enemy.is_attack_state():
+			combat_active = true
+			break
+	if combat_active != _combat_music_active:
+		_combat_music_active = combat_active
+		AudioManager.set_combat_active(combat_active)
 
 
 func _update_visibility() -> void:
@@ -592,6 +606,7 @@ func _toggle_player_door_at(target_cell: Vector2i) -> void:
 		true
 	)
 	if door != null:
+		AudioManager.play_door_place()
 		_refresh_safe_zone()
 
 
@@ -603,6 +618,7 @@ func _door_at(cell: Vector2i) -> Door:
 
 
 func _remove_player_door(door: Door) -> void:
+	AudioManager.play_door_remove()
 	maze.set_door_closed(door.cell, false)
 	_doors.erase(door)
 	door.queue_free()
@@ -644,6 +660,10 @@ func _interact_with_door() -> void:
 			closest_distance = distance
 
 	if closest_door != null and closest_door.toggle(player.position):
+		if closest_door.is_open:
+			AudioManager.play_door_open()
+		else:
+			AudioManager.play_door_close()
 		maze.set_door_closed(
 			closest_door.cell,
 			not closest_door.is_open
@@ -694,6 +714,7 @@ func spawn_enemy_bullet(
 	direction: Vector2,
 	shooter: Enemy
 ) -> void:
+	AudioManager.play_enemy_shot()
 	var bullet: Node = BULLET_SCENE.instantiate()
 	bullet.setup(
 		start_position + direction * BULLET_SPAWN_DISTANCE,
@@ -836,6 +857,7 @@ func _shoot() -> void:
 		true
 	)
 	bullets.add_child(bullet)
+	AudioManager.play_player_shot()
 	if PLAYER_RECOIL_ENABLED:
 		player.apply_recoil(direction)
 	_shoot_cooldown = PLAYER_SHOOT_INTERVAL

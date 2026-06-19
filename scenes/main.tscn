@@ -1,4 +1,4 @@
-[gd_scene load_steps=19 format=3 uid="uid://dw58ygdj26wbu"]
+[gd_scene load_steps=20 format=3 uid="uid://dw58ygdj26wbu"]
 
 [ext_resource type="Script" uid="uid://b7t1b5rs3b076" path="res://scripts/game.gd" id="1_game"]
 [ext_resource type="Script" uid="uid://1jcmw0g6148v" path="res://scripts/maze.gd" id="2_maze"]
@@ -10,6 +10,7 @@
 [ext_resource type="Script" path="res://scripts/enemy_meter.gd" id="10_enemy_meter"]
 [ext_resource type="Script" path="res://scripts/defeat_menu.gd" id="11_defeat"]
 [ext_resource type="Script" path="res://scripts/enemy_target_markers.gd" id="12_enemy_targets"]
+[ext_resource type="PackedScene" path="res://scenes/settings_menu.tscn" id="13_settings"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_player"]
 radius = 14.0
@@ -365,6 +366,12 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Цель игры"
 
+[node name="SettingsButton" type="Button" parent="PauseOverlay/PauseMenu/CenterContainer/PauseMenu"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Настройки"
+
 [node name="SaveAndExitButton" type="Button" parent="PauseOverlay/PauseMenu/CenterContainer/PauseMenu"]
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
@@ -437,6 +444,9 @@ custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Назад"
+
+[node name="SettingsMenu" parent="PauseOverlay/PauseMenu/CenterContainer" instance=ExtResource("13_settings")]
+layout_mode = 2
 
 [node name="StationOverlay" type="CanvasLayer" parent="."]
 layer = 30
@@ -567,9 +577,11 @@ text = "Главное меню"
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/PauseMenu/NewGameButton" to="PauseOverlay/PauseMenu" method="_on_new_game_pressed"]
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/PauseMenu/ControlsButton" to="PauseOverlay/PauseMenu" method="_on_controls_pressed"]
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/PauseMenu/ObjectiveButton" to="PauseOverlay/PauseMenu" method="_on_objective_pressed"]
+[connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/PauseMenu/SettingsButton" to="PauseOverlay/PauseMenu" method="_on_settings_pressed"]
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/PauseMenu/SaveAndExitButton" to="PauseOverlay/PauseMenu" method="_on_save_and_exit_pressed"]
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/ControlsScreen/BackButton" to="PauseOverlay/PauseMenu" method="_on_back_pressed"]
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/ObjectiveScreen/BackButton" to="PauseOverlay/PauseMenu" method="_on_back_pressed"]
+[connection signal="back_requested" from="PauseOverlay/PauseMenu/CenterContainer/SettingsMenu" to="PauseOverlay/PauseMenu" method="_on_settings_back_requested"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/AmmoButton" to="StationOverlay/StationMenu" method="_on_ammo_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/HealthButton" to="StationOverlay/StationMenu" method="_on_health_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ExitButton" to="StationOverlay/StationMenu" method="_on_exit_pressed"]
