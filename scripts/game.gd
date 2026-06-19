@@ -63,6 +63,7 @@ var _doors: Array[Node] = []
 var _stations: Array[Node] = []
 var _enemies: Array[Node] = []
 var _enemies_killed := 0
+var _next_enemy_id := 1
 var _defeated := false
 var _shoot_cooldown := 0.0
 var _route_update_time_left := ROUTE_UPDATE_INTERVAL
@@ -428,13 +429,30 @@ func _create_enemy_from_save(saved_data: Dictionary, index: int) -> void:
 		cell = maze.world_to_cell(
 			Vector2(float(saved_position[0]), float(saved_position[1]))
 		)
-	var enemy: Node = _create_enemy(cell, maze.generation_seed() + index)
+	var saved_enemy_id := int(saved_data.get("enemy_id", _next_enemy_id))
+	_next_enemy_id = maxi(_next_enemy_id, saved_enemy_id + 1)
+	var enemy: Node = _create_enemy(
+		cell,
+		maze.generation_seed() + index,
+		saved_enemy_id
+	)
 	enemy.restore_state(saved_data)
 
 
-func _create_enemy(cell: Vector2i, random_seed: int) -> Node:
+func _create_enemy(
+	cell: Vector2i,
+	random_seed: int,
+	assigned_enemy_id: int = -1
+) -> Node:
+	var enemy_id := assigned_enemy_id
+	if enemy_id < 0:
+		enemy_id = _next_enemy_id
+		_next_enemy_id += 1
+	else:
+		_next_enemy_id = maxi(_next_enemy_id, enemy_id + 1)
+
 	var enemy: Node = ENEMY_SCENE.instantiate()
-	enemy.setup(self, maze, player, cell, random_seed)
+	enemy.setup(self, maze, player, cell, random_seed, enemy_id)
 	enemies.add_child(enemy)
 	_enemies.append(enemy)
 	return enemy
@@ -703,6 +721,20 @@ func spawn_damage_number(
 func enemy_killed(_enemy: Node) -> void:
 	_enemies_killed += 1
 	call_deferred("_maintain_enemy_population")
+
+
+func attackers_near_player(
+	player_position: Vector2,
+	range_cells: float
+) -> Array[Enemy]:
+	var result: Array[Enemy] = []
+	var range_world := range_cells * Maze.CELL_SIZE
+	for enemy: Enemy in _enemies:
+		if enemy.dead or not enemy.is_attack_state():
+			continue
+		if enemy.position.distance_to(player_position) <= range_world:
+			result.append(enemy)
+	return result
 
 
 func _maintain_enemy_population() -> void:

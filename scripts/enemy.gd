@@ -24,6 +24,11 @@ const TARGET_ATTEMPTS := 12
 const SEARCH_DURATION := 5.0
 const MANEUVER_CHANCE := 0.4
 const MANEUVER_DISTANCE := 2
+const FLANK_GROUP_RANGE := 18.0
+const FLANK_DISTANCE := 6
+const FLANK_DANGER_RADIUS := 5.0
+const FLANK_REPATH_INTERVAL := 3.0
+const FLANK_TARGET_SEARCH_RADIUS := 2
 const TURN_SPEED := deg_to_rad(150.0)
 const AIM_TOLERANCE := deg_to_rad(10.0)
 
@@ -38,12 +43,14 @@ enum State {
 var health := MAX_HEALTH
 var dead := false
 var state := State.PATROL
+var enemy_id := 0
 var _facing := Vector2.LEFT
 var _desired_facing := Vector2.LEFT
 var _path: Array[Vector2i] = []
 var _path_index := 0
 var _hearing_cooldown := 0.0
 var _shoot_cooldown := 0.0
+var _flank_repath_cooldown := 0.0
 var _search_time_left := 0.0
 var _last_known_player_cell := Vector2i(-1, -1)
 var _active := true
@@ -62,11 +69,13 @@ func setup(
 	maze: Maze,
 	player: Player,
 	start_cell: Vector2i,
-	random_seed: int
+	random_seed: int,
+	assigned_enemy_id: int
 ) -> void:
 	_game = game
 	_maze = maze
 	_player = player
+	enemy_id = assigned_enemy_id
 	position = maze.cell_to_world(start_cell)
 	_rng.seed = random_seed
 	z_index = ALIVE_Z_INDEX
@@ -74,6 +83,7 @@ func setup(
 
 
 func restore_state(saved_data: Dictionary) -> void:
+	enemy_id = int(saved_data.get("enemy_id", enemy_id))
 	var saved_position: Array = saved_data.get("position", [])
 	if saved_position.size() == 2:
 		position = Vector2(float(saved_position[0]), float(saved_position[1]))
@@ -86,6 +96,7 @@ func restore_state(saved_data: Dictionary) -> void:
 
 func save_data() -> Dictionary:
 	return {
+		"enemy_id": enemy_id,
 		"position": [position.x, position.y],
 		"health": health,
 		"dead": dead,
@@ -100,6 +111,10 @@ func pursuit_target_cell() -> Vector2i:
 	if dead or state == State.PATROL:
 		return Vector2i(-1, -1)
 	return _last_known_player_cell
+
+
+func is_attack_state() -> bool:
+	return state == State.COMBAT or state == State.MANEUVER
 
 
 func uses_ambush_marker() -> bool:
@@ -175,6 +190,7 @@ func _physics_process(delta: float) -> void:
 
 	_hearing_cooldown = maxf(0.0, _hearing_cooldown - delta)
 	_shoot_cooldown = maxf(0.0, _shoot_cooldown - delta)
+	_flank_repath_cooldown = maxf(0.0, _flank_repath_cooldown - delta)
 	_update_facing(delta)
 
 	var player_cell := _maze.world_to_cell(_player.position)
@@ -200,6 +216,8 @@ func _physics_process(delta: float) -> void:
 		if state != State.COMBAT:
 			_enter_combat()
 		_desired_facing = direction_to_player
+		if _try_start_coordinated_flank(player_cell):
+			return
 		if _shoot_cooldown <= 0.0 and _is_aimed_at(direction_to_player):
 			_game.spawn_enemy_bullet(position, _facing, self)
 			_shoot_cooldown = SHOOT_INTERVAL
@@ -282,6 +300,119 @@ func _try_start_combat_maneuver(direction_to_player: Vector2) -> bool:
 		_path = maneuver_path
 		_path_index = 0
 		return true
+	return false
+
+
+func _try_start_coordinated_flank(player_cell: Vector2i) -> bool:
+	if _flank_repath_cooldown > 0.0:
+		return false
+
+	_flank_repath_cooldown = FLANK_REPATH_INTERVAL
+	var attackers: Array[Enemy] = _game.attackers_near_player(
+		_player.position,
+		FLANK_GROUP_RANGE
+	)
+	if attackers.size() < 2:
+		return false
+
+	attackers.sort_custom(func(left: Enemy, right: Enemy) -> bool:
+		return left.enemy_id < right.enemy_id
+	)
+	var attacker_index := attackers.find(self)
+	if attacker_index < 0:
+		return false
+
+	var flank_path := _find_flank_path(
+		player_cell,
+		attacker_index,
+		attackers.size()
+	)
+	if flank_path.is_empty():
+		return false
+
+	_path = flank_path
+	state = State.MANEUVER
+	_path_index = 0
+	return true
+
+
+func _find_flank_path(
+	player_cell: Vector2i,
+	attacker_index: int,
+	attacker_count: int
+) -> Array[Vector2i]:
+	var current_cell := _maze.world_to_cell(position)
+	var best_path: Array[Vector2i] = []
+	for target in _flank_candidates(player_cell, attacker_index, attacker_count):
+		if current_cell.distance_to(target) <= 1.0:
+			continue
+
+		var path := _maze.find_path(current_cell, target)
+		if path.is_empty() or _path_crosses_flank_danger(path, player_cell):
+			continue
+		if best_path.is_empty() or path.size() < best_path.size():
+			best_path = path
+	return best_path
+
+
+func _find_flank_cell(
+	player_cell: Vector2i,
+	attacker_index: int,
+	attacker_count: int
+) -> Vector2i:
+	var candidates := _flank_candidates(
+		player_cell,
+		attacker_index,
+		attacker_count
+	)
+	return candidates[0] if not candidates.is_empty() else Vector2i(-1, -1)
+
+
+func _flank_candidates(
+	player_cell: Vector2i,
+	attacker_index: int,
+	attacker_count: int
+) -> Array[Vector2i]:
+	var angle := TAU * float(attacker_index) / float(attacker_count)
+	var direction := Vector2.from_angle(angle)
+	var base_offset := Vector2i(
+		roundi(direction.x * FLANK_DISTANCE),
+		roundi(direction.y * FLANK_DISTANCE)
+	)
+	if base_offset == Vector2i.ZERO:
+		return []
+
+	var base_cell := player_cell + base_offset
+	var candidates: Array[Vector2i] = []
+	if _flank_candidate_is_valid(base_cell, player_cell):
+		candidates.append(base_cell)
+
+	for radius in range(1, FLANK_TARGET_SEARCH_RADIUS + 1):
+		for y in range(-radius, radius + 1):
+			for x in range(-radius, radius + 1):
+				if absi(x) != radius and absi(y) != radius:
+					continue
+				var candidate := base_cell + Vector2i(x, y)
+				if _flank_candidate_is_valid(candidate, player_cell):
+					candidates.append(candidate)
+	return candidates
+
+
+func _flank_candidate_is_valid(
+	cell: Vector2i,
+	player_cell: Vector2i
+) -> bool:
+	return _maze.is_cell_walkable(cell) \
+			and cell.distance_to(player_cell) > FLANK_DANGER_RADIUS
+
+
+func _path_crosses_flank_danger(
+	path: Array[Vector2i],
+	player_cell: Vector2i
+) -> bool:
+	for cell in path:
+		if cell.distance_to(player_cell) <= FLANK_DANGER_RADIUS:
+			return true
 	return false
 
 
