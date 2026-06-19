@@ -21,6 +21,7 @@ const SHOT_REACTION_DELAY := 2.0
 const PLAYER_SHOOT_INTERVAL := 1.0
 const ROUTE_UPDATE_INTERVAL := 5.0
 const ROUTE_COMPLETION_DISTANCE := 3.0
+const PLAYER_RECOIL_ENABLED := false
 const NOISE_SILENT_COLOR := Color("58d68d")
 const NOISE_AUDIBLE_COLOR := Color("d66b6b")
 const PANEL_WIDTH_RATIO := 0.2
@@ -835,7 +836,8 @@ func _shoot() -> void:
 		true
 	)
 	bullets.add_child(bullet)
-	player.apply_recoil(direction)
+	if PLAYER_RECOIL_ENABLED:
+		player.apply_recoil(direction)
 	_shoot_cooldown = PLAYER_SHOOT_INTERVAL
 	player.make_shot_noise()
 	_alert_enemies_to_shot(maze.world_to_cell(player.position))
