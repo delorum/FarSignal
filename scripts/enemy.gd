@@ -5,12 +5,9 @@ const MAX_HEALTH := 100
 const PATROL_SPEED := 100.0
 const ALERT_SPEED := 175.0
 const CELL_SIZE := 48.0
-const BODY_COLOR := Color("c84545")
-const EDGE_COLOR := Color("ff8a7f")
-const DEAD_COLOR := Color("3b4148")
-const DEAD_EDGE_COLOR := Color("626b75")
 const AMBUSH_PATROL_COLOR := Color("69717a")
 const AMBUSH_ALERT_COLOR := Color("bd3f43")
+const FALLEN_SPRITE_MODULATE := Color(0.58, 0.6, 0.63, 1.0)
 const DEAD_Z_INDEX := 0
 const ALIVE_Z_INDEX := 1
 const AMBUSH_ARROW_LENGTH := 24.0
@@ -33,6 +30,10 @@ const TURN_SPEED := deg_to_rad(150.0)
 const AIM_TOLERANCE := deg_to_rad(10.0)
 const FIRING_POSITION_SEARCH_RADIUS := 6
 const FIRING_POSITION_REPATH_INTERVAL := 1.0
+const ANIMATION_FRAME_COUNT := 8
+const RUN_ANIMATION_FPS := 10.0
+const IDLE_ANIMATION_FPS := 5.0
+const IDLE_FRAME_OFFSET := 8
 
 enum State {
 	PATROL,
@@ -59,12 +60,21 @@ var _last_known_player_cell := Vector2i(-1, -1)
 var _active := true
 var _normally_visible := false
 var _ambush_revealed := false
+var _animation_time := 0.0
+var _animation_running := false
 var _game: Node
 var _maze: Maze
 var _player: Player
 var _rng := RandomNumberGenerator.new()
 
 @onready var collision_shape: CollisionShape2D = $CollisionShape2D
+@onready var enemy_sprite: Sprite2D = $Sprite2D
+@onready var fallen_sprite: Sprite2D = $FallenSprite
+
+
+func _ready() -> void:
+	_update_sprite_facing()
+	_update_sprite_visibility()
 
 
 func setup(
@@ -140,6 +150,7 @@ func update_visibility(
 	_normally_visible = currently_visible
 	_ambush_revealed = ambush_revealed and not dead
 	visible = _normally_visible or _ambush_revealed
+	_update_sprite_visibility()
 	queue_redraw()
 
 
@@ -184,7 +195,18 @@ func _apply_dead_state() -> void:
 	collision_mask = 0
 	if collision_shape != null:
 		collision_shape.set_deferred("disabled", true)
+	if enemy_sprite != null:
+		enemy_sprite.visible = false
+	if fallen_sprite != null:
+		fallen_sprite.modulate = FALLEN_SPRITE_MODULATE
+		fallen_sprite.visible = true
 	queue_redraw()
+
+
+func _process(delta: float) -> void:
+	if dead:
+		return
+	_update_animation(delta)
 
 
 func _physics_process(delta: float) -> void:
@@ -485,7 +507,40 @@ func _update_facing(delta: float) -> void:
 	var new_facing := Vector2.from_angle(new_angle)
 	if not new_facing.is_equal_approx(_facing):
 		_facing = new_facing
+		_update_sprite_facing()
 		queue_redraw()
+
+
+func _update_sprite_facing() -> void:
+	if enemy_sprite != null:
+		enemy_sprite.rotation = _facing.angle()
+		enemy_sprite.flip_v = _facing.x < 0.0
+	if fallen_sprite != null:
+		fallen_sprite.rotation = _facing.angle()
+		fallen_sprite.flip_v = _facing.x < 0.0
+
+
+func _update_sprite_visibility() -> void:
+	if enemy_sprite != null:
+		enemy_sprite.visible = not dead and not uses_ambush_marker()
+	if fallen_sprite != null:
+		fallen_sprite.visible = dead
+
+
+func _update_animation(delta: float) -> void:
+	var running := velocity.length_squared() > 1.0
+	if running != _animation_running:
+		_animation_running = running
+		_animation_time = 0.0
+	else:
+		_animation_time += delta
+
+	var animation_fps := RUN_ANIMATION_FPS if running else IDLE_ANIMATION_FPS
+	var frame_offset := 0 if running else IDLE_FRAME_OFFSET
+	enemy_sprite.frame = frame_offset + posmod(
+		floori(_animation_time * animation_fps),
+		ANIMATION_FRAME_COUNT
+	)
 
 
 func _is_aimed_at(direction: Vector2) -> bool:
@@ -581,22 +636,6 @@ func _build_path_to(target: Vector2i) -> bool:
 func _draw() -> void:
 	if uses_ambush_marker():
 		_draw_ambush_arrow()
-		return
-
-	var body_color := (
-		DEAD_COLOR
-		if dead
-		else BODY_COLOR
-	)
-	var edge_color := (
-		DEAD_EDGE_COLOR
-		if dead
-		else EDGE_COLOR
-	)
-	draw_circle(Vector2.ZERO, 14.0, body_color)
-	draw_circle(Vector2.ZERO, 14.0, edge_color, false, 2.0, true)
-	if not dead:
-		draw_line(Vector2.ZERO, _facing * 11.0, edge_color, 3.0, true)
 
 
 func _draw_ambush_arrow() -> void:
