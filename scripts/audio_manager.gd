@@ -7,6 +7,10 @@ const SILENT_VOLUME_DB := -60.0
 const SETTINGS_PATH := "user://far_signal_settings.cfg"
 const MUSIC_BUS := "Music"
 const SFX_BUS := "SFX"
+const PLAYER_SHOT_PATH := "res://assets/audio/sfx/player_shot.ogg"
+const ENEMY_SHOT_PATH := "res://assets/audio/sfx/enemy_shot.ogg"
+const DOOR_OPEN_PATH := "res://assets/audio/sfx/door_open.ogg"
+const DOOR_CLOSE_PATH := "res://assets/audio/sfx/door_close.ogg"
 
 var music_enabled := true
 var sounds_enabled := true
@@ -18,12 +22,12 @@ var _combat_player: AudioStreamPlayer
 var _combat_active := false
 var _music_tween: Tween
 var _rng := RandomNumberGenerator.new()
-var _player_shot_stream: AudioStreamWAV
-var _enemy_shot_stream: AudioStreamWAV
-var _door_place_stream: AudioStreamWAV
-var _door_remove_stream: AudioStreamWAV
-var _door_open_stream: AudioStreamWAV
-var _door_close_stream: AudioStreamWAV
+var _player_shot_stream: AudioStream
+var _enemy_shot_stream: AudioStream
+var _door_place_stream: AudioStream
+var _door_remove_stream: AudioStream
+var _door_open_stream: AudioStream
+var _door_close_stream: AudioStream
 
 
 func _ready() -> void:
@@ -38,12 +42,12 @@ func _ready() -> void:
 	_combat_player.bus = MUSIC_BUS
 	_ambient_player.stream = _create_ambient_stream(false)
 	_combat_player.stream = _create_ambient_stream(true)
-	_player_shot_stream = _create_blaster_stream(0.76)
-	_enemy_shot_stream = _create_blaster_stream(0.58)
+	_player_shot_stream = load(PLAYER_SHOT_PATH)
+	_enemy_shot_stream = load(ENEMY_SHOT_PATH)
 	_door_place_stream = _create_door_stream(1.0, true)
 	_door_remove_stream = _create_door_stream(0.72, false)
-	_door_open_stream = _create_door_stream(0.9, false)
-	_door_close_stream = _create_door_stream(0.62, true)
+	_door_open_stream = load(DOOR_OPEN_PATH)
+	_door_close_stream = load(DOOR_CLOSE_PATH)
 	_ambient_player.volume_db = MUSIC_VOLUME_DB
 	_combat_player.volume_db = SILENT_VOLUME_DB
 	_ambient_player.play()
@@ -128,7 +132,7 @@ func _create_player(player_name: String) -> AudioStreamPlayer:
 	return player
 
 
-func _play_effect(stream: AudioStreamWAV, volume_db: float) -> void:
+func _play_effect(stream: AudioStream, volume_db: float) -> void:
 	# A fresh player lets overlapping shots and door sounds finish independently.
 	var player := AudioStreamPlayer.new()
 	player.stream = stream
