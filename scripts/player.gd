@@ -24,6 +24,14 @@ const ANIMATION_FRAME_COUNT := 8
 const RUN_ANIMATION_FPS := 10.0
 const IDLE_ANIMATION_FPS := 5.0
 const IDLE_FRAME_OFFSET := 8
+const AIM_INDICATOR_DISTANCE := CELL_SIZE * 2.4
+const AIM_INDICATOR_RADIUS := 7.0
+const AIM_INDICATOR_LINE_WIDTH := 1.5
+const AIM_INDICATOR_SHOT_EXPANSION := 10.0
+const AIM_INDICATOR_SHOT_DURATION := 0.25
+const AIM_INDICATOR_COOLDOWN_COLOR := Color(0.42, 0.5, 0.56, 0.28)
+const AIM_INDICATOR_READY_COLOR := Color(0.68, 0.88, 0.94, 0.68)
+const AIM_INDICATOR_AMBUSH_ALPHA := 0.45
 
 @onready var player_sprite: Sprite2D = $Sprite2D
 
@@ -36,6 +44,8 @@ var _facing := Vector2.RIGHT
 var _enemy_indicators: Array[Dictionary] = []
 var _animation_time := 0.0
 var _animation_running := false
+var _aim_indicator_readiness := 1.0
+var _aim_indicator_shot_time_left := 0.0
 
 
 func _ready() -> void:
@@ -110,6 +120,7 @@ func is_audible() -> bool:
 func make_shot_noise() -> void:
 	ambush_mode = false
 	noise_level = 1.0
+	queue_redraw()
 
 
 func apply_recoil(shot_direction: Vector2) -> void:
@@ -122,6 +133,20 @@ func toggle_ambush_mode() -> void:
 	ambush_mode = not ambush_mode
 	if ambush_mode:
 		noise_level = 0.0
+	queue_redraw()
+
+
+func set_aim_indicator_readiness(readiness: float) -> void:
+	var normalized_readiness := clampf(readiness, 0.0, 1.0)
+	if is_equal_approx(_aim_indicator_readiness, normalized_readiness):
+		return
+	_aim_indicator_readiness = normalized_readiness
+	queue_redraw()
+
+
+func trigger_aim_indicator_shot() -> void:
+	_aim_indicator_shot_time_left = AIM_INDICATOR_SHOT_DURATION
+	queue_redraw()
 
 
 func set_enemy_indicators(indicators: Array[Dictionary]) -> void:
@@ -131,7 +156,14 @@ func set_enemy_indicators(indicators: Array[Dictionary]) -> void:
 	queue_redraw()
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	if _aim_indicator_shot_time_left > 0.0:
+		_aim_indicator_shot_time_left = maxf(
+			0.0,
+			_aim_indicator_shot_time_left - delta
+		)
+		queue_redraw()
+
 	var mouse_direction := get_local_mouse_position()
 	if mouse_direction.is_zero_approx():
 		return
@@ -200,7 +232,28 @@ func _update_animation(delta: float) -> void:
 
 
 func _draw() -> void:
+	_draw_aim_indicator()
 	_draw_enemy_directions()
+
+
+func _draw_aim_indicator() -> void:
+	var pulse := _aim_indicator_shot_time_left / AIM_INDICATOR_SHOT_DURATION
+	var expansion := AIM_INDICATOR_SHOT_EXPANSION * pulse
+	var center := _facing * (AIM_INDICATOR_DISTANCE + expansion * 0.5)
+	var color := AIM_INDICATOR_COOLDOWN_COLOR.lerp(
+		AIM_INDICATOR_READY_COLOR,
+		_aim_indicator_readiness
+	)
+	if ambush_mode:
+		color.a *= AIM_INDICATOR_AMBUSH_ALPHA
+	draw_circle(
+		center,
+		AIM_INDICATOR_RADIUS + expansion,
+		color,
+		false,
+		AIM_INDICATOR_LINE_WIDTH,
+		true
+	)
 
 
 func _draw_enemy_directions() -> void:

@@ -237,11 +237,13 @@ func _update_player_panel() -> void:
 		_displayed_ammo = player.ammo
 		ammo_value.text = "%d / %d" % [player.ammo, player.MAX_AMMO]
 		ammo_bar.value = player.ammo
-	weapon_ready_bar.value = (
+	var weapon_readiness := (
 		0.0
 		if player.ammo <= 0
-		else (1.0 - _shoot_cooldown / PLAYER_SHOOT_INTERVAL) * 100.0
+		else 1.0 - _shoot_cooldown / PLAYER_SHOOT_INTERVAL
 	)
+	weapon_ready_bar.value = weapon_readiness * 100.0
+	player.set_aim_indicator_readiness(weapon_readiness)
 
 	var noise_state := (
 		"РЕЖИМ ЗАСАДЫ"
@@ -867,5 +869,6 @@ func _shoot() -> void:
 		player.apply_recoil(direction)
 	_shoot_cooldown = PLAYER_SHOOT_INTERVAL
 	player.make_shot_noise()
+	player.trigger_aim_indicator_shot()
 	_alert_enemies_to_shot(maze.world_to_cell(player.position))
 	_update_player_panel()
