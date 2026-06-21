@@ -24,7 +24,6 @@ const ANIMATION_FRAME_COUNT := 8
 const RUN_ANIMATION_FPS := 10.0
 const IDLE_ANIMATION_FPS := 5.0
 const IDLE_FRAME_OFFSET := 8
-const AIM_INDICATOR_DISTANCE := CELL_SIZE * 2.4
 const AIM_INDICATOR_ARM_LENGTH := 6.0
 const AIM_INDICATOR_INNER_GAP := 1.5
 const AIM_INDICATOR_LINE_WIDTH := 1.5
@@ -44,6 +43,7 @@ var _enemy_indicators: Array[Dictionary] = []
 var _animation_time := 0.0
 var _animation_running := false
 var _aim_indicator_readiness := 1.0
+var _aim_indicator_position := Vector2.ZERO
 
 
 func _ready() -> void:
@@ -150,7 +150,12 @@ func set_enemy_indicators(indicators: Array[Dictionary]) -> void:
 
 
 func _process(_delta: float) -> void:
-	var mouse_direction := get_local_mouse_position()
+	var mouse_position := get_local_mouse_position()
+	if not mouse_position.is_equal_approx(_aim_indicator_position):
+		_aim_indicator_position = mouse_position
+		queue_redraw()
+
+	var mouse_direction := mouse_position
 	if mouse_direction.is_zero_approx():
 		return
 
@@ -223,7 +228,7 @@ func _draw() -> void:
 
 
 func _draw_aim_indicator() -> void:
-	var center := _facing * AIM_INDICATOR_DISTANCE
+	var center := _aim_indicator_position
 	var color := AIM_INDICATOR_COOLDOWN_COLOR.lerp(
 		AIM_INDICATOR_READY_COLOR,
 		_aim_indicator_readiness

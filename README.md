@@ -37,7 +37,7 @@ Its dimensions are controlled by `COLUMNS` and `ROWS` in `scripts/maze.gd`;
 the internal generation grid is derived automatically.
 The player starts in a random floor cell along the bottom of the maze.
 Ten armed enemies patrol the entire maze. When one is killed, a replacement
-spawns elsewhere outside the station and away from the player. After firing,
+spawns elsewhere outside safe zones and away from the player. After firing,
 enemies have a 40% chance to change position before taking another shot.
 Moving can be heard within 20
 cells after about two cells of continuous movement; stopping drains the noise

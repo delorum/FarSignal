@@ -418,7 +418,7 @@ func _find_enemy_spawn_cell(
 		maxf(2.0, minf(grid_size.x, grid_size.y) * ENEMY_START_DISTANCE_RATIO)
 	)
 	for attempt in ENEMY_SPAWN_ATTEMPTS:
-		var cell := maze.get_random_walkable_cell(enemy_rng, true)
+		var cell := maze.get_random_walkable_cell(enemy_rng)
 		if cell.distance_to(player_cell) < minimum_distance \
 				or occupied_cells.has(cell) \
 				or _has_door_at(cell) \
@@ -445,14 +445,20 @@ func _living_enemy_count() -> int:
 
 func _create_enemy_from_save(saved_data: Dictionary, index: int) -> void:
 	var saved_position: Array = saved_data.get("position", [])
-	var cell: Vector2i = maze.get_random_walkable_cell(
-		_rng,
-		true
-	)
+	var cell := Vector2i(-1, -1)
 	if saved_position.size() == 2:
 		cell = maze.world_to_cell(
 			Vector2(float(saved_position[0]), float(saved_position[1]))
 		)
+	else:
+		cell = _find_enemy_spawn_cell(
+			_rng,
+			maze.world_to_cell(player.position),
+			_occupied_enemy_cells()
+		)
+	if cell.x < 0:
+		push_warning("Could not restore an enemy without a valid position")
+		return
 	var saved_enemy_id := int(saved_data.get("enemy_id", _next_enemy_id))
 	_next_enemy_id = maxi(_next_enemy_id, saved_enemy_id + 1)
 	var enemy: Node = _create_enemy(
@@ -645,6 +651,25 @@ func _refresh_safe_zone() -> void:
 			station_door_cells.append(door_spec.cell)
 
 	maze.update_safe_zone(door_cells, station_door_cells)
+	_assert_station_floor_is_safe()
+
+
+func _assert_station_floor_is_safe() -> void:
+	for station_spec in maze.generated_station_specs():
+		var center: Vector2i = station_spec.cell
+		for y in range(
+			-Maze.STATION_FLOOR_RADIUS,
+			Maze.STATION_FLOOR_RADIUS + 1
+		):
+			for x in range(
+				-Maze.STATION_FLOOR_RADIUS,
+				Maze.STATION_FLOOR_RADIUS + 1
+			):
+				var cell := center + Vector2i(x, y)
+				assert(
+					maze.is_cell_safe(cell),
+					"Station floor cell %s must belong to a safe zone" % cell
+				)
 
 
 func _interact_with_door() -> void:

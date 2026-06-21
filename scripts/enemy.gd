@@ -561,9 +561,11 @@ func _follow_path(update_facing: bool = true) -> void:
 
 func _choose_random_target() -> void:
 	for attempt in TARGET_ATTEMPTS:
-		var target := _maze.get_random_walkable_cell(_rng, true)
+		var target := _maze.get_random_walkable_cell(_rng)
 		if target.x < 0:
 			return
+		if _maze.is_cell_safe(target):
+			continue
 		if _build_path_to(target):
 			return
 	_path.clear()
