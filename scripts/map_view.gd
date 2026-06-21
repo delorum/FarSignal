@@ -142,6 +142,7 @@ func _open_map() -> void:
 	_clamp_scroll_position()
 	visible = true
 	get_tree().paused = true
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	_update_map_content()
 	queue_redraw()
 
@@ -149,6 +150,7 @@ func _open_map() -> void:
 func _close_map() -> void:
 	visible = false
 	get_tree().paused = false
+	Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
 
 
 func _map_rect() -> Rect2:

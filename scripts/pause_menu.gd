@@ -91,12 +91,18 @@ func _on_back_pressed() -> void:
 func _open_pause_menu() -> void:
 	visible = true
 	get_tree().paused = true
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	_show_pause_menu()
 
 
 func _resume_game() -> void:
 	visible = false
 	get_tree().paused = map_view.visible
+	Input.set_mouse_mode(
+		Input.MOUSE_MODE_VISIBLE
+		if map_view.visible
+		else Input.MOUSE_MODE_HIDDEN
+	)
 
 
 func _show_pause_menu() -> void:

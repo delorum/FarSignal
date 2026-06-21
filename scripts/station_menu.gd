@@ -20,6 +20,7 @@ func open() -> void:
 	_update_buttons()
 	visible = true
 	get_tree().paused = true
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	if not ammo_button.disabled:
 		ammo_button.grab_focus()
 	elif not health_button.disabled:
@@ -31,6 +32,7 @@ func open() -> void:
 func close() -> void:
 	visible = false
 	get_tree().paused = false
+	Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
 
 
 func _on_ammo_pressed() -> void:

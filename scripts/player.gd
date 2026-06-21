@@ -5,8 +5,6 @@ signal damaged
 
 @export var speed := 230.0
 
-const BODY_COLOR := Color("58d6f5")
-const DIRECTION_COLOR := Color("e8fbff")
 const ENEMY_ARROW_COLOR := Color("bd3f43")
 const ENEMY_ARROW_EDGE_COLOR := Color("e0787b")
 const PATROL_ARROW_COLOR := Color("69717a")
@@ -22,6 +20,12 @@ const CELL_SIZE := 48.0
 const RECOIL_DISTANCE := CELL_SIZE
 const NOISE_BUILDUP_DISTANCE := CELL_SIZE * 3.0
 const NOISE_DECAY_TIME := 1.0
+const ANIMATION_FRAME_COUNT := 8
+const RUN_ANIMATION_FPS := 10.0
+const IDLE_ANIMATION_FPS := 5.0
+const IDLE_FRAME_OFFSET := 8
+
+@onready var player_sprite: Sprite2D = $Sprite2D
 
 var controls_enabled := true
 var health := MAX_HEALTH
@@ -30,6 +34,12 @@ var noise_level := 0.0
 var ambush_mode := false
 var _facing := Vector2.RIGHT
 var _enemy_indicators: Array[Dictionary] = []
+var _animation_time := 0.0
+var _animation_running := false
+
+
+func _ready() -> void:
+	_update_sprite_facing()
 
 
 func facing_direction() -> Vector2:
@@ -52,6 +62,7 @@ func restore_facing_direction(saved_facing: Array) -> void:
 		return
 
 	_facing = restored_facing.normalized()
+	_update_sprite_facing()
 	queue_redraw()
 
 
@@ -128,6 +139,7 @@ func _process(_delta: float) -> void:
 	var new_facing := mouse_direction.normalized()
 	if not new_facing.is_equal_approx(_facing):
 		_facing = new_facing
+		_update_sprite_facing()
 		queue_redraw()
 
 
@@ -162,11 +174,32 @@ func _physics_process(delta: float) -> void:
 			delta / NOISE_DECAY_TIME
 		)
 
+	_update_animation(delta)
+
+
+func _update_sprite_facing() -> void:
+	if player_sprite != null:
+		player_sprite.rotation = _facing.angle()
+		player_sprite.flip_v = _facing.x < 0.0
+
+
+func _update_animation(delta: float) -> void:
+	var running := is_moving()
+	if running != _animation_running:
+		_animation_running = running
+		_animation_time = 0.0
+	else:
+		_animation_time += delta
+
+	var animation_fps := RUN_ANIMATION_FPS if running else IDLE_ANIMATION_FPS
+	var frame_offset := 0 if running else IDLE_FRAME_OFFSET
+	player_sprite.frame = frame_offset + posmod(
+		floori(_animation_time * animation_fps),
+		ANIMATION_FRAME_COUNT
+	)
+
 
 func _draw() -> void:
-	draw_circle(Vector2.ZERO, 14.0, BODY_COLOR)
-	draw_circle(Vector2.ZERO, 14.0, DIRECTION_COLOR, false, 2.0, true)
-	draw_line(Vector2.ZERO, _facing * 11.0, DIRECTION_COLOR, 3.0, true)
 	_draw_enemy_directions()
 
 

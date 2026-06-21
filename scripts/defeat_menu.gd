@@ -13,6 +13,7 @@ func open(enemies_killed: int) -> void:
 	kills_value.text = "Убито врагов: %d" % enemies_killed
 	visible = true
 	get_tree().paused = true
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 
 
 func _on_main_menu_pressed() -> void:

@@ -1,6 +1,9 @@
 extends StaticBody2D
 class_name Maze
 
+const ENVIRONMENT_ATLAS := preload(
+	"res://assets/tiles/environment/environment_tileset_48.png"
+)
 const COLUMNS := 200
 const ROWS := 200
 const LOGICAL_COLUMNS := int((COLUMNS - 1) / 3.0)
@@ -12,16 +15,13 @@ const COLLISION_RADIUS := 6
 const COLLISION_DIAMETER := COLLISION_RADIUS * 2 + 1
 const FLOOR_CELL_SEARCH_ATTEMPTS := 256
 const DRAW_RADIUS := 16
-const FLOOR_COLOR := Color("101b2d")
-const FLOOR_EDGE_COLOR := Color("172943")
-const SAFE_FLOOR_COLOR := Color("102820")
-const SAFE_FLOOR_EDGE_COLOR := Color("24513d")
 const ROUTE_COLOR := Color("8fd8c0")
 const ROUTE_TARGET_COLOR := Color("c3f5e5")
-const WALL_COLOR := Color("29415f")
-const WALL_EDGE_COLOR := Color("3f6688")
-const EXPLORED_WALL_COLOR := Color("14171b")
-const EXPLORED_WALL_EDGE_COLOR := Color("20242a")
+const FLOOR_TILE_COUNT := 8
+const WALL_TILE_OFFSET := 8
+const WALL_TILE_COUNT := 8
+const EXPLORED_WALL_TILE_MODULATE := Color(0.3, 0.32, 0.36, 1.0)
+const SAFE_FLOOR_TILE_MODULATE := Color(0.58, 1.0, 0.7, 1.0)
 const LOOP_DENSITY := 0.16
 const NARROW_CORRIDOR_RATIO := 0.35
 const ROOM_MIN_SIZE := 4
@@ -67,6 +67,7 @@ var _route_path: Array[Vector2i] = []
 
 
 func _ready() -> void:
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	assert(
 		COLUMNS >= MIN_GRID_SIZE and ROWS >= MIN_GRID_SIZE,
 		"Maze dimensions must be at least %dx%d cells"
@@ -1177,34 +1178,54 @@ func _draw() -> void:
 			if not _is_wall(cell):
 				continue
 
-			var rect := Rect2(
-				Vector2(cell) * CELL_SIZE,
-				Vector2.ONE * CELL_SIZE
-			)
-			draw_rect(rect, EXPLORED_WALL_COLOR)
-			draw_rect(
-				rect.grow(-2.0),
-				EXPLORED_WALL_EDGE_COLOR,
-				false,
-				1.0
+			_draw_environment_tile(
+				cell,
+				true,
+				EXPLORED_WALL_TILE_MODULATE
 			)
 
 	for visible_cell in _visible_cells:
 		var cell: Vector2i = visible_cell
-		var rect := Rect2(Vector2(cell) * CELL_SIZE, Vector2.ONE * CELL_SIZE)
 		if _is_wall(cell):
-			draw_rect(rect, WALL_COLOR)
-			draw_rect(rect.grow(-2.0), WALL_EDGE_COLOR, false, 2.0)
+			_draw_environment_tile(cell, true)
 		else:
 			var safe := is_cell_safe(cell)
-			draw_rect(rect, SAFE_FLOOR_COLOR if safe else FLOOR_COLOR)
-			draw_rect(
-				rect.grow(-2.0),
-				SAFE_FLOOR_EDGE_COLOR if safe else FLOOR_EDGE_COLOR,
+			_draw_environment_tile(
+				cell,
 				false,
-				1.0
+				SAFE_FLOOR_TILE_MODULATE if safe else Color.WHITE
 			)
 	_draw_route()
+
+
+func _draw_environment_tile(
+	cell: Vector2i,
+	wall: bool,
+	modulate: Color = Color.WHITE
+) -> void:
+	var tile_count := WALL_TILE_COUNT if wall else FLOOR_TILE_COUNT
+	var tile_index := posmod(_cell_visual_hash(cell), tile_count)
+	if wall:
+		tile_index += WALL_TILE_OFFSET
+	var atlas_cell := Vector2i(tile_index % 4, tile_index / 4)
+	var destination := Rect2(
+		Vector2(cell) * CELL_SIZE,
+		Vector2.ONE * CELL_SIZE
+	)
+	var source := Rect2(
+		Vector2(atlas_cell) * CELL_SIZE,
+		Vector2.ONE * CELL_SIZE
+	)
+	draw_texture_rect_region(
+		ENVIRONMENT_ATLAS,
+		destination,
+		source,
+		modulate
+	)
+
+
+func _cell_visual_hash(cell: Vector2i) -> int:
+	return cell.x * 73856093 ^ cell.y * 19349663 ^ _generation_seed
 
 
 func _draw_route() -> void:

@@ -1,4 +1,4 @@
-[gd_scene load_steps=20 format=3 uid="uid://dw58ygdj26wbu"]
+[gd_scene load_steps=21 format=3 uid="uid://dw58ygdj26wbu"]
 
 [ext_resource type="Script" uid="uid://b7t1b5rs3b076" path="res://scripts/game.gd" id="1_game"]
 [ext_resource type="Script" uid="uid://1jcmw0g6148v" path="res://scripts/maze.gd" id="2_maze"]
@@ -11,6 +11,7 @@
 [ext_resource type="Script" path="res://scripts/defeat_menu.gd" id="11_defeat"]
 [ext_resource type="Script" path="res://scripts/enemy_target_markers.gd" id="12_enemy_targets"]
 [ext_resource type="PackedScene" path="res://scenes/settings_menu.tscn" id="13_settings"]
+[ext_resource type="Texture2D" path="res://assets/characters/player/player_sheet_80x64.png" id="14_player_texture"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_player"]
 radius = 14.0
@@ -73,6 +74,12 @@ script = ExtResource("12_enemy_targets")
 collision_layer = 2
 collision_mask = 5
 script = ExtResource("3_player")
+
+[node name="Sprite2D" type="Sprite2D" parent="Player"]
+texture = ExtResource("14_player_texture")
+hframes = 8
+vframes = 2
+frame = 8
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Player" unique_id=751310340]
 shape = SubResource("CircleShape2D_player")

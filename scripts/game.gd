@@ -82,6 +82,7 @@ func _enter_tree() -> void:
 
 
 func _ready() -> void:
+	Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
 	AudioManager.set_combat_active(false)
 	_rng.randomize()
 	enemy_target_markers.setup(maze, enemies)
@@ -108,6 +109,10 @@ func _ready() -> void:
 	_update_visibility()
 	_update_coordinates()
 	_update_player_panel()
+
+
+func _exit_tree() -> void:
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 
 
 func _update_adaptive_layout() -> void:
