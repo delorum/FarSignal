@@ -6,6 +6,8 @@ const DAMAGE_NUMBER_SCENE := preload("res://scenes/damage_number.tscn")
 const STATION_SCENE := preload("res://scenes/station.tscn")
 const ENEMY_SCENE := preload("res://scenes/enemy.tscn")
 const BULLET_SPAWN_DISTANCE := 22.0
+const BULLET_HALF_LENGTH := 6.0
+const BULLET_HALF_WIDTH := 2.0
 const ENEMY_COUNT := 10
 const MAX_ENEMY_START_DISTANCE := 15.0
 const ENEMY_START_DISTANCE_RATIO := 0.15
@@ -737,6 +739,24 @@ func spawn_enemy_bullet(
 	)
 
 
+func enemy_has_clear_shot(
+	start_position: Vector2,
+	target_position: Vector2
+) -> bool:
+	var direction := start_position.direction_to(target_position)
+	if direction.is_zero_approx() \
+			or start_position.distance_to(target_position) \
+			<= BULLET_SPAWN_DISTANCE + BULLET_HALF_LENGTH:
+		return false
+	var bullet_start := start_position + direction * BULLET_SPAWN_DISTANCE
+	return maze.has_clear_projectile_path(
+		bullet_start,
+		target_position,
+		BULLET_HALF_LENGTH,
+		BULLET_HALF_WIDTH
+	)
+
+
 func spawn_damage_number(
 	start_position: Vector2,
 	damage: int,
@@ -869,6 +889,5 @@ func _shoot() -> void:
 		player.apply_recoil(direction)
 	_shoot_cooldown = PLAYER_SHOOT_INTERVAL
 	player.make_shot_noise()
-	player.trigger_aim_indicator_shot()
 	_alert_enemies_to_shot(maze.world_to_cell(player.position))
 	_update_player_panel()

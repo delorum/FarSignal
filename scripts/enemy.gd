@@ -31,6 +31,8 @@ const FLANK_REPATH_INTERVAL := 3.0
 const FLANK_TARGET_SEARCH_RADIUS := 2
 const TURN_SPEED := deg_to_rad(150.0)
 const AIM_TOLERANCE := deg_to_rad(10.0)
+const FIRING_POSITION_SEARCH_RADIUS := 6
+const FIRING_POSITION_REPATH_INTERVAL := 1.0
 
 enum State {
 	PATROL,
@@ -52,6 +54,7 @@ var _hearing_cooldown := 0.0
 var _shoot_cooldown := 0.0
 var _flank_repath_cooldown := 0.0
 var _search_time_left := 0.0
+var _firing_position_repath_cooldown := 0.0
 var _last_known_player_cell := Vector2i(-1, -1)
 var _active := true
 var _normally_visible := false
@@ -191,6 +194,10 @@ func _physics_process(delta: float) -> void:
 	_hearing_cooldown = maxf(0.0, _hearing_cooldown - delta)
 	_shoot_cooldown = maxf(0.0, _shoot_cooldown - delta)
 	_flank_repath_cooldown = maxf(0.0, _flank_repath_cooldown - delta)
+	_firing_position_repath_cooldown = maxf(
+		0.0,
+		_firing_position_repath_cooldown - delta
+	)
 	_update_facing(delta)
 
 	var player_cell := _maze.world_to_cell(_player.position)
@@ -216,6 +223,13 @@ func _physics_process(delta: float) -> void:
 		if state != State.COMBAT:
 			_enter_combat()
 		_desired_facing = direction_to_player
+		if not _game.enemy_has_clear_shot(position, _player.position):
+			if _firing_position_repath_cooldown <= 0.0:
+				_firing_position_repath_cooldown = (
+					FIRING_POSITION_REPATH_INTERVAL
+				)
+				_try_reposition_for_clear_shot(player_cell)
+			return
 		if _try_start_coordinated_flank(player_cell):
 			return
 		if _shoot_cooldown <= 0.0 and _is_aimed_at(direction_to_player):
@@ -301,6 +315,41 @@ func _try_start_combat_maneuver(direction_to_player: Vector2) -> bool:
 		_path_index = 0
 		return true
 	return false
+
+
+func _try_reposition_for_clear_shot(player_cell: Vector2i) -> bool:
+	var current_cell := _maze.world_to_cell(position)
+	var best_path: Array[Vector2i] = []
+	for radius in range(1, FIRING_POSITION_SEARCH_RADIUS + 1):
+		for y in range(-radius, radius + 1):
+			for x in range(-radius, radius + 1):
+				if absi(x) != radius and absi(y) != radius:
+					continue
+				var candidate := current_cell + Vector2i(x, y)
+				if not _maze.is_cell_walkable(candidate) \
+						or candidate.distance_to(player_cell) <= 1.0 \
+						or not _game.enemy_has_clear_shot(
+							_maze.cell_to_world(candidate),
+							_player.position
+						):
+					continue
+
+				var path := _maze.find_path(current_cell, candidate)
+				if path.is_empty():
+					continue
+				if best_path.is_empty() or path.size() < best_path.size():
+					best_path = path
+		if not best_path.is_empty():
+			break
+
+	if best_path.is_empty():
+		velocity = Vector2.ZERO
+		return false
+
+	state = State.MANEUVER
+	_path = best_path
+	_path_index = 0
+	return true
 
 
 func _try_start_coordinated_flank(player_cell: Vector2i) -> bool:

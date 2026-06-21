@@ -388,6 +388,81 @@ func has_line_of_sight(
 	return true
 
 
+func has_clear_projectile_path(
+	from_position: Vector2,
+	to_position: Vector2,
+	projectile_half_length: float,
+	projectile_half_width: float
+) -> bool:
+	var direction := from_position.direction_to(to_position)
+	if direction.is_zero_approx():
+		return true
+
+	# Expanding blockers by the projectile's projected half-extents turns the
+	# swept rectangle test into a segment-versus-rectangle test.
+	var clearance := Vector2(
+		absf(direction.x) * projectile_half_length
+				+ absf(direction.y) * projectile_half_width,
+		absf(direction.y) * projectile_half_length
+				+ absf(direction.x) * projectile_half_width
+	)
+	var minimum := from_position.min(to_position) - clearance
+	var maximum := from_position.max(to_position) + clearance
+	var minimum_cell := world_to_cell(minimum)
+	var maximum_cell := world_to_cell(maximum)
+
+	for y in range(minimum_cell.y, maximum_cell.y + 1):
+		for x in range(minimum_cell.x, maximum_cell.x + 1):
+			var cell := Vector2i(x, y)
+			if _is_inside(cell) and not _is_wall(cell) \
+					and not _closed_door_cells.has(cell):
+				continue
+
+			var blocker := Rect2(
+				Vector2(cell) * CELL_SIZE - clearance,
+				Vector2.ONE * CELL_SIZE + clearance * 2.0
+			)
+			if _segment_intersects_rect(
+				from_position,
+				to_position,
+				blocker
+			):
+				return false
+	return true
+
+
+func _segment_intersects_rect(
+	segment_start: Vector2,
+	segment_end: Vector2,
+	rect: Rect2
+) -> bool:
+	var direction := segment_end - segment_start
+	var minimum_t := 0.0
+	var maximum_t := 1.0
+	for axis in 2:
+		if is_zero_approx(direction[axis]):
+			if segment_start[axis] < rect.position[axis] \
+					or segment_start[axis] > rect.end[axis]:
+				return false
+			continue
+
+		var first_t := (
+			rect.position[axis] - segment_start[axis]
+		) / direction[axis]
+		var second_t := (
+			rect.end[axis] - segment_start[axis]
+		) / direction[axis]
+		if first_t > second_t:
+			var temporary := first_t
+			first_t = second_t
+			second_t = temporary
+		minimum_t = maxf(minimum_t, first_t)
+		maximum_t = minf(maximum_t, second_t)
+		if minimum_t > maximum_t:
+			return false
+	return true
+
+
 func set_door_closed(cell: Vector2i, closed: bool) -> void:
 	if closed:
 		_closed_door_cells[cell] = true

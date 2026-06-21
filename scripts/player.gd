@@ -25,10 +25,9 @@ const RUN_ANIMATION_FPS := 10.0
 const IDLE_ANIMATION_FPS := 5.0
 const IDLE_FRAME_OFFSET := 8
 const AIM_INDICATOR_DISTANCE := CELL_SIZE * 2.4
-const AIM_INDICATOR_RADIUS := 7.0
+const AIM_INDICATOR_ARM_LENGTH := 6.0
+const AIM_INDICATOR_INNER_GAP := 1.5
 const AIM_INDICATOR_LINE_WIDTH := 1.5
-const AIM_INDICATOR_SHOT_EXPANSION := 10.0
-const AIM_INDICATOR_SHOT_DURATION := 0.25
 const AIM_INDICATOR_COOLDOWN_COLOR := Color(0.42, 0.5, 0.56, 0.28)
 const AIM_INDICATOR_READY_COLOR := Color(0.68, 0.88, 0.94, 0.68)
 const AIM_INDICATOR_AMBUSH_ALPHA := 0.45
@@ -45,7 +44,6 @@ var _enemy_indicators: Array[Dictionary] = []
 var _animation_time := 0.0
 var _animation_running := false
 var _aim_indicator_readiness := 1.0
-var _aim_indicator_shot_time_left := 0.0
 
 
 func _ready() -> void:
@@ -144,11 +142,6 @@ func set_aim_indicator_readiness(readiness: float) -> void:
 	queue_redraw()
 
 
-func trigger_aim_indicator_shot() -> void:
-	_aim_indicator_shot_time_left = AIM_INDICATOR_SHOT_DURATION
-	queue_redraw()
-
-
 func set_enemy_indicators(indicators: Array[Dictionary]) -> void:
 	if _enemy_indicators == indicators:
 		return
@@ -156,14 +149,7 @@ func set_enemy_indicators(indicators: Array[Dictionary]) -> void:
 	queue_redraw()
 
 
-func _process(delta: float) -> void:
-	if _aim_indicator_shot_time_left > 0.0:
-		_aim_indicator_shot_time_left = maxf(
-			0.0,
-			_aim_indicator_shot_time_left - delta
-		)
-		queue_redraw()
-
+func _process(_delta: float) -> void:
 	var mouse_direction := get_local_mouse_position()
 	if mouse_direction.is_zero_approx():
 		return
@@ -237,23 +223,30 @@ func _draw() -> void:
 
 
 func _draw_aim_indicator() -> void:
-	var pulse := _aim_indicator_shot_time_left / AIM_INDICATOR_SHOT_DURATION
-	var expansion := AIM_INDICATOR_SHOT_EXPANSION * pulse
-	var center := _facing * (AIM_INDICATOR_DISTANCE + expansion * 0.5)
+	var center := _facing * AIM_INDICATOR_DISTANCE
 	var color := AIM_INDICATOR_COOLDOWN_COLOR.lerp(
 		AIM_INDICATOR_READY_COLOR,
 		_aim_indicator_readiness
 	)
 	if ambush_mode:
 		color.a *= AIM_INDICATOR_AMBUSH_ALPHA
-	draw_circle(
-		center,
-		AIM_INDICATOR_RADIUS + expansion,
-		color,
-		false,
-		AIM_INDICATOR_LINE_WIDTH,
-		true
-	)
+	var horizontal := Vector2.RIGHT
+	var vertical := Vector2.DOWN
+	for axis in [horizontal, vertical]:
+		draw_line(
+			center - axis * AIM_INDICATOR_ARM_LENGTH,
+			center - axis * AIM_INDICATOR_INNER_GAP,
+			color,
+			AIM_INDICATOR_LINE_WIDTH,
+			true
+		)
+		draw_line(
+			center + axis * AIM_INDICATOR_INNER_GAP,
+			center + axis * AIM_INDICATOR_ARM_LENGTH,
+			color,
+			AIM_INDICATOR_LINE_WIDTH,
+			true
+		)
 
 
 func _draw_enemy_directions() -> void:
