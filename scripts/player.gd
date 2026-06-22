@@ -3,7 +3,7 @@ class_name Player
 
 signal damaged
 
-@export var speed := 230.0
+@export var speed := 200.0
 
 const ENEMY_ARROW_COLOR := Color("bd3f43")
 const ENEMY_ARROW_EDGE_COLOR := Color("e0787b")

@@ -3,7 +3,7 @@ class_name Enemy
 
 const MAX_HEALTH := 100
 const PATROL_SPEED := 100.0
-const ALERT_SPEED := 175.0
+const ALERT_SPEED := 200.0
 const CELL_SIZE := 48.0
 const AMBUSH_PATROL_COLOR := Color("69717a")
 const AMBUSH_ALERT_COLOR := Color("bd3f43")
