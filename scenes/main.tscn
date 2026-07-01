@@ -1,4 +1,4 @@
-[gd_scene load_steps=21 format=3 uid="uid://dw58ygdj26wbu"]
+[gd_scene load_steps=20 format=3 uid="uid://dw58ygdj26wbu"]
 
 [ext_resource type="Script" uid="uid://b7t1b5rs3b076" path="res://scripts/game.gd" id="1_game"]
 [ext_resource type="Script" uid="uid://1jcmw0g6148v" path="res://scripts/maze.gd" id="2_maze"]
@@ -7,7 +7,6 @@
 [ext_resource type="Script" path="res://scripts/map_content.gd" id="6_map_content"]
 [ext_resource type="Script" path="res://scripts/pause_menu.gd" id="7_pause"]
 [ext_resource type="Script" path="res://scripts/station_menu.gd" id="9_station_menu"]
-[ext_resource type="Script" path="res://scripts/enemy_meter.gd" id="10_enemy_meter"]
 [ext_resource type="Script" path="res://scripts/defeat_menu.gd" id="11_defeat"]
 [ext_resource type="Script" path="res://scripts/enemy_target_markers.gd" id="12_enemy_targets"]
 [ext_resource type="PackedScene" path="res://scenes/settings_menu.tscn" id="13_settings"]
@@ -35,11 +34,11 @@ bg_color = Color(0.72, 0.2, 0.22, 1)
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ammo_fill"]
 bg_color = Color(0.82, 0.68, 0.32, 1)
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_weapon_ready_fill"]
-bg_color = Color(0.345, 0.839, 0.961, 1)
-
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_noise_fill"]
 bg_color = Color(0.82, 0.25, 0.27, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ambush_fill"]
+bg_color = Color(0.345, 0.839, 0.561, 1)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hit_flash"]
 bg_color = Color(0, 0, 0, 0)
@@ -178,14 +177,6 @@ max_value = 30.0
 value = 30.0
 show_percentage = false
 
-[node name="WeaponReadyBar" type="ProgressBar" parent="GameInterface/PlayerPanel/Margin/VBox"]
-custom_minimum_size = Vector2(0, 12)
-layout_mode = 2
-theme_override_styles/background = SubResource("StyleBoxFlat_bar_background")
-theme_override_styles/fill = SubResource("StyleBoxFlat_weapon_ready_fill")
-value = 100.0
-show_percentage = false
-
 [node name="NoiseSpacer" type="Control" parent="GameInterface/PlayerPanel/Margin/VBox"]
 custom_minimum_size = Vector2(0, 18)
 layout_mode = 2
@@ -203,22 +194,13 @@ theme_override_styles/background = SubResource("StyleBoxFlat_bar_background")
 theme_override_styles/fill = SubResource("StyleBoxFlat_noise_fill")
 show_percentage = false
 
-[node name="EnemySpacer" type="Control" parent="GameInterface/PlayerPanel/Margin/VBox"]
-custom_minimum_size = Vector2(0, 26)
+[node name="AmbushBar" type="ProgressBar" parent="GameInterface/PlayerPanel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 12)
 layout_mode = 2
-mouse_filter = 2
-
-[node name="EnemyTitle" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.82, 0.88, 0.94, 1)
-theme_override_font_sizes/font_size = 18
-text = "ШУМ ВРАГА"
-
-[node name="EnemyMeter" type="Control" parent="GameInterface/PlayerPanel/Margin/VBox"]
-custom_minimum_size = Vector2(0, 24)
-layout_mode = 2
-mouse_filter = 2
-script = ExtResource("10_enemy_meter")
+theme_override_styles/background = SubResource("StyleBoxFlat_bar_background")
+theme_override_styles/fill = SubResource("StyleBoxFlat_ambush_fill")
+value = 100.0
+show_percentage = false
 
 [node name="NearbyEnemyHealth" type="VBoxContainer" parent="GameInterface/PlayerPanel/Margin/VBox"]
 visible = false

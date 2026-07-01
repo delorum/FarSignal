@@ -20,6 +20,8 @@ const CELL_SIZE := 48.0
 const RECOIL_DISTANCE := CELL_SIZE
 const NOISE_BUILDUP_DISTANCE := CELL_SIZE * 3.0
 const NOISE_DECAY_TIME := 1.0
+const AMBUSH_DURATION := 20.0
+const AMBUSH_RECOVERY_TIME := 40.0
 const ANIMATION_FRAME_COUNT := 8
 const RUN_ANIMATION_FPS := 10.0
 const IDLE_ANIMATION_FPS := 5.0
@@ -27,8 +29,8 @@ const IDLE_FRAME_OFFSET := 8
 const AIM_INDICATOR_ARM_LENGTH := 6.0
 const AIM_INDICATOR_INNER_GAP := 1.5
 const AIM_INDICATOR_LINE_WIDTH := 1.5
-const AIM_INDICATOR_COOLDOWN_COLOR := Color(0.42, 0.5, 0.56, 0.28)
-const AIM_INDICATOR_READY_COLOR := Color(0.68, 0.88, 0.94, 0.68)
+const AIM_INDICATOR_COOLDOWN_COLOR := Color(0.12, 0.16, 0.18, 0.45)
+const AIM_INDICATOR_READY_COLOR := Color(0.88, 0.96, 1.0, 0.86)
 const AIM_INDICATOR_AMBUSH_ALPHA := 0.45
 
 @onready var player_sprite: Sprite2D = $Sprite2D
@@ -37,6 +39,7 @@ var controls_enabled := true
 var health := MAX_HEALTH
 var ammo := MAX_AMMO
 var noise_level := 0.0
+var ambush_energy := AMBUSH_DURATION
 var ambush_mode := false
 var _facing := Vector2.RIGHT
 var _enemy_indicators: Array[Dictionary] = []
@@ -128,10 +131,17 @@ func apply_recoil(shot_direction: Vector2) -> void:
 
 
 func toggle_ambush_mode() -> void:
-	ambush_mode = not ambush_mode
+	if ambush_mode:
+		ambush_mode = false
+	elif ambush_energy > 0.0:
+		ambush_mode = true
 	if ambush_mode:
 		noise_level = 0.0
 	queue_redraw()
+
+
+func ambush_energy_ratio() -> float:
+	return ambush_energy / AMBUSH_DURATION
 
 
 func set_aim_indicator_readiness(readiness: float) -> void:
@@ -183,19 +193,29 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 
 	if ambush_mode:
+		ambush_energy = maxf(0.0, ambush_energy - delta)
+		if is_zero_approx(ambush_energy):
+			ambush_mode = false
 		noise_level = 0.0
-	elif is_moving():
-		noise_level = move_toward(
-			noise_level,
-			1.0,
-			velocity.length() * delta / NOISE_BUILDUP_DISTANCE
+	elif ambush_energy < AMBUSH_DURATION:
+		ambush_energy = minf(
+			AMBUSH_DURATION,
+			ambush_energy + AMBUSH_DURATION * delta / AMBUSH_RECOVERY_TIME
 		)
-	else:
-		noise_level = move_toward(
-			noise_level,
-			0.0,
-			delta / NOISE_DECAY_TIME
-		)
+
+	if not ambush_mode:
+		if is_moving():
+			noise_level = move_toward(
+				noise_level,
+				1.0,
+				velocity.length() * delta / NOISE_BUILDUP_DISTANCE
+			)
+		else:
+			noise_level = move_toward(
+				noise_level,
+				0.0,
+				delta / NOISE_DECAY_TIME
+			)
 
 	_update_animation(delta)
 

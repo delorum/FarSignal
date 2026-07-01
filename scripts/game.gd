@@ -21,9 +21,11 @@ const ENEMY_HEALTH_DISPLAY_RANGE := 10.0
 const SHOT_HEARING_RANGE := ENEMY_AUDIBLE_RANGE
 const SHOT_REACTION_DELAY := 2.0
 const PLAYER_SHOOT_INTERVAL := 1.0
-const ROUTE_UPDATE_INTERVAL := 5.0
-const ROUTE_COMPLETION_DISTANCE := 3.0
 const PLAYER_RECOIL_ENABLED := false
+const CRITICAL_HEALTH_THRESHOLD := 30
+const CRITICAL_AMMO_THRESHOLD := 10
+const STATUS_VALUE_COLOR := Color(0.92, 0.94, 0.97, 1.0)
+const STATUS_CRITICAL_COLOR := Color(0.9, 0.25, 0.27, 1.0)
 const NOISE_SILENT_COLOR := Color("58d68d")
 const NOISE_AUDIBLE_COLOR := Color("d66b6b")
 const PANEL_WIDTH_RATIO := 0.2
@@ -47,10 +49,9 @@ const HIT_FLASH_DURATION := 0.25
 @onready var health_bar: ProgressBar = $GameInterface/PlayerPanel/Margin/VBox/HealthBar
 @onready var ammo_value: Label = $GameInterface/PlayerPanel/Margin/VBox/AmmoValue
 @onready var ammo_bar: ProgressBar = $GameInterface/PlayerPanel/Margin/VBox/AmmoBar
-@onready var weapon_ready_bar: ProgressBar = $GameInterface/PlayerPanel/Margin/VBox/WeaponReadyBar
 @onready var noise_state_value: Label = $GameInterface/PlayerPanel/Margin/VBox/NoiseStateValue
 @onready var noise_bar: ProgressBar = $GameInterface/PlayerPanel/Margin/VBox/NoiseBar
-@onready var enemy_meter: Control = $GameInterface/PlayerPanel/Margin/VBox/EnemyMeter
+@onready var ambush_bar: ProgressBar = $GameInterface/PlayerPanel/Margin/VBox/AmbushBar
 @onready var nearby_enemy_health: VBoxContainer = $GameInterface/PlayerPanel/Margin/VBox/NearbyEnemyHealth
 @onready var nearby_enemy_health_value: Label = $GameInterface/PlayerPanel/Margin/VBox/NearbyEnemyHealth/Value
 @onready var nearby_enemy_health_bar: ProgressBar = $GameInterface/PlayerPanel/Margin/VBox/NearbyEnemyHealth/Bar
@@ -61,7 +62,6 @@ var _displayed_player_cell := Vector2i(-1, -1)
 var _displayed_health := -1
 var _displayed_ammo := -1
 var _displayed_noise_state := ""
-var _displayed_enemy_signal := -1
 var _doors: Array[Node] = []
 var _stations: Array[Node] = []
 var _enemies: Array[Node] = []
@@ -69,7 +69,6 @@ var _enemies_killed := 0
 var _next_enemy_id := 1
 var _defeated := false
 var _shoot_cooldown := 0.0
-var _route_update_time_left := ROUTE_UPDATE_INTERVAL
 var _rng := RandomNumberGenerator.new()
 var _hit_flash_tween: Tween
 var _combat_music_active := false
@@ -148,7 +147,6 @@ func _process(delta: float) -> void:
 		return
 
 	_shoot_cooldown = maxf(0.0, _shoot_cooldown - delta)
-	_update_route(delta)
 	if Input.is_action_just_pressed("toggle_ambush") \
 			and player.controls_enabled:
 		player.toggle_ambush_mode()
@@ -209,42 +207,31 @@ func _update_coordinates() -> void:
 	coordinates_label.text = "X: %d  Y: %d" % [player_cell.x, player_cell.y]
 
 
-func _update_route(delta: float) -> void:
-	var target := maze.route_target()
-	if target.x < 0:
-		_route_update_time_left = ROUTE_UPDATE_INTERVAL
-		return
-
-	var player_cell := maze.world_to_cell(player.position)
-	if player_cell.distance_to(target) <= ROUTE_COMPLETION_DISTANCE:
-		maze.clear_route()
-		_route_update_time_left = ROUTE_UPDATE_INTERVAL
-		return
-
-	_route_update_time_left -= delta
-	if _route_update_time_left > 0.0:
-		return
-
-	maze.update_route(player_cell)
-	_route_update_time_left = ROUTE_UPDATE_INTERVAL
-
-
 func _update_player_panel() -> void:
 	if player.health != _displayed_health:
 		_displayed_health = player.health
 		health_value.text = "%d / %d" % [player.health, player.MAX_HEALTH]
+		health_value.modulate = (
+			STATUS_CRITICAL_COLOR
+			if player.health <= CRITICAL_HEALTH_THRESHOLD
+			else STATUS_VALUE_COLOR
+		)
 		health_bar.value = player.health
 
 	if player.ammo != _displayed_ammo:
 		_displayed_ammo = player.ammo
 		ammo_value.text = "%d / %d" % [player.ammo, player.MAX_AMMO]
+		ammo_value.modulate = (
+			STATUS_CRITICAL_COLOR
+			if player.ammo <= CRITICAL_AMMO_THRESHOLD
+			else STATUS_VALUE_COLOR
+		)
 		ammo_bar.value = player.ammo
 	var weapon_readiness := (
 		0.0
 		if player.ammo <= 0
 		else 1.0 - _shoot_cooldown / PLAYER_SHOOT_INTERVAL
 	)
-	weapon_ready_bar.value = weapon_readiness * 100.0
 	player.set_aim_indicator_readiness(weapon_readiness)
 
 	var noise_state := (
@@ -267,11 +254,8 @@ func _update_player_panel() -> void:
 	noise_bar.visible = not player.ambush_mode
 	if noise_bar.visible:
 		noise_bar.value = player.noise_level * 100.0
+	ambush_bar.value = player.ambush_energy_ratio() * 100.0
 
-	var enemy_signal_strength := _enemy_signal_strength()
-	if enemy_signal_strength != _displayed_enemy_signal:
-		_displayed_enemy_signal = enemy_signal_strength
-		enemy_meter.strength = enemy_signal_strength
 	_update_nearby_enemy_health()
 	player.set_enemy_indicators(_audible_enemy_indicators())
 
@@ -316,11 +300,6 @@ func save_game() -> bool:
 		"station_discovered": (
 			not _stations.is_empty() and _stations[0].discovered
 		),
-		"route_target": (
-			[maze.route_target().x, maze.route_target().y]
-			if maze.route_target().x >= 0
-			else []
-		),
 		"enemies": _enemies.map(func(enemy: Node): return enemy.save_data()),
 		"enemies_killed": _enemies_killed,
 	}
@@ -356,17 +335,6 @@ func _restore_game(save_data: Dictionary) -> void:
 	else:
 		_create_generated_doors()
 	_refresh_safe_zone()
-	var saved_route_target: Array = save_data.get("route_target", [])
-	if saved_route_target.size() == 2:
-		var target := Vector2i(
-			int(saved_route_target[0]),
-			int(saved_route_target[1])
-		)
-		if maze.is_cell_explored(target) and not maze.is_wall(target):
-			maze.set_route_target(
-				target,
-				maze.world_to_cell(player.position)
-			)
 	_enemies_killed = int(save_data.get("enemies_killed", 0))
 	if save_data.has("enemies"):
 		for index in save_data.enemies.size():
@@ -825,27 +793,6 @@ func _maintain_enemy_population() -> void:
 			return
 		occupied_cells[cell] = true
 		_create_enemy(cell, _rng.randi())
-
-
-func _enemy_signal_strength() -> int:
-	var player_cell: Vector2i = maze.world_to_cell(player.position)
-	var closest_distance := INF
-	for enemy in _enemies:
-		if enemy.dead:
-			continue
-		var enemy_cell: Vector2i = maze.world_to_cell(enemy.position)
-		closest_distance = minf(
-			closest_distance,
-			Vector2(enemy_cell - player_cell).length()
-		)
-
-	if closest_distance <= 10.0:
-		return 3
-	if closest_distance <= 20.0:
-		return 2
-	if closest_distance <= ENEMY_AUDIBLE_RANGE:
-		return 1
-	return 0
 
 
 func _audible_enemy_indicators() -> Array[Dictionary]:

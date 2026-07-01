@@ -1,9 +1,6 @@
 extends Control
 
-const MAP_CELL_SIZE := 40.0
 const MIN_MAP_CELL_SIZE := 16.0
-const MAX_MAP_CELL_SIZE := 72.0
-const ZOOM_FACTOR := 1.2
 const SCROLL_SPEED := 420.0
 const MAP_MARGIN := 80.0
 const BACKGROUND_COLOR := Color("07101d")
@@ -22,13 +19,12 @@ const TEXT_COLOR := Color("d8e7f5")
 @onready var map_content: Control = $MapViewport/MapContent
 
 var _scroll_position := Vector2.ZERO
-var _cell_size := MAP_CELL_SIZE
+var _cell_size := MIN_MAP_CELL_SIZE
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	resized.connect(_on_resized)
-	map_viewport.gui_input.connect(_on_map_viewport_gui_input)
 	map_content.setup(maze, player, doors, stations, enemies, _cell_size)
 
 
@@ -45,17 +41,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		_close_map()
 		get_viewport().set_input_as_handled()
 		return
-
-	if event is InputEventMouseButton:
-		var mouse_event := event as InputEventMouseButton
-		if mouse_event.pressed \
-				and mouse_event.button_index == MOUSE_BUTTON_RIGHT \
-				and not map_viewport.get_global_rect().has_point(
-					mouse_event.position
-				):
-			maze.clear_route()
-			_update_map_content()
-			get_viewport().set_input_as_handled()
 
 
 func _process(delta: float) -> void:
@@ -86,57 +71,8 @@ func _process(delta: float) -> void:
 		_update_map_content()
 
 
-func _on_map_viewport_gui_input(event: InputEvent) -> void:
-	if not visible or not event is InputEventMouseButton:
-		return
-
-	var mouse_event := event as InputEventMouseButton
-	if not mouse_event.pressed:
-		return
-
-	if mouse_event.button_index == MOUSE_BUTTON_RIGHT:
-		_toggle_route_target(mouse_event.position)
-		map_viewport.accept_event()
-		return
-
-	var zoom_factor := 1.0
-	if mouse_event.button_index == MOUSE_BUTTON_WHEEL_UP:
-		zoom_factor = ZOOM_FACTOR
-	elif mouse_event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-		zoom_factor = 1.0 / ZOOM_FACTOR
-	else:
-		return
-
-	_zoom_at(mouse_event.position, zoom_factor)
-	map_viewport.accept_event()
-
-
-func _toggle_route_target(mouse_position: Vector2) -> void:
-	var map_origin := map_viewport.size * 0.5 - _scroll_position
-	var map_position := mouse_position - map_origin
-	var target_cell := Vector2i(
-		floori(map_position.x / _cell_size),
-		floori(map_position.y / _cell_size)
-	)
-	var grid_size := maze.grid_size()
-	var inside_map := target_cell.x >= 0 \
-			and target_cell.x < grid_size.x \
-			and target_cell.y >= 0 \
-			and target_cell.y < grid_size.y
-	if not inside_map \
-			or not maze.is_cell_explored(target_cell) \
-			or maze.is_wall(target_cell) \
-			or target_cell == maze.route_target():
-		maze.clear_route()
-	else:
-		maze.set_route_target(
-			target_cell,
-			maze.world_to_cell(player.position)
-		)
-	_update_map_content()
-
-
 func _open_map() -> void:
+	_cell_size = MIN_MAP_CELL_SIZE
 	var player_cell := maze.world_to_cell(player.position)
 	_scroll_position = (Vector2(player_cell) + Vector2.ONE * 0.5) * _cell_size
 	_clamp_scroll_position()
@@ -173,27 +109,6 @@ func _clamp_scroll_position() -> void:
 			)
 
 
-func _zoom_at(mouse_position: Vector2, zoom_factor: float) -> void:
-	var old_cell_size := _cell_size
-	var new_cell_size := clampf(
-		old_cell_size * zoom_factor,
-		MIN_MAP_CELL_SIZE,
-		MAX_MAP_CELL_SIZE
-	)
-	if is_equal_approx(new_cell_size, old_cell_size):
-		return
-
-	var offset_from_center := mouse_position - map_viewport.size * 0.5
-	var map_position := (
-		_scroll_position + offset_from_center
-	) / old_cell_size
-
-	_cell_size = new_cell_size
-	_scroll_position = map_position * _cell_size - offset_from_center
-	_clamp_scroll_position()
-	_update_map_content()
-
-
 func _update_map_content() -> void:
 	map_content.scroll_position = _scroll_position
 	map_content.cell_size = _cell_size
@@ -214,8 +129,7 @@ func _draw() -> void:
 	draw_string(
 		ThemeDB.fallback_font,
 		Vector2(MAP_MARGIN, 48.0),
-		"MAP    RMB - route    WASD / arrows - scroll    Wheel - zoom"
-				+ "    Tab / Esc - close",
+		"MAP    WASD / arrows - scroll    Tab / Esc - close",
 		HORIZONTAL_ALIGNMENT_LEFT,
 		-1.0,
 		20,

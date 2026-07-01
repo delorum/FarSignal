@@ -15,8 +15,6 @@ const COLLISION_RADIUS := 6
 const COLLISION_DIAMETER := COLLISION_RADIUS * 2 + 1
 const FLOOR_CELL_SEARCH_ATTEMPTS := 256
 const DRAW_RADIUS := 16
-const ROUTE_COLOR := Color("8fd8c0")
-const ROUTE_TARGET_COLOR := Color("c3f5e5")
 const FLOOR_TILE_COUNT := 8
 const WALL_TILE_OFFSET := 8
 const WALL_TILE_COUNT := 8
@@ -61,9 +59,6 @@ var _room_specs: Array[Dictionary] = []
 var _station_specs: Array[Dictionary] = []
 var _closed_door_cells: Dictionary = {}
 var _safe_cell_mask := PackedByteArray()
-var _route_target := Vector2i(-1, -1)
-var _route_start := Vector2i(-1, -1)
-var _route_path: Array[Vector2i] = []
 
 
 func _ready() -> void:
@@ -113,43 +108,6 @@ func is_cell_explored(cell: Vector2i) -> bool:
 
 func is_cell_safe(cell: Vector2i) -> bool:
 	return _is_inside(cell) and _safe_cell_mask[_cell_index(cell)] == 1
-
-
-func route_target() -> Vector2i:
-	return _route_target
-
-
-func route_start() -> Vector2i:
-	return _route_start
-
-
-func route_path() -> Array[Vector2i]:
-	return _route_path.duplicate()
-
-
-func set_route_target(target: Vector2i, start: Vector2i) -> void:
-	_route_target = target
-	update_route(start)
-
-
-func clear_route() -> void:
-	_route_target = Vector2i(-1, -1)
-	_route_start = Vector2i(-1, -1)
-	_route_path.clear()
-	queue_redraw()
-
-
-func update_route(start: Vector2i) -> void:
-	_route_start = start
-	_route_path.clear()
-	if not _is_inside(_route_target) \
-			or not is_cell_explored(_route_target) \
-			or _is_wall(_route_target):
-		queue_redraw()
-		return
-
-	_route_path = find_path(start, _route_target, false, true, true)
-	queue_redraw()
 
 
 func generation_seed() -> int:
@@ -1270,8 +1228,6 @@ func _draw() -> void:
 				false,
 				SAFE_FLOOR_TILE_MODULATE if safe else Color.WHITE
 			)
-	_draw_route()
-
 
 func _draw_environment_tile(
 	cell: Vector2i,
@@ -1301,30 +1257,3 @@ func _draw_environment_tile(
 
 func _cell_visual_hash(cell: Vector2i) -> int:
 	return cell.x * 73856093 ^ cell.y * 19349663 ^ _generation_seed
-
-
-func _draw_route() -> void:
-	if _route_target.x < 0:
-		return
-
-	var points := PackedVector2Array()
-	if _route_start.x >= 0:
-		points.append(cell_to_world(_route_start))
-	for cell in _route_path:
-		points.append(cell_to_world(cell))
-	if points.size() >= 2:
-		draw_polyline(points, ROUTE_COLOR, 4.0, true)
-
-	draw_circle(
-		cell_to_world(_route_target),
-		CELL_SIZE * 0.15,
-		ROUTE_TARGET_COLOR
-	)
-	draw_circle(
-		cell_to_world(_route_target),
-		CELL_SIZE * 0.15,
-		ROUTE_COLOR,
-		false,
-		2.0,
-		true
-	)
