@@ -1,4 +1,4 @@
-[gd_scene load_steps=20 format=3 uid="uid://dw58ygdj26wbu"]
+[gd_scene load_steps=21 format=3 uid="uid://dw58ygdj26wbu"]
 
 [ext_resource type="Script" uid="uid://b7t1b5rs3b076" path="res://scripts/game.gd" id="1_game"]
 [ext_resource type="Script" uid="uid://1jcmw0g6148v" path="res://scripts/maze.gd" id="2_maze"]
@@ -11,6 +11,7 @@
 [ext_resource type="Script" path="res://scripts/enemy_target_markers.gd" id="12_enemy_targets"]
 [ext_resource type="PackedScene" path="res://scenes/settings_menu.tscn" id="13_settings"]
 [ext_resource type="Texture2D" path="res://assets/characters/player/player_sheet_80x64.png" id="14_player_texture"]
+[ext_resource type="Script" path="res://scripts/victory_menu.gd" id="15_victory"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_player"]
 radius = 14.0
@@ -176,6 +177,24 @@ theme_override_styles/fill = SubResource("StyleBoxFlat_ammo_fill")
 max_value = 30.0
 value = 30.0
 show_percentage = false
+
+[node name="EnergyCoresValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
+theme_override_font_sizes/font_size = 18
+text = "Энергоядра: 0"
+
+[node name="EnergyValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
+theme_override_font_sizes/font_size = 18
+text = "Энергия: 0"
+
+[node name="DoorsValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
+theme_override_font_sizes/font_size = 18
+text = "Двери: 0"
 
 [node name="NoiseSpacer" type="Control" parent="GameInterface/PlayerPanel/Margin/VBox"]
 custom_minimum_size = Vector2(0, 18)
@@ -480,6 +499,13 @@ theme_override_font_sizes/font_size = 40
 text = "Станция"
 horizontal_alignment = 1
 
+[node name="EnergyValue" type="Label" parent="StationOverlay/StationMenu/Background/Center/Menu"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
+theme_override_font_sizes/font_size = 22
+text = "Энергия: 0"
+horizontal_alignment = 1
+
 [node name="Separator" type="Control" parent="StationOverlay/StationMenu/Background/Center/Menu"]
 custom_minimum_size = Vector2(0, 20)
 layout_mode = 2
@@ -489,19 +515,66 @@ mouse_filter = 2
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
-text = "Пополнить боезапас"
+text = "Купить 10 патронов за 10 энергии"
 
 [node name="HealthButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu"]
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
-text = "Пополнить здоровье"
+text = "Восстановить 20 здоровья за 10 энергии"
+
+[node name="ExchangeButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Сдать энергоядра"
+
+[node name="DoorButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Купить дверь за 10 энергии"
+
+[node name="InstructionsButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Инструкции"
 
 [node name="ExitButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu"]
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Выход"
+
+[node name="InstructionsScreen" type="VBoxContainer" parent="StationOverlay/StationMenu/Background/Center"]
+visible = false
+custom_minimum_size = Vector2(520, 0)
+layout_mode = 2
+theme_override_constants/separation = 22
+
+[node name="Title" type="Label" parent="StationOverlay/StationMenu/Background/Center/InstructionsScreen"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.345, 0.839, 0.561, 1)
+theme_override_font_sizes/font_size = 40
+text = "Инструкции"
+horizontal_alignment = 1
+
+[node name="InstructionsText" type="Label" parent="StationOverlay/StationMenu/Background/Center/InstructionsScreen"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_colors/font_color = Color(0.82, 0.88, 0.94, 1)
+theme_override_font_sizes/font_size = 22
+text = "Инструкции станции"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="BackButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/InstructionsScreen"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Назад"
 
 [node name="DefeatOverlay" type="CanvasLayer" parent="."]
 layer = 40
@@ -562,6 +635,65 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Главное меню"
 
+[node name="VictoryOverlay" type="CanvasLayer" parent="."]
+layer = 40
+
+[node name="VictoryMenu" type="Control" parent="VictoryOverlay"]
+process_mode = 3
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("15_victory")
+
+[node name="Background" type="ColorRect" parent="VictoryOverlay/VictoryMenu"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.02, 0.045, 0.035, 0.96)
+
+[node name="Center" type="CenterContainer" parent="VictoryOverlay/VictoryMenu/Background"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Menu" type="VBoxContainer" parent="VictoryOverlay/VictoryMenu/Background/Center"]
+custom_minimum_size = Vector2(440, 0)
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="Title" type="Label" parent="VictoryOverlay/VictoryMenu/Background/Center/Menu"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.345, 0.839, 0.561, 1)
+theme_override_font_sizes/font_size = 48
+text = "Победа"
+horizontal_alignment = 1
+
+[node name="Separator" type="Control" parent="VictoryOverlay/VictoryMenu/Background/Center/Menu"]
+custom_minimum_size = Vector2(0, 24)
+layout_mode = 2
+
+[node name="KillsValue" type="Label" parent="VictoryOverlay/VictoryMenu/Background/Center/Menu"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Убито врагов: 0"
+horizontal_alignment = 1
+
+[node name="MainMenuButton" type="Button" parent="VictoryOverlay/VictoryMenu/Background/Center/Menu"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Главное меню"
+
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/PauseMenu/ContinueButton" to="PauseOverlay/PauseMenu" method="_on_continue_pressed"]
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/PauseMenu/NewGameButton" to="PauseOverlay/PauseMenu" method="_on_new_game_pressed"]
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/PauseMenu/ControlsButton" to="PauseOverlay/PauseMenu" method="_on_controls_pressed"]
@@ -573,5 +705,10 @@ text = "Главное меню"
 [connection signal="back_requested" from="PauseOverlay/PauseMenu/CenterContainer/SettingsMenu" to="PauseOverlay/PauseMenu" method="_on_settings_back_requested"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/AmmoButton" to="StationOverlay/StationMenu" method="_on_ammo_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/HealthButton" to="StationOverlay/StationMenu" method="_on_health_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ExchangeButton" to="StationOverlay/StationMenu" method="_on_exchange_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/DoorButton" to="StationOverlay/StationMenu" method="_on_door_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/InstructionsButton" to="StationOverlay/StationMenu" method="_on_instructions_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ExitButton" to="StationOverlay/StationMenu" method="_on_exit_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/InstructionsScreen/BackButton" to="StationOverlay/StationMenu" method="_on_instructions_back_pressed"]
 [connection signal="pressed" from="DefeatOverlay/DefeatMenu/Background/Center/Menu/MainMenuButton" to="DefeatOverlay/DefeatMenu" method="_on_main_menu_pressed"]
+[connection signal="pressed" from="VictoryOverlay/VictoryMenu/Background/Center/Menu/MainMenuButton" to="VictoryOverlay/VictoryMenu" method="_on_main_menu_pressed"]

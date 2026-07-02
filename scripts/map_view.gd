@@ -15,6 +15,7 @@ const TEXT_COLOR := Color("d8e7f5")
 @onready var pause_menu: Control = $"../../PauseOverlay/PauseMenu"
 @onready var station_menu: Control = $"../../StationOverlay/StationMenu"
 @onready var defeat_menu: Control = $"../../DefeatOverlay/DefeatMenu"
+@onready var victory_menu: Control = $"../../VictoryOverlay/VictoryMenu"
 @onready var map_viewport: Control = $MapViewport
 @onready var map_content: Control = $MapViewport/MapContent
 
@@ -45,7 +46,10 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _process(delta: float) -> void:
 	if Input.is_action_just_pressed("toggle_map"):
-		if pause_menu.visible or station_menu.visible or defeat_menu.visible:
+		if pause_menu.visible \
+				or station_menu.visible \
+				or defeat_menu.visible \
+				or victory_menu.visible:
 			return
 		if visible:
 			_close_map()

@@ -771,10 +771,36 @@ func _rasterize_layout(
 	_add_stations(rng)
 	_remove_disconnected_floor_pockets()
 	_add_rooms(rng)
+	_add_exit_door(rng)
 
 	for station_spec in _station_specs:
 		for door_spec in station_spec.doors:
 			_door_specs.append(door_spec)
+
+
+func _add_exit_door(rng: RandomNumberGenerator) -> void:
+	for attempt in FLOOR_CELL_SEARCH_ATTEMPTS:
+		var x := rng.randi_range(1, COLUMNS - 2)
+		var first_floor_y := -1
+		for y in range(1, ROWS):
+			if not _is_wall(Vector2i(x, y)):
+				first_floor_y = y
+				break
+		if first_floor_y < 0:
+			continue
+
+		for y in range(0, first_floor_y + 1):
+			_cells[y][x] = 0
+
+		_door_specs.append({
+			"cell": Vector2i(x, 0),
+			"horizontal_passage": false,
+			"exit_door": true,
+			"locked": false,
+		})
+		return
+
+	push_warning("Could not place exit door")
 
 
 func _add_rooms(rng: RandomNumberGenerator) -> void:

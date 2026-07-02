@@ -179,7 +179,8 @@ func _draw_dead_enemies(map_origin: Vector2) -> void:
 			+ (Vector2(enemy_cell) + Vector2.ONE * 0.5) * cell_size
 		)
 		var radius := cell_size * 0.22
-		draw_circle(center, radius, DEAD_ENEMY_COLOR)
+		if enemy.has_energy_core():
+			draw_circle(center, radius, DEAD_ENEMY_COLOR)
 		draw_circle(
 			center,
 			radius,

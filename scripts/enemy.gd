@@ -7,7 +7,8 @@ const ALERT_SPEED := 200.0
 const CELL_SIZE := 48.0
 const AMBUSH_PATROL_COLOR := Color("69717a")
 const AMBUSH_ALERT_COLOR := Color("bd3f43")
-const FALLEN_SPRITE_MODULATE := Color(0.58, 0.6, 0.63, 1.0)
+const FALLEN_CORE_MODULATE := Color(1.0, 0.95, 0.55, 1.0)
+const FALLEN_EMPTY_MODULATE := Color(0.28, 0.3, 0.34, 1.0)
 const DEAD_Z_INDEX := 0
 const ALIVE_Z_INDEX := 1
 const AMBUSH_ARROW_LENGTH := 24.0
@@ -15,6 +16,7 @@ const AMBUSH_ARROW_HEAD_LENGTH := 7.0
 const AMBUSH_ARROW_HEAD_ANGLE := deg_to_rad(32.0)
 const HEARING_INTERVAL := 5.0
 const SHOOT_INTERVAL := 2.0
+const BULLET_SPEED := 650.0
 const STEP_HEARING_RANGE := 20.0
 const VISION_RANGE := 30.0
 const TARGET_ATTEMPTS := 12
@@ -45,6 +47,7 @@ enum State {
 
 var health := MAX_HEALTH
 var dead := false
+var energy_core_collected := false
 var state := State.PATROL
 var enemy_id := 0
 var _facing := Vector2.LEFT
@@ -102,6 +105,7 @@ func restore_state(saved_data: Dictionary) -> void:
 		position = Vector2(float(saved_position[0]), float(saved_position[1]))
 	health = clampi(int(saved_data.get("health", MAX_HEALTH)), 0, MAX_HEALTH)
 	dead = bool(saved_data.get("dead", health <= 0))
+	energy_core_collected = bool(saved_data.get("energy_core_collected", false))
 	if dead:
 		health = 0
 		_apply_dead_state()
@@ -113,6 +117,7 @@ func save_data() -> Dictionary:
 		"position": [position.x, position.y],
 		"health": health,
 		"dead": dead,
+		"energy_core_collected": energy_core_collected,
 	}
 
 
@@ -176,6 +181,7 @@ func take_damage(amount: int) -> bool:
 		return false
 
 	dead = true
+	energy_core_collected = false
 	_active = false
 	velocity = Vector2.ZERO
 	_apply_dead_state()
@@ -189,6 +195,18 @@ func show_damage_number(amount: int, direction: Vector2) -> void:
 	_game.spawn_damage_number(position, amount, direction)
 
 
+func has_energy_core() -> bool:
+	return dead and not energy_core_collected
+
+
+func collect_energy_core() -> bool:
+	if not has_energy_core():
+		return false
+	energy_core_collected = true
+	_update_dead_sprite_modulate()
+	return true
+
+
 func _apply_dead_state() -> void:
 	z_index = DEAD_Z_INDEX
 	collision_layer = 0
@@ -198,9 +216,18 @@ func _apply_dead_state() -> void:
 	if enemy_sprite != null:
 		enemy_sprite.visible = false
 	if fallen_sprite != null:
-		fallen_sprite.modulate = FALLEN_SPRITE_MODULATE
 		fallen_sprite.visible = true
+		_update_dead_sprite_modulate()
 	queue_redraw()
+
+
+func _update_dead_sprite_modulate() -> void:
+	if fallen_sprite != null:
+		fallen_sprite.modulate = (
+			FALLEN_EMPTY_MODULATE
+			if energy_core_collected
+			else FALLEN_CORE_MODULATE
+		)
 
 
 func _process(delta: float) -> void:
@@ -227,6 +254,10 @@ func _physics_process(delta: float) -> void:
 		player_cell - _maze.world_to_cell(position)
 	).length()
 	var direction_to_player := position.direction_to(_player.position)
+	var aim_position := _predicted_player_position()
+	var aim_direction := position.direction_to(aim_position)
+	if aim_direction.is_zero_approx():
+		aim_direction = direction_to_player
 	var sees_player := distance_to_player <= VISION_RANGE \
 			and _facing.dot(direction_to_player) > 0.0 \
 			and _maze.has_line_of_sight(position, _player.position, VISION_RANGE)
@@ -244,18 +275,23 @@ func _physics_process(delta: float) -> void:
 		_last_known_player_cell = player_cell
 		if state != State.COMBAT:
 			_enter_combat()
-		_desired_facing = direction_to_player
-		if not _game.enemy_has_clear_shot(position, _player.position):
-			if _firing_position_repath_cooldown <= 0.0:
-				_firing_position_repath_cooldown = (
-					FIRING_POSITION_REPATH_INTERVAL
-				)
-				_try_reposition_for_clear_shot(player_cell)
-			return
+		_desired_facing = aim_direction
+		if not _game.enemy_has_clear_shot(position, aim_position):
+			if _game.enemy_has_clear_shot(position, _player.position):
+				aim_position = _player.position
+				aim_direction = direction_to_player
+				_desired_facing = aim_direction
+			else:
+				if _firing_position_repath_cooldown <= 0.0:
+					_firing_position_repath_cooldown = (
+						FIRING_POSITION_REPATH_INTERVAL
+					)
+					_try_reposition_for_clear_shot(player_cell)
+				return
 		if _try_start_coordinated_flank(player_cell):
 			return
-		if _shoot_cooldown <= 0.0 and _is_aimed_at(direction_to_player):
-			_game.spawn_enemy_bullet(position, _facing, self)
+		if _shoot_cooldown <= 0.0 and _is_aimed_at(aim_direction):
+			_game.spawn_enemy_bullet(position, aim_direction, self)
 			_shoot_cooldown = SHOOT_INTERVAL
 			_try_start_combat_maneuver(direction_to_player)
 		return
@@ -491,6 +527,50 @@ func _cardinal_direction(direction: Vector2) -> Vector2i:
 	if absf(direction.x) >= absf(direction.y):
 		return Vector2i(int(signf(direction.x)), 0)
 	return Vector2i(0, int(signf(direction.y)))
+
+
+func _predicted_player_position() -> Vector2:
+	var target_velocity: Vector2 = _player.velocity
+	if target_velocity.length_squared() <= 1.0:
+		return _player.position
+
+	var intercept_time := _intercept_time(
+		_player.position - position,
+		target_velocity
+	)
+	if intercept_time <= 0.0:
+		return _player.position
+	return _player.position + target_velocity * intercept_time
+
+
+func _intercept_time(
+	relative_position: Vector2,
+	target_velocity: Vector2
+) -> float:
+	var projectile_speed_squared := BULLET_SPEED * BULLET_SPEED
+	var a := target_velocity.length_squared() - projectile_speed_squared
+	var b := 2.0 * relative_position.dot(target_velocity)
+	var c := relative_position.length_squared()
+
+	if absf(a) < 0.001:
+		if absf(b) < 0.001:
+			return 0.0
+		return maxf(0.0, -c / b)
+
+	var discriminant := b * b - 4.0 * a * c
+	if discriminant < 0.0:
+		return 0.0
+
+	var sqrt_discriminant := sqrt(discriminant)
+	var denominator := 2.0 * a
+	var t1 := (-b - sqrt_discriminant) / denominator
+	var t2 := (-b + sqrt_discriminant) / denominator
+	var best_time := -1.0
+	if t1 > 0.0:
+		best_time = t1
+	if t2 > 0.0 and (best_time < 0.0 or t2 < best_time):
+		best_time = t2
+	return maxf(0.0, best_time)
 
 
 func _update_facing(delta: float) -> void:

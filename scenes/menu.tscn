@@ -39,7 +39,7 @@ theme_override_constants/separation = 18
 layout_mode = 2
 theme_override_colors/font_color = Color(0.345, 0.839, 0.961, 1)
 theme_override_font_sizes/font_size = 52
-text = "Far Signal"
+text = "Далекий сигнал"
 horizontal_alignment = 1
 
 [node name="TitleSeparator" type="Control" parent="CenterContainer/MainMenu"]

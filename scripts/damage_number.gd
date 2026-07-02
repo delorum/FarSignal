@@ -6,7 +6,7 @@ const FONT_SIZE := 22
 const TEXT_COLOR := Color("ffdf78")
 const OUTLINE_COLOR := Color("24170b")
 
-var _damage := 0
+var _text := ""
 var _direction := Vector2.RIGHT
 var _elapsed := 0.0
 
@@ -17,7 +17,21 @@ func setup(
 	flight_direction: Vector2
 ) -> void:
 	position = start_position
-	_damage = damage
+	_text = str(damage)
+	_setup_direction(flight_direction)
+
+
+func setup_text(
+	start_position: Vector2,
+	text: String,
+	flight_direction: Vector2
+) -> void:
+	position = start_position
+	_text = text
+	_setup_direction(flight_direction)
+
+
+func _setup_direction(flight_direction: Vector2) -> void:
 	_direction = flight_direction.normalized()
 	if _direction.is_zero_approx():
 		_direction = Vector2.RIGHT
@@ -34,7 +48,7 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
-	var text := str(_damage)
+	var text := _text
 	var font := ThemeDB.fallback_font
 	var text_size := font.get_string_size(
 		text,

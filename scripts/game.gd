@@ -24,6 +24,7 @@ const PLAYER_SHOOT_INTERVAL := 1.0
 const PLAYER_RECOIL_ENABLED := false
 const CRITICAL_HEALTH_THRESHOLD := 30
 const CRITICAL_AMMO_THRESHOLD := 10
+const ENERGY_CORE_PICKUP_DISTANCE := 0.65 * Maze.CELL_SIZE
 const STATUS_VALUE_COLOR := Color(0.92, 0.94, 0.97, 1.0)
 const STATUS_CRITICAL_COLOR := Color(0.9, 0.25, 0.27, 1.0)
 const NOISE_SILENT_COLOR := Color("58d68d")
@@ -32,6 +33,8 @@ const PANEL_WIDTH_RATIO := 0.2
 const MIN_PANEL_WIDTH := 260.0
 const MAX_PANEL_WIDTH := 360.0
 const HIT_FLASH_DURATION := 0.25
+const LOCKED_DOOR_LABEL := "закрыто"
+const EXIT_DOOR_LOCKED_LABEL := "Нужна безопасная зона"
 
 @onready var maze: Maze = $Maze
 @onready var player: Player = $Player
@@ -49,6 +52,9 @@ const HIT_FLASH_DURATION := 0.25
 @onready var health_bar: ProgressBar = $GameInterface/PlayerPanel/Margin/VBox/HealthBar
 @onready var ammo_value: Label = $GameInterface/PlayerPanel/Margin/VBox/AmmoValue
 @onready var ammo_bar: ProgressBar = $GameInterface/PlayerPanel/Margin/VBox/AmmoBar
+@onready var energy_cores_value: Label = $GameInterface/PlayerPanel/Margin/VBox/EnergyCoresValue
+@onready var energy_value: Label = $GameInterface/PlayerPanel/Margin/VBox/EnergyValue
+@onready var doors_value: Label = $GameInterface/PlayerPanel/Margin/VBox/DoorsValue
 @onready var noise_state_value: Label = $GameInterface/PlayerPanel/Margin/VBox/NoiseStateValue
 @onready var noise_bar: ProgressBar = $GameInterface/PlayerPanel/Margin/VBox/NoiseBar
 @onready var ambush_bar: ProgressBar = $GameInterface/PlayerPanel/Margin/VBox/AmbushBar
@@ -57,10 +63,14 @@ const HIT_FLASH_DURATION := 0.25
 @onready var nearby_enemy_health_bar: ProgressBar = $GameInterface/PlayerPanel/Margin/VBox/NearbyEnemyHealth/Bar
 @onready var station_menu: Control = $StationOverlay/StationMenu
 @onready var defeat_menu: Control = $DefeatOverlay/DefeatMenu
+@onready var victory_menu: Control = $VictoryOverlay/VictoryMenu
 
 var _displayed_player_cell := Vector2i(-1, -1)
 var _displayed_health := -1
 var _displayed_ammo := -1
+var _displayed_energy_cores := -1
+var _displayed_energy := -1
+var _displayed_door_inventory := -1
 var _displayed_noise_state := ""
 var _doors: Array[Node] = []
 var _stations: Array[Node] = []
@@ -68,6 +78,8 @@ var _enemies: Array[Node] = []
 var _enemies_killed := 0
 var _next_enemy_id := 1
 var _defeated := false
+var _victorious := false
+var _station_instructions_seen := false
 var _shoot_cooldown := 0.0
 var _rng := RandomNumberGenerator.new()
 var _hit_flash_tween: Tween
@@ -142,6 +154,8 @@ func _show_hit_flash() -> void:
 
 
 func _process(delta: float) -> void:
+	if _victorious:
+		return
 	if not _defeated and player.health <= 0:
 		_show_defeat()
 		return
@@ -164,6 +178,7 @@ func _process(delta: float) -> void:
 
 	_update_visibility()
 	_update_coordinates()
+	_pick_up_energy_cores()
 	_update_player_panel()
 	_update_music_state()
 
@@ -227,6 +242,15 @@ func _update_player_panel() -> void:
 			else STATUS_VALUE_COLOR
 		)
 		ammo_bar.value = player.ammo
+	if player.energy_cores != _displayed_energy_cores:
+		_displayed_energy_cores = player.energy_cores
+		energy_cores_value.text = "Энергоядра: %d" % player.energy_cores
+	if player.energy != _displayed_energy:
+		_displayed_energy = player.energy
+		energy_value.text = "Энергия: %d" % player.energy
+	if player.door_inventory != _displayed_door_inventory:
+		_displayed_door_inventory = player.door_inventory
+		doors_value.text = "Двери: %d" % player.door_inventory
 	var weapon_readiness := (
 		0.0
 		if player.ammo <= 0
@@ -286,6 +310,17 @@ func _update_nearby_enemy_health() -> void:
 	nearby_enemy_health_bar.value = closest_enemy.health
 
 
+func _pick_up_energy_cores() -> void:
+	for enemy: Enemy in _enemies:
+		if not enemy.has_energy_core():
+			continue
+		if enemy.position.distance_to(player.position) > ENERGY_CORE_PICKUP_DISTANCE:
+			continue
+		if enemy.collect_energy_core():
+			player.collect_energy_core()
+			_update_player_panel()
+
+
 func save_game() -> bool:
 	var save_data := {
 		"version": SaveStore.SAVE_VERSION,
@@ -295,11 +330,15 @@ func save_game() -> bool:
 		"player_facing": player.facing_direction_for_save(),
 		"player_health": player.health,
 		"player_ammo": player.ammo,
+		"player_energy_cores": player.energy_cores,
+		"player_energy": player.energy,
+		"player_doors": player.door_inventory,
 		"explored_cells": maze.explored_cells_for_save(),
 		"doors": _doors.map(func(door: Node): return door.save_data()),
 		"station_discovered": (
 			not _stations.is_empty() and _stations[0].discovered
 		),
+		"station_instructions_seen": _station_instructions_seen,
 		"enemies": _enemies.map(func(enemy: Node): return enemy.save_data()),
 		"enemies_killed": _enemies_killed,
 	}
@@ -319,13 +358,19 @@ func _restore_game(save_data: Dictionary) -> void:
 	player.restore_facing_direction(save_data.player_facing)
 	player.restore_status(
 		int(save_data.get("player_health", player.MAX_HEALTH)),
-		int(save_data.get("player_ammo", player.MAX_AMMO))
+		int(save_data.get("player_ammo", player.MAX_AMMO)),
+		int(save_data.get("player_energy_cores", 0)),
+		int(save_data.get("player_energy", 0)),
+		int(save_data.get("player_doors", 0))
 	)
 	maze.restore_explored_cells(save_data.explored_cells)
 	if not _stations.is_empty():
 		_stations[0].discovered = bool(
 			save_data.get("station_discovered", false)
 		)
+	_station_instructions_seen = bool(
+		save_data.get("station_instructions_seen", false)
+	)
 	if save_data.has("doors"):
 		for door_data in save_data.doors:
 			if _is_generated_door_data(door_data) \
@@ -568,6 +613,9 @@ func _toggle_player_door_at(target_cell: Vector2i) -> void:
 			_remove_player_door(existing_door)
 		return
 
+	if player.door_inventory <= 0:
+		return
+
 	if maze.is_wall(target_cell):
 		return
 
@@ -589,8 +637,10 @@ func _toggle_player_door_at(target_cell: Vector2i) -> void:
 		true
 	)
 	if door != null:
+		player.door_inventory -= 1
 		AudioManager.play_door_place()
 		_refresh_safe_zone()
+		_update_player_panel()
 
 
 func _door_at(cell: Vector2i) -> Door:
@@ -605,7 +655,9 @@ func _remove_player_door(door: Door) -> void:
 	maze.set_door_closed(door.cell, false)
 	_doors.erase(door)
 	door.queue_free()
+	player.door_inventory += 1
 	_refresh_safe_zone()
+	_update_player_panel()
 
 
 func _refresh_safe_zone() -> void:
@@ -661,7 +713,22 @@ func _interact_with_door() -> void:
 			closest_door = door
 			closest_distance = distance
 
-	if closest_door != null and closest_door.toggle(player.position):
+	if closest_door == null:
+		return
+
+	if _is_exit_door(closest_door):
+		_interact_with_exit_door(closest_door)
+		return
+
+	if closest_door.locked and _is_start_station_locked_door(closest_door):
+		spawn_floating_text(
+			closest_door.position + Vector2(0.0, -Door.CELL_SIZE * 0.35),
+			LOCKED_DOOR_LABEL,
+			Vector2.UP
+		)
+		return
+
+	if closest_door.toggle(player.position):
 		if closest_door.is_open:
 			AudioManager.play_door_open()
 		else:
@@ -670,6 +737,29 @@ func _interact_with_door() -> void:
 			closest_door.cell,
 			not closest_door.is_open
 		)
+
+
+func _interact_with_exit_door(door: Door) -> void:
+	if not maze.is_cell_safe(door.cell + Vector2i.DOWN):
+		spawn_floating_text(
+			door.position + Vector2(0.0, Door.CELL_SIZE * 0.35),
+			EXIT_DOOR_LOCKED_LABEL,
+			Vector2.DOWN
+		)
+		return
+
+	if door.toggle(player.position):
+		AudioManager.play_door_open()
+		maze.set_door_closed(door.cell, false)
+		_show_victory()
+
+
+func _is_exit_door(door: Door) -> bool:
+	return bool(_generated_door_spec_at(door.cell).get("exit_door", false))
+
+
+func _is_start_station_locked_door(door: Door) -> bool:
+	return door.cell == maze.station_start_cell() + Vector2i.DOWN
 
 
 func _interact_with_station() -> bool:
@@ -696,19 +786,35 @@ func _interact_with_station() -> bool:
 	if closest_station == null:
 		return false
 
+	var show_instructions := not _station_instructions_seen
+	_station_instructions_seen = true
 	closest_station.discover()
-	station_menu.open()
+	station_menu.open(show_instructions)
 	return true
 
 
-func refill_ammo() -> void:
-	player.refill_ammo()
+func buy_ammo() -> bool:
+	var bought := player.buy_ammo()
 	_update_player_panel()
+	return bought
 
 
-func refill_health() -> void:
-	player.refill_health()
+func buy_health() -> bool:
+	var bought := player.buy_health()
 	_update_player_panel()
+	return bought
+
+
+func buy_door() -> bool:
+	var bought := player.buy_door()
+	_update_player_panel()
+	return bought
+
+
+func exchange_energy_cores() -> bool:
+	var exchanged := player.exchange_energy_cores()
+	_update_player_panel()
+	return exchanged
 
 
 func spawn_enemy_bullet(
@@ -760,6 +866,16 @@ func spawn_damage_number(
 	damage_numbers.add_child(damage_number)
 
 
+func spawn_floating_text(
+	start_position: Vector2,
+	text: String,
+	direction: Vector2
+) -> void:
+	var floating_text: Node = DAMAGE_NUMBER_SCENE.instantiate()
+	floating_text.setup_text(start_position, text, direction)
+	damage_numbers.add_child(floating_text)
+
+
 func enemy_killed(_enemy: Node) -> void:
 	_enemies_killed += 1
 	call_deferred("_maintain_enemy_population")
@@ -781,7 +897,7 @@ func attackers_near_player(
 
 func _maintain_enemy_population() -> void:
 	var missing_enemies := ENEMY_COUNT - _living_enemy_count()
-	if missing_enemies <= 0 or _defeated:
+	if missing_enemies <= 0 or _defeated or _victorious:
 		return
 
 	var player_cell := maze.world_to_cell(player.position)
@@ -806,6 +922,9 @@ func _audible_enemy_indicators() -> Array[Dictionary]:
 			indicators.append({
 				"direction": offset.normalized(),
 				"alerted": enemy.state != Enemy.State.PATROL,
+				"can_hear_noise": (
+					offset.length() <= Enemy.STEP_HEARING_RANGE * Maze.CELL_SIZE
+				),
 			})
 	return indicators
 
@@ -824,7 +943,7 @@ func _alert_enemies_to_shot(
 		SHOT_REACTION_DELAY,
 		false
 	).timeout
-	if _defeated:
+	if _defeated or _victorious:
 		return
 
 	for enemy in _enemies:
@@ -839,6 +958,12 @@ func _show_defeat() -> void:
 	_defeated = true
 	player.controls_enabled = false
 	defeat_menu.open(_enemies_killed)
+
+
+func _show_victory() -> void:
+	_victorious = true
+	player.controls_enabled = false
+	victory_menu.open(_enemies_killed)
 
 
 func _shoot() -> void:

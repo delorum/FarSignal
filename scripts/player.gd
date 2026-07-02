@@ -7,10 +7,16 @@ signal damaged
 
 const ENEMY_ARROW_COLOR := Color("bd3f43")
 const ENEMY_ARROW_EDGE_COLOR := Color("e0787b")
-const PATROL_ARROW_COLOR := Color("69717a")
-const PATROL_ARROW_EDGE_COLOR := Color("929ba5")
+const HEARING_ARROW_COLOR := Color("e8fbff")
+const HEARING_ARROW_EDGE_COLOR := Color("8fb7c0")
+const PATROL_ARROW_COLOR := Color("58d68d")
+const PATROL_ARROW_EDGE_COLOR := Color("2f7d52")
 const MAX_HEALTH := 100
 const MAX_AMMO := 30
+const MAX_HEALTH_BUY := 20
+const MAX_AMMO_BUY := 10
+const ENERGY_PER_CORE := 10
+const DOOR_COST := 10
 const ENEMY_ARROW_START := 20.0
 const ENEMY_ARROW_LENGTH := 13.0
 const ENEMY_ARROW_RADIUS_STEP := 6.0
@@ -38,6 +44,9 @@ const AIM_INDICATOR_AMBUSH_ALPHA := 0.45
 var controls_enabled := true
 var health := MAX_HEALTH
 var ammo := MAX_AMMO
+var energy_cores := 0
+var energy := 0
+var door_inventory := 0
 var noise_level := 0.0
 var ambush_energy := AMBUSH_DURATION
 var ambush_mode := false
@@ -77,9 +86,18 @@ func restore_facing_direction(saved_facing: Array) -> void:
 	queue_redraw()
 
 
-func restore_status(saved_health: int, saved_ammo: int) -> void:
+func restore_status(
+	saved_health: int,
+	saved_ammo: int,
+	saved_energy_cores: int = 0,
+	saved_energy: int = 0,
+	saved_door_inventory: int = 0
+) -> void:
 	health = clampi(saved_health, 0, MAX_HEALTH)
 	ammo = clampi(saved_ammo, 0, MAX_AMMO)
+	energy_cores = maxi(0, saved_energy_cores)
+	energy = maxi(0, saved_energy)
+	door_inventory = maxi(0, saved_door_inventory)
 
 
 func consume_ammo() -> bool:
@@ -96,6 +114,80 @@ func refill_health() -> void:
 
 func refill_ammo() -> void:
 	ammo = MAX_AMMO
+
+
+func missing_health() -> int:
+	return MAX_HEALTH - health
+
+
+func missing_ammo() -> int:
+	return MAX_AMMO - ammo
+
+
+func health_purchase_amount() -> int:
+	return mini(MAX_HEALTH_BUY, missing_health())
+
+
+func health_purchase_cost() -> int:
+	return ceili(float(health_purchase_amount()) * 10.0 / MAX_HEALTH_BUY)
+
+
+func ammo_purchase_amount() -> int:
+	return mini(MAX_AMMO_BUY, missing_ammo())
+
+
+func ammo_purchase_cost() -> int:
+	return ceili(float(ammo_purchase_amount()) * 10.0 / MAX_AMMO_BUY)
+
+
+func can_buy_health() -> bool:
+	var cost := health_purchase_cost()
+	return cost > 0 and energy >= cost
+
+
+func can_buy_ammo() -> bool:
+	var cost := ammo_purchase_cost()
+	return cost > 0 and energy >= cost
+
+
+func can_buy_door() -> bool:
+	return energy >= DOOR_COST
+
+
+func buy_health() -> bool:
+	if not can_buy_health():
+		return false
+	energy -= health_purchase_cost()
+	health = mini(MAX_HEALTH, health + health_purchase_amount())
+	return true
+
+
+func buy_ammo() -> bool:
+	if not can_buy_ammo():
+		return false
+	energy -= ammo_purchase_cost()
+	ammo = mini(MAX_AMMO, ammo + ammo_purchase_amount())
+	return true
+
+
+func buy_door() -> bool:
+	if not can_buy_door():
+		return false
+	energy -= DOOR_COST
+	door_inventory += 1
+	return true
+
+
+func exchange_energy_cores() -> bool:
+	if energy_cores <= 0:
+		return false
+	energy += energy_cores * ENERGY_PER_CORE
+	energy_cores = 0
+	return true
+
+
+func collect_energy_core() -> void:
+	energy_cores += 1
 
 
 func take_damage(amount: int) -> bool:
@@ -282,11 +374,24 @@ func _draw_enemy_directions() -> void:
 			continue
 
 		var alerted := bool(indicator.alerted)
+		var can_hear_noise := bool(indicator.get("can_hear_noise", false))
 		var arrow_color := (
-			ENEMY_ARROW_COLOR if alerted else PATROL_ARROW_COLOR
+			ENEMY_ARROW_COLOR
+			if alerted
+			else (
+				HEARING_ARROW_COLOR
+				if can_hear_noise
+				else PATROL_ARROW_COLOR
+			)
 		)
 		var edge_color := (
-			ENEMY_ARROW_EDGE_COLOR if alerted else PATROL_ARROW_EDGE_COLOR
+			ENEMY_ARROW_EDGE_COLOR
+			if alerted
+			else (
+				HEARING_ARROW_EDGE_COLOR
+				if can_hear_noise
+				else PATROL_ARROW_EDGE_COLOR
+			)
 		)
 		direction = direction.normalized()
 		var start_distance := (
