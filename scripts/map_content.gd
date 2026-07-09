@@ -19,6 +19,8 @@ const MAP_MARKER_PATH_COLOR := Color(1.0, 1.0, 1.0, 0.62)
 const TURRET_IDLE_COLOR := Color(1.0, 1.0, 1.0, 1.0)
 const TURRET_FIRING_COLOR := Color("e03f43")
 const TURRET_HEALTH_COLOR := Color(0.9, 0.25, 0.27, 1.0)
+const TURRET_STATUS_BACK_OFFSET := 0.62
+const TURRET_STATUS_SIDE_OFFSET := 0.16
 
 var scroll_position := Vector2.ZERO
 var cell_size := 40.0
@@ -254,8 +256,8 @@ func _draw_turrets(map_origin: Vector2) -> void:
 		).normalized()
 		var status_position: Vector2 = (
 			center
-			+ back_direction * (radius + cell_size * 0.22)
-			+ side_direction * cell_size * 0.08
+			+ back_direction * (radius + cell_size * TURRET_STATUS_BACK_OFFSET)
+			+ side_direction * cell_size * TURRET_STATUS_SIDE_OFFSET
 		)
 		draw_string(
 			ThemeDB.fallback_font,

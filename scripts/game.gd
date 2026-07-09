@@ -24,6 +24,7 @@ const MAP_MARKER_PATH_REFRESH_SECONDS := 5.0
 const CRITICAL_HEALTH_THRESHOLD := 30
 const CRITICAL_AMMO_THRESHOLD := 10
 const ENERGY_CORE_PICKUP_DISTANCE := 0.65 * Maze.CELL_SIZE
+const MIN_TURRET_PLACEMENT_DISTANCE := 0.5 * Maze.CELL_SIZE
 const STATUS_VALUE_COLOR := Color(0.92, 0.94, 0.97, 1.0)
 const STATUS_CRITICAL_COLOR := Color(0.9, 0.25, 0.27, 1.0)
 const NOISE_SILENT_COLOR := Color("58d68d")
@@ -952,17 +953,11 @@ func _toggle_turret_at(target_position: Vector2) -> void:
 
 	var existing_turret := _turret_at(target_cell)
 	if existing_turret != null:
-		player.store_turret_in_inventory(
-			existing_turret.health,
-			existing_turret.ammo
-		)
-		_turrets.erase(existing_turret)
-		existing_turret.queue_free()
-		_update_player_panel()
 		return
 
 	if player.turret_inventory_count() <= 0 \
 			or not maze.is_cell_walkable(target_cell) \
+			or _has_turret_near(placement_position) \
 			or _has_door_at(target_cell):
 		return
 
@@ -985,6 +980,13 @@ func _turret_at(cell: Vector2i) -> Node:
 		if turret.cell == cell:
 			return turret
 	return null
+
+
+func _has_turret_near(world_position: Vector2) -> bool:
+	for turret in _turrets:
+		if turret.position.distance_to(world_position) < MIN_TURRET_PLACEMENT_DISTANCE:
+			return true
+	return false
 
 
 func _create_turret(
