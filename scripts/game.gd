@@ -35,6 +35,8 @@ const MAX_PANEL_WIDTH := 360.0
 const HIT_FLASH_DURATION := 0.25
 const LOCKED_DOOR_LABEL := "закрыто"
 const EXIT_DOOR_LOCKED_LABEL := "Нужна безопасная зона"
+const SAFE_ZONE_BOUNDARY_DOOR_LABEL := "Граница безопасной зоны"
+const DOOR_REMOVE_FORBIDDEN_LABEL := "нельзя удалить"
 
 @onready var maze: Maze = $Maze
 @onready var player: Player = $Player
@@ -228,6 +230,20 @@ func clear_map_marker() -> void:
 	_map_marker_cell = Vector2i(-1, -1)
 	_map_marker_path.clear()
 	queue_redraw()
+
+
+func try_fast_travel_to_safe_cell(cell: Vector2i) -> bool:
+	if not maze.is_cell_safe(maze.world_to_cell(player.position)) \
+			or not maze.is_cell_safe(cell) \
+			or not maze.is_cell_walkable(cell):
+		return false
+
+	player.position = maze.cell_to_world(cell)
+	_update_visibility()
+	_update_coordinates()
+	_refresh_map_marker_path()
+	_update_player_panel()
+	return true
 
 
 func _clear_reached_map_marker() -> void:
@@ -469,6 +485,7 @@ func save_game() -> bool:
 		],
 		"explored_cells": maze.explored_cells_for_save(),
 		"doors": _doors.map(func(door: Node): return door.save_data()),
+		"removed_generated_doors": _removed_generated_door_cells_for_save(),
 		"station_discovered": (
 			not _stations.is_empty() and _stations[0].discovered
 		),
@@ -525,11 +542,14 @@ func _restore_game(save_data: Dictionary) -> void:
 		save_data.get("station_instructions_seen", false)
 	)
 	if save_data.has("doors"):
+		var removed_generated_doors := _removed_generated_door_cells_from_save(
+			save_data.get("removed_generated_doors", [])
+		)
 		for door_data in save_data.doors:
 			if _is_generated_door_data(door_data) \
 					or bool(door_data.get("player_placed", false)):
 				_create_door_from_save(door_data)
-		_create_missing_generated_doors()
+		_create_missing_generated_doors(removed_generated_doors)
 	else:
 		_create_generated_doors()
 	_refresh_safe_zone()
@@ -681,9 +701,11 @@ func _create_generated_doors() -> void:
 		)
 
 
-func _create_missing_generated_doors() -> void:
+func _create_missing_generated_doors(removed_generated_doors: Dictionary = {}) -> void:
 	for door_spec in maze.generated_door_specs():
 		if _has_door_at(door_spec.cell):
+			continue
+		if removed_generated_doors.has(door_spec.cell):
 			continue
 		_create_door(
 			door_spec.cell,
@@ -710,6 +732,23 @@ func _is_generated_door_data(door_data: Dictionary) -> bool:
 		if door_spec.cell == cell:
 			return true
 	return false
+
+
+func _removed_generated_door_cells_for_save() -> Array:
+	var removed_cells: Array = []
+	for door_spec in maze.generated_door_specs():
+		if not _has_door_at(door_spec.cell):
+			removed_cells.append([door_spec.cell.x, door_spec.cell.y])
+	return removed_cells
+
+
+func _removed_generated_door_cells_from_save(saved_cells: Array) -> Dictionary:
+	var removed_cells: Dictionary = {}
+	for saved_cell in saved_cells:
+		if not saved_cell is Array or saved_cell.size() != 2:
+			continue
+		removed_cells[Vector2i(int(saved_cell[0]), int(saved_cell[1]))] = true
+	return removed_cells
 
 
 func _create_door_from_save(door_data: Dictionary) -> void:
@@ -779,8 +818,8 @@ func _toggle_player_door_at(target_cell: Vector2i) -> void:
 
 	var existing_door := _door_at(target_cell)
 	if existing_door != null:
-		if existing_door.player_placed:
-			_remove_player_door(existing_door)
+		if _can_remove_door(existing_door):
+			_remove_door(existing_door)
 		return
 
 	if player.door_inventory <= 0:
@@ -820,12 +859,43 @@ func _door_at(cell: Vector2i) -> Door:
 	return null
 
 
-func _remove_player_door(door: Door) -> void:
+func _can_remove_door(door: Door) -> bool:
+	if _is_start_station_locked_door(door) or _is_exit_door(door):
+		spawn_floating_text(
+			door.position + Vector2(0.0, -Door.CELL_SIZE * 0.35),
+			DOOR_REMOVE_FORBIDDEN_LABEL,
+			Vector2.UP
+		)
+		return false
+
+	if not door.player_placed and _generated_door_spec_at(door.cell).is_empty():
+		return false
+
+	if _door_sides_have_matching_safe_zone(door):
+		return true
+
+	spawn_floating_text(
+		door.position + Vector2(0.0, -Door.CELL_SIZE * 0.35),
+		SAFE_ZONE_BOUNDARY_DOOR_LABEL,
+		Vector2.UP
+	)
+	return false
+
+
+func _door_sides_have_matching_safe_zone(door: Door) -> bool:
+	var side_direction := Vector2i.RIGHT if door.horizontal_passage else Vector2i.DOWN
+	var first_side := door.cell - side_direction
+	var second_side := door.cell + side_direction
+	return maze.is_cell_safe(first_side) == maze.is_cell_safe(second_side)
+
+
+func _remove_door(door: Door) -> void:
 	AudioManager.play_door_remove()
 	maze.set_door_closed(door.cell, false)
 	_doors.erase(door)
 	door.queue_free()
-	player.door_inventory += 1
+	if door.player_placed:
+		player.door_inventory += 1
 	_refresh_safe_zone()
 	_update_player_panel()
 
@@ -835,12 +905,7 @@ func _refresh_safe_zone() -> void:
 	for door: Door in _doors:
 		door_cells.append(door.cell)
 
-	var station_door_cells: Array[Vector2i] = []
-	for door_spec in maze.generated_door_specs():
-		if bool(door_spec.get("station_door", false)):
-			station_door_cells.append(door_spec.cell)
-
-	maze.update_safe_zone(door_cells, station_door_cells)
+	maze.update_safe_zone(door_cells)
 	_assert_station_floor_is_safe()
 
 

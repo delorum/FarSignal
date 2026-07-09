@@ -136,6 +136,10 @@ func _set_marker_at_mouse() -> void:
 	if cell.x < 0 or not maze.is_cell_explored(cell):
 		return
 
+	if game.try_fast_travel_to_safe_cell(cell):
+		_update_map_content()
+		return
+
 	if game.has_map_marker() and game.map_marker_cell() == cell:
 		game.clear_map_marker()
 	else:

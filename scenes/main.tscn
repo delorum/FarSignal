@@ -550,30 +550,42 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Выход"
 
-[node name="InstructionsScreen" type="VBoxContainer" parent="StationOverlay/StationMenu/Background/Center"]
+[node name="InstructionsPanel" type="MarginContainer" parent="StationOverlay/StationMenu/Background"]
 visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 0
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 24
+
+[node name="InstructionsScreen" type="VBoxContainer" parent="StationOverlay/StationMenu/Background/InstructionsPanel"]
 custom_minimum_size = Vector2(520, 0)
 layout_mode = 2
 theme_override_constants/separation = 22
 
-[node name="Title" type="Label" parent="StationOverlay/StationMenu/Background/Center/InstructionsScreen"]
+[node name="Title" type="Label" parent="StationOverlay/StationMenu/Background/InstructionsPanel/InstructionsScreen"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.345, 0.839, 0.561, 1)
 theme_override_font_sizes/font_size = 40
 text = "Инструкции"
-horizontal_alignment = 1
+horizontal_alignment = 0
 
-[node name="InstructionsText" type="Label" parent="StationOverlay/StationMenu/Background/Center/InstructionsScreen"]
+[node name="InstructionsText" type="Label" parent="StationOverlay/StationMenu/Background/InstructionsPanel/InstructionsScreen"]
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_colors/font_color = Color(0.82, 0.88, 0.94, 1)
 theme_override_font_sizes/font_size = 22
 text = "Инструкции станции"
-horizontal_alignment = 1
+horizontal_alignment = 0
 vertical_alignment = 1
 autowrap_mode = 2
 
-[node name="BackButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/InstructionsScreen"]
+[node name="BackButton" type="Button" parent="StationOverlay/StationMenu/Background/InstructionsPanel/InstructionsScreen"]
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
@@ -714,6 +726,6 @@ text = "Главное меню"
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/DoorButton" to="StationOverlay/StationMenu" method="_on_door_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/InstructionsButton" to="StationOverlay/StationMenu" method="_on_instructions_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ExitButton" to="StationOverlay/StationMenu" method="_on_exit_pressed"]
-[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/InstructionsScreen/BackButton" to="StationOverlay/StationMenu" method="_on_instructions_back_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/InstructionsPanel/InstructionsScreen/BackButton" to="StationOverlay/StationMenu" method="_on_instructions_back_pressed"]
 [connection signal="pressed" from="DefeatOverlay/DefeatMenu/Background/Center/Menu/MainMenuButton" to="DefeatOverlay/DefeatMenu" method="_on_main_menu_pressed"]
 [connection signal="pressed" from="VictoryOverlay/VictoryMenu/Background/Center/Menu/MainMenuButton" to="VictoryOverlay/VictoryMenu" method="_on_main_menu_pressed"]

@@ -435,8 +435,7 @@ func set_door_closed(cell: Vector2i, closed: bool) -> void:
 
 
 func update_safe_zone(
-	door_cells: Array[Vector2i],
-	station_door_cells: Array[Vector2i]
+	door_cells: Array[Vector2i]
 ) -> void:
 	var cell_count := COLUMNS * ROWS
 	_safe_cell_mask.resize(cell_count)
@@ -448,18 +447,11 @@ func update_safe_zone(
 	for cell in door_cells:
 		if _is_inside(cell):
 			door_mask[_cell_index(cell)] = 1
-	var station_door_mask := PackedByteArray()
-	station_door_mask.resize(cell_count)
-	station_door_mask.fill(0)
-	for cell in station_door_cells:
-		if _is_inside(cell):
-			station_door_mask[_cell_index(cell)] = 1
-
 	var component_ids := PackedInt32Array()
 	component_ids.resize(cell_count)
 	component_ids.fill(-1)
 	var component_sizes: Array[int] = []
-	var component_touches_station_door: Array[bool] = []
+	var component_touches_station: Array[bool] = []
 	var largest_component := -1
 	var largest_component_size := 0
 
@@ -474,7 +466,7 @@ func update_safe_zone(
 
 			var component_id := component_sizes.size()
 			var component_size := 0
-			var touches_station_door := false
+			var touches_station := _is_inside_station(start)
 			var pending := PackedInt32Array([start_index])
 			component_ids[start_index] = component_id
 			var pending_index := 0
@@ -484,6 +476,8 @@ func update_safe_zone(
 				component_size += 1
 				var current_x := current_index % COLUMNS
 				var current_y := current_index / COLUMNS
+				if _is_inside_station(Vector2i(current_x, current_y)):
+					touches_station = true
 				var neighbor_indices := PackedInt32Array()
 				if current_x > 0:
 					neighbor_indices.append(current_index - 1)
@@ -495,8 +489,6 @@ func update_safe_zone(
 					neighbor_indices.append(current_index + COLUMNS)
 
 				for next_index in neighbor_indices:
-					if station_door_mask[next_index] == 1:
-						touches_station_door = true
 					if component_ids[next_index] >= 0 \
 							or door_mask[next_index] == 1:
 						continue
@@ -508,7 +500,7 @@ func update_safe_zone(
 					pending.append(next_index)
 
 			component_sizes.append(component_size)
-			component_touches_station_door.append(touches_station_door)
+			component_touches_station.append(touches_station)
 			if component_size > largest_component_size:
 				largest_component = component_id
 				largest_component_size = component_size
@@ -540,7 +532,7 @@ func update_safe_zone(
 	var pending_safe_components: Array[int] = []
 	for component_id in component_sizes.size():
 		if component_id != largest_component \
-				and component_touches_station_door[component_id]:
+				and component_touches_station[component_id]:
 			safe_components[component_id] = true
 			pending_safe_components.append(component_id)
 
@@ -1037,7 +1029,6 @@ func _add_stations(rng: RandomNumberGenerator) -> void:
 		doors.append({
 			"cell": door_cell,
 			"horizontal_passage": direction.x != 0,
-			"station_door": true,
 			"locked": locked,
 		})
 		if not locked:

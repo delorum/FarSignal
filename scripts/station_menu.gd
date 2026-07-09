@@ -4,8 +4,8 @@ const LoreText = preload("res://scripts/lore_text.gd")
 
 @onready var game: Node = $"../.."
 @onready var menu: VBoxContainer = $Background/Center/Menu
-@onready var instructions_screen: VBoxContainer = $Background/Center/InstructionsScreen
-@onready var instructions_text: Label = $Background/Center/InstructionsScreen/InstructionsText
+@onready var instructions_screen: Control = $Background/InstructionsPanel
+@onready var instructions_text: Label = $Background/InstructionsPanel/InstructionsScreen/InstructionsText
 @onready var energy_value: Label = $Background/Center/Menu/EnergyValue
 @onready var ammo_button: Button = $Background/Center/Menu/AmmoButton
 @onready var health_button: Button = $Background/Center/Menu/HealthButton
@@ -15,7 +15,7 @@ const LoreText = preload("res://scripts/lore_text.gd")
 @onready var door_button: Button = $Background/Center/Menu/DoorButton
 @onready var instructions_button: Button = $Background/Center/Menu/InstructionsButton
 @onready var exit_button: Button = $Background/Center/Menu/ExitButton
-@onready var instructions_back_button: Button = $Background/Center/InstructionsScreen/BackButton
+@onready var instructions_back_button: Button = $Background/InstructionsPanel/InstructionsScreen/BackButton
 
 
 func _ready() -> void:
