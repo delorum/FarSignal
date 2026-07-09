@@ -272,46 +272,69 @@ func _physics_process(delta: float) -> void:
 		player_cell - _maze.world_to_cell(position)
 	).length()
 	var direction_to_player := position.direction_to(_player.position)
-	var aim_position := _predicted_player_position()
-	var aim_direction := position.direction_to(aim_position)
-	if aim_direction.is_zero_approx():
-		aim_direction = direction_to_player
 	var sees_player := distance_to_player <= VISION_RANGE \
 			and absf(_facing.angle_to(direction_to_player)) <= VISION_HALF_ANGLE \
 			and _maze.has_line_of_sight(position, _player.position, VISION_RANGE)
+	var turret_target: Node = _game.visible_turret_for_enemy(
+		self,
+		VISION_RANGE,
+		_facing,
+		VISION_HALF_ANGLE
+	)
+	var target: Node = _player if sees_player else turret_target
+	var target_position := Vector2.ZERO
+	var target_cell := Vector2i(-1, -1)
+	var direction_to_target := Vector2.ZERO
+	var aim_position := Vector2.ZERO
+	var aim_direction := Vector2.ZERO
+	if target != null:
+		target_position = target.position
+		target_cell = _maze.world_to_cell(target_position)
+		direction_to_target = position.direction_to(target_position)
+		aim_position = (
+			_predicted_player_position()
+			if target == _player
+			else target_position
+		)
+		aim_direction = position.direction_to(aim_position)
+		if aim_direction.is_zero_approx():
+			aim_direction = direction_to_target
 
 	if state == State.MANEUVER:
-		if sees_player:
-			_last_known_player_cell = player_cell
-			_desired_facing = direction_to_player
+		if target != null:
+			_last_known_player_cell = target_cell
+			_desired_facing = direction_to_target
 			_update_maneuver(true)
 		else:
 			_update_maneuver(false)
 		return
 
-	if sees_player:
-		_last_known_player_cell = player_cell
+	if target != null:
+		_last_known_player_cell = target_cell
 		if state != State.COMBAT:
 			_enter_combat()
 		_desired_facing = aim_direction
 		if not _game.enemy_has_clear_shot(position, aim_position):
-			if _game.enemy_has_clear_shot(position, _player.position):
-				aim_position = _player.position
-				aim_direction = direction_to_player
+			if _game.enemy_has_clear_shot(position, target_position):
+				aim_position = target_position
+				aim_direction = direction_to_target
 				_desired_facing = aim_direction
 			else:
 				if _firing_position_repath_cooldown <= 0.0:
 					_firing_position_repath_cooldown = (
 						FIRING_POSITION_REPATH_INTERVAL
 					)
-					_try_reposition_for_clear_shot(player_cell)
+					_try_reposition_for_clear_shot(
+						target_cell,
+						target_position
+					)
 				return
-		if _try_start_coordinated_flank(player_cell):
+		if target == _player and _try_start_coordinated_flank(player_cell):
 			return
 		if _shoot_cooldown <= 0.0 and _is_aimed_at(aim_direction):
 			_game.spawn_enemy_bullet(position, aim_direction, self)
 			_shoot_cooldown = SHOOT_INTERVAL
-			_try_start_combat_maneuver(direction_to_player)
+			_try_start_combat_maneuver(direction_to_target)
 		return
 
 	if state == State.COMBAT:
@@ -395,7 +418,10 @@ func _try_start_combat_maneuver(direction_to_player: Vector2) -> bool:
 	return false
 
 
-func _try_reposition_for_clear_shot(player_cell: Vector2i) -> bool:
+func _try_reposition_for_clear_shot(
+	target_cell: Vector2i,
+	target_position: Vector2
+) -> bool:
 	var current_cell := _maze.world_to_cell(position)
 	var best_path: Array[Vector2i] = []
 	for radius in range(1, FIRING_POSITION_SEARCH_RADIUS + 1):
@@ -405,10 +431,10 @@ func _try_reposition_for_clear_shot(player_cell: Vector2i) -> bool:
 					continue
 				var candidate := current_cell + Vector2i(x, y)
 				if not _maze.is_cell_walkable(candidate) \
-						or candidate.distance_to(player_cell) <= 1.0 \
+						or candidate.distance_to(target_cell) <= 1.0 \
 						or not _game.enemy_has_clear_shot(
 							_maze.cell_to_world(candidate),
-							_player.position
+							target_position
 						):
 					continue
 

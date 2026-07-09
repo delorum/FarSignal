@@ -55,6 +55,8 @@ script = ExtResource("2_maze")
 
 [node name="Doors" type="Node2D" parent="."]
 
+[node name="Turrets" type="Node2D" parent="."]
+
 [node name="Stations" type="Node2D" parent="."]
 
 [node name="Enemies" type="Node2D" parent="."]
@@ -197,6 +199,18 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
 theme_override_font_sizes/font_size = 18
 text = "Двери: 0"
+
+[node name="TurretsValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
+theme_override_font_sizes/font_size = 18
+text = "Турели: 0"
+
+[node name="BuildModeValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
+theme_override_font_sizes/font_size = 18
+text = "Ставим: дверь"
 
 [node name="ExploredCellsValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
 layout_mode = 2
@@ -399,7 +413,7 @@ mouse_filter = 2
 layout_mode = 2
 theme_override_colors/font_color = Color(0.82, 0.88, 0.94, 1)
 theme_override_font_sizes/font_size = 20
-text = "WASD или стрелки — движение\nМышь — направление взгляда\nЛевая кнопка мыши — одиночный выстрел\nПравая кнопка мыши — поставить или убрать дверь на соседней клетке\nЛевый Shift — режим засады\nE — открыть или закрыть дверь, взаимодействовать со станцией\nTab — открыть или закрыть карту\nПравая кнопка мыши на карте — указать или убрать точку маршрута\nКолесо мыши — масштаб карты\nEsc — пауза или вернуться назад"
+text = "WASD или стрелки — движение\nМышь — направление взгляда\nЛевая кнопка мыши — одиночный выстрел\nПравая кнопка мыши — поставить или убрать выбранный объект на соседней клетке\nКолесо мыши — выбрать дверь или турель\nE — открыть или закрыть дверь, взаимодействовать со станцией\nTab — открыть или закрыть карту\nПравая кнопка мыши на карте — указать или убрать точку маршрута\nEsc — пауза или вернуться назад"
 horizontal_alignment = 1
 line_spacing = 8
 
@@ -479,7 +493,7 @@ grow_horizontal = 2
 grow_vertical = 2
 
 [node name="Menu" type="VBoxContainer" parent="StationOverlay/StationMenu/Background/Center"]
-custom_minimum_size = Vector2(420, 0)
+custom_minimum_size = Vector2(780, 0)
 layout_mode = 2
 theme_override_constants/separation = 18
 
@@ -502,51 +516,72 @@ custom_minimum_size = Vector2(0, 20)
 layout_mode = 2
 mouse_filter = 2
 
-[node name="AmmoButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu"]
+[node name="ActionsGrid" type="GridContainer" parent="StationOverlay/StationMenu/Background/Center/Menu"]
+layout_mode = 2
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 12
+columns = 2
+
+[node name="AmmoButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid"]
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
+size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 22
 text = "Купить 10 патронов за 10 энергии"
 
-[node name="HealthButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu"]
+[node name="HealthButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid"]
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
+size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 22
 text = "Восстановить 20 здоровья за 10 энергии"
 
-[node name="ExchangeButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu"]
+[node name="ExchangeButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid"]
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
+size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 22
 text = "Сдать энергоядра"
 
-[node name="ExchangeCellsButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu"]
+[node name="ExchangeCellsButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid"]
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
+size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 22
 text = "Сдать клетки"
 
-[node name="ReturnMegaCoreButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu"]
+[node name="ReturnMegaCoreButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid"]
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
+size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 22
 text = "Мегаядро не найдено"
 
-[node name="DoorButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu"]
+[node name="DoorButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid"]
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
+size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 22
 text = "Купить дверь за 10 энергии"
 
-[node name="InstructionsButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu"]
+[node name="TurretButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid"]
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "Купить турель за 50 энергии"
+
+[node name="InstructionsButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 22
 text = "Инструкции"
 
-[node name="ExitButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu"]
+[node name="ExitButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid"]
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
+size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 22
 text = "Выход"
 
@@ -718,14 +753,15 @@ text = "Главное меню"
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/ControlsScreen/BackButton" to="PauseOverlay/PauseMenu" method="_on_back_pressed"]
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/ObjectiveScreen/BackButton" to="PauseOverlay/PauseMenu" method="_on_back_pressed"]
 [connection signal="back_requested" from="PauseOverlay/PauseMenu/CenterContainer/SettingsMenu" to="PauseOverlay/PauseMenu" method="_on_settings_back_requested"]
-[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/AmmoButton" to="StationOverlay/StationMenu" method="_on_ammo_pressed"]
-[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/HealthButton" to="StationOverlay/StationMenu" method="_on_health_pressed"]
-[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ExchangeButton" to="StationOverlay/StationMenu" method="_on_exchange_pressed"]
-[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ExchangeCellsButton" to="StationOverlay/StationMenu" method="_on_exchange_cells_pressed"]
-[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ReturnMegaCoreButton" to="StationOverlay/StationMenu" method="_on_return_mega_core_pressed"]
-[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/DoorButton" to="StationOverlay/StationMenu" method="_on_door_pressed"]
-[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/InstructionsButton" to="StationOverlay/StationMenu" method="_on_instructions_pressed"]
-[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ExitButton" to="StationOverlay/StationMenu" method="_on_exit_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/AmmoButton" to="StationOverlay/StationMenu" method="_on_ammo_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/HealthButton" to="StationOverlay/StationMenu" method="_on_health_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/ExchangeButton" to="StationOverlay/StationMenu" method="_on_exchange_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/ExchangeCellsButton" to="StationOverlay/StationMenu" method="_on_exchange_cells_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/ReturnMegaCoreButton" to="StationOverlay/StationMenu" method="_on_return_mega_core_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/DoorButton" to="StationOverlay/StationMenu" method="_on_door_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/TurretButton" to="StationOverlay/StationMenu" method="_on_turret_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/InstructionsButton" to="StationOverlay/StationMenu" method="_on_instructions_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/ExitButton" to="StationOverlay/StationMenu" method="_on_exit_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/InstructionsPanel/InstructionsScreen/BackButton" to="StationOverlay/StationMenu" method="_on_instructions_back_pressed"]
 [connection signal="pressed" from="DefeatOverlay/DefeatMenu/Background/Center/Menu/MainMenuButton" to="DefeatOverlay/DefeatMenu" method="_on_main_menu_pressed"]
 [connection signal="pressed" from="VictoryOverlay/VictoryMenu/Background/Center/Menu/MainMenuButton" to="VictoryOverlay/VictoryMenu" method="_on_main_menu_pressed"]

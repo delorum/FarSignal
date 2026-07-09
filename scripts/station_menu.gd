@@ -7,14 +7,15 @@ const LoreText = preload("res://scripts/lore_text.gd")
 @onready var instructions_screen: Control = $Background/InstructionsPanel
 @onready var instructions_text: Label = $Background/InstructionsPanel/InstructionsScreen/InstructionsText
 @onready var energy_value: Label = $Background/Center/Menu/EnergyValue
-@onready var ammo_button: Button = $Background/Center/Menu/AmmoButton
-@onready var health_button: Button = $Background/Center/Menu/HealthButton
-@onready var exchange_button: Button = $Background/Center/Menu/ExchangeButton
-@onready var exchange_cells_button: Button = $Background/Center/Menu/ExchangeCellsButton
-@onready var return_mega_core_button: Button = $Background/Center/Menu/ReturnMegaCoreButton
-@onready var door_button: Button = $Background/Center/Menu/DoorButton
-@onready var instructions_button: Button = $Background/Center/Menu/InstructionsButton
-@onready var exit_button: Button = $Background/Center/Menu/ExitButton
+@onready var ammo_button: Button = $Background/Center/Menu/ActionsGrid/AmmoButton
+@onready var health_button: Button = $Background/Center/Menu/ActionsGrid/HealthButton
+@onready var exchange_button: Button = $Background/Center/Menu/ActionsGrid/ExchangeButton
+@onready var exchange_cells_button: Button = $Background/Center/Menu/ActionsGrid/ExchangeCellsButton
+@onready var return_mega_core_button: Button = $Background/Center/Menu/ActionsGrid/ReturnMegaCoreButton
+@onready var door_button: Button = $Background/Center/Menu/ActionsGrid/DoorButton
+@onready var turret_button: Button = $Background/Center/Menu/ActionsGrid/TurretButton
+@onready var instructions_button: Button = $Background/Center/Menu/ActionsGrid/InstructionsButton
+@onready var exit_button: Button = $Background/Center/Menu/ActionsGrid/ExitButton
 @onready var instructions_back_button: Button = $Background/InstructionsPanel/InstructionsScreen/BackButton
 
 
@@ -55,6 +56,8 @@ func _show_menu() -> void:
 		ammo_button.grab_focus()
 	elif not door_button.disabled:
 		door_button.grab_focus()
+	elif not turret_button.disabled:
+		turret_button.grab_focus()
 	else:
 		exit_button.grab_focus()
 
@@ -103,6 +106,12 @@ func _on_return_mega_core_pressed() -> void:
 
 func _on_door_pressed() -> void:
 	game.buy_door()
+	_update_buttons()
+	_show_menu()
+
+
+func _on_turret_pressed() -> void:
+	game.buy_turret()
 	_update_buttons()
 	_show_menu()
 
@@ -173,3 +182,6 @@ func _update_buttons() -> void:
 
 	door_button.disabled = not game.player.can_buy_door()
 	door_button.text = "Купить дверь за %d энергии" % Player.DOOR_COST
+
+	turret_button.disabled = not game.player.can_buy_turret()
+	turret_button.text = "Купить турель за %d энергии" % Player.TURRET_COST

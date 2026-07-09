@@ -14,6 +14,11 @@ const EXPLORED_CELLS_PER_EXCHANGE := 200
 const ENERGY_PER_EXPLORED_CELL_EXCHANGE := 10
 const MEGA_CORE_RETURN_ENERGY := 100
 const DOOR_COST := 10
+const TURRET_COST := 50
+const TURRET_MAX_HEALTH := 100
+const TURRET_MAX_AMMO := 30
+const STARTING_DOORS := 5
+const STARTING_TURRETS := 5
 const CELL_SIZE := 48.0
 const RECOIL_DISTANCE := CELL_SIZE
 const NOISE_BUILDUP_DISTANCE := CELL_SIZE * 3.0
@@ -35,7 +40,14 @@ var health := MAX_HEALTH
 var ammo := MAX_AMMO
 var energy_cores := 0
 var energy := 0
-var door_inventory := 0
+var door_inventory := STARTING_DOORS
+var turret_inventory: Array[Dictionary] = [
+	{"health": TURRET_MAX_HEALTH, "ammo": TURRET_MAX_AMMO},
+	{"health": TURRET_MAX_HEALTH, "ammo": TURRET_MAX_AMMO},
+	{"health": TURRET_MAX_HEALTH, "ammo": TURRET_MAX_AMMO},
+	{"health": TURRET_MAX_HEALTH, "ammo": TURRET_MAX_AMMO},
+	{"health": TURRET_MAX_HEALTH, "ammo": TURRET_MAX_AMMO},
+]
 var explored_floor_cells := 0
 var mega_core_cell := Vector2i(-1, -1)
 var has_mega_core := false
@@ -83,13 +95,15 @@ func restore_status(
 	saved_door_inventory: int = 0,
 	saved_explored_floor_cells: int = 0,
 	saved_mega_core_cell: Vector2i = Vector2i(-1, -1),
-	saved_has_mega_core: bool = false
+	saved_has_mega_core: bool = false,
+	saved_turret_inventory: Array = []
 ) -> void:
 	health = clampi(saved_health, 0, MAX_HEALTH)
 	ammo = clampi(saved_ammo, 0, MAX_AMMO)
 	energy_cores = maxi(0, saved_energy_cores)
 	energy = maxi(0, saved_energy)
 	door_inventory = maxi(0, saved_door_inventory)
+	turret_inventory = _sanitize_turret_inventory(saved_turret_inventory)
 	explored_floor_cells = maxi(0, saved_explored_floor_cells)
 	mega_core_cell = saved_mega_core_cell
 	has_mega_core = saved_has_mega_core
@@ -149,6 +163,10 @@ func can_buy_door() -> bool:
 	return energy >= DOOR_COST
 
 
+func can_buy_turret() -> bool:
+	return energy >= TURRET_COST
+
+
 func explored_cell_exchange_count() -> int:
 	return floori(
 		float(explored_floor_cells) / float(EXPLORED_CELLS_PER_EXCHANGE)
@@ -185,6 +203,38 @@ func buy_door() -> bool:
 	energy -= DOOR_COST
 	door_inventory += 1
 	return true
+
+
+func buy_turret() -> bool:
+	if not can_buy_turret():
+		return false
+	energy -= TURRET_COST
+	turret_inventory.append({
+		"health": TURRET_MAX_HEALTH,
+		"ammo": TURRET_MAX_AMMO,
+	})
+	return true
+
+
+func turret_inventory_count() -> int:
+	return turret_inventory.size()
+
+
+func take_turret_from_inventory() -> Dictionary:
+	if turret_inventory.is_empty():
+		return {}
+	return turret_inventory.pop_back()
+
+
+func store_turret_in_inventory(health_value: int, ammo_value: int) -> void:
+	turret_inventory.append({
+		"health": clampi(health_value, 0, TURRET_MAX_HEALTH),
+		"ammo": clampi(ammo_value, 0, TURRET_MAX_AMMO),
+	})
+
+
+func turret_inventory_for_save() -> Array:
+	return turret_inventory.duplicate(true)
 
 
 func exchange_energy_cores() -> bool:
@@ -231,6 +281,26 @@ func collect_energy_core() -> void:
 
 func discover_floor_cells(count: int) -> void:
 	explored_floor_cells += maxi(0, count)
+
+
+func _sanitize_turret_inventory(saved_turrets: Array) -> Array[Dictionary]:
+	var restored: Array[Dictionary] = []
+	for saved_turret in saved_turrets:
+		if not saved_turret is Dictionary:
+			continue
+		restored.append({
+			"health": clampi(
+				int(saved_turret.get("health", TURRET_MAX_HEALTH)),
+				0,
+				TURRET_MAX_HEALTH
+			),
+			"ammo": clampi(
+				int(saved_turret.get("ammo", TURRET_MAX_AMMO)),
+				0,
+				TURRET_MAX_AMMO
+			),
+		})
+	return restored
 
 
 func take_damage(amount: int) -> bool:

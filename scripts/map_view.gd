@@ -11,6 +11,7 @@ const TEXT_COLOR := Color("d8e7f5")
 @onready var game: Node = $"../.."
 @onready var player: Player = $"../../Player"
 @onready var doors: Node2D = $"../../Doors"
+@onready var turrets: Node2D = $"../../Turrets"
 @onready var stations: Node2D = $"../../Stations"
 @onready var enemies: Node2D = $"../../Enemies"
 @onready var pause_menu: Control = $"../../PauseOverlay/PauseMenu"
@@ -27,7 +28,16 @@ var _cell_size := MIN_MAP_CELL_SIZE
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	resized.connect(_on_resized)
-	map_content.setup(game, maze, player, doors, stations, enemies, _cell_size)
+	map_content.setup(
+		game,
+		maze,
+		player,
+		doors,
+		turrets,
+		stations,
+		enemies,
+		_cell_size
+	)
 
 
 func _exit_tree() -> void:

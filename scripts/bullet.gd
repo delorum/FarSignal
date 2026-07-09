@@ -22,7 +22,7 @@ func setup(
 	maze = maze_node
 	damage = shot_damage
 	rotation = direction.angle()
-	collision_mask = 1 | (4 if from_player else 2)
+	collision_mask = 1 | (4 if from_player else 2 | 8)
 
 
 func _physics_process(delta: float) -> void:
