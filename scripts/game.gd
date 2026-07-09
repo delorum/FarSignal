@@ -8,7 +8,7 @@ const ENEMY_SCENE := preload("res://scenes/enemy.tscn")
 const BULLET_SPAWN_DISTANCE := 22.0
 const BULLET_HALF_LENGTH := 6.0
 const BULLET_HALF_WIDTH := 2.0
-const ENEMY_COUNT := 10
+const ENEMY_COUNT := 30
 const MAX_ENEMY_START_DISTANCE := 15.0
 const ENEMY_START_DISTANCE_RATIO := 0.15
 const ENEMY_SPAWN_ATTEMPTS := 256
@@ -16,9 +16,8 @@ const PLAYER_DAMAGE_MIN := 27
 const PLAYER_DAMAGE_MAX := 36
 const ENEMY_DAMAGE_MIN := 17
 const ENEMY_DAMAGE_MAX := 24
-const ENEMY_AUDIBLE_RANGE := 30.0
 const ENEMY_HEALTH_DISPLAY_RANGE := 10.0
-const SHOT_HEARING_RANGE := ENEMY_AUDIBLE_RANGE
+const SHOT_HEARING_RANGE := 30.0
 const SHOT_REACTION_DELAY := 2.0
 const PLAYER_SHOOT_INTERVAL := 1.0
 const PLAYER_RECOIL_ENABLED := false
@@ -29,6 +28,8 @@ const STATUS_VALUE_COLOR := Color(0.92, 0.94, 0.97, 1.0)
 const STATUS_CRITICAL_COLOR := Color(0.9, 0.25, 0.27, 1.0)
 const NOISE_SILENT_COLOR := Color("58d68d")
 const NOISE_AUDIBLE_COLOR := Color("d66b6b")
+const ALERT_CLEAR_COLOR := Color("58d68d")
+const ALERT_ACTIVE_COLOR := Color("d66b6b")
 const PANEL_WIDTH_RATIO := 0.2
 const MIN_PANEL_WIDTH := 260.0
 const MAX_PANEL_WIDTH := 360.0
@@ -55,6 +56,7 @@ const EXIT_DOOR_LOCKED_LABEL := "Нужна безопасная зона"
 @onready var energy_cores_value: Label = $GameInterface/PlayerPanel/Margin/VBox/EnergyCoresValue
 @onready var energy_value: Label = $GameInterface/PlayerPanel/Margin/VBox/EnergyValue
 @onready var doors_value: Label = $GameInterface/PlayerPanel/Margin/VBox/DoorsValue
+@onready var alert_state_value: Label = $GameInterface/PlayerPanel/Margin/VBox/AlertStateValue
 @onready var noise_state_value: Label = $GameInterface/PlayerPanel/Margin/VBox/NoiseStateValue
 @onready var noise_bar: ProgressBar = $GameInterface/PlayerPanel/Margin/VBox/NoiseBar
 @onready var ambush_bar: ProgressBar = $GameInterface/PlayerPanel/Margin/VBox/AmbushBar
@@ -71,6 +73,7 @@ var _displayed_ammo := -1
 var _displayed_energy_cores := -1
 var _displayed_energy := -1
 var _displayed_door_inventory := -1
+var _displayed_alert_state := ""
 var _displayed_noise_state := ""
 var _doors: Array[Node] = []
 var _stations: Array[Node] = []
@@ -209,7 +212,7 @@ func _update_visibility() -> void:
 	for enemy in _enemies:
 		enemy.update_visibility(
 			maze.is_cell_visible(maze.world_to_cell(enemy.position)),
-			_is_enemy_audible(enemy)
+			false
 		)
 
 
@@ -251,6 +254,20 @@ func _update_player_panel() -> void:
 	if player.door_inventory != _displayed_door_inventory:
 		_displayed_door_inventory = player.door_inventory
 		doors_value.text = "Двери: %d" % player.door_inventory
+	var has_alerted_enemies := _has_alerted_enemies()
+	var alert_state := (
+		"ТРЕВОГА: ЕСТЬ"
+		if has_alerted_enemies
+		else "ТРЕВОГА: НЕТ"
+	)
+	if alert_state != _displayed_alert_state:
+		_displayed_alert_state = alert_state
+		alert_state_value.text = alert_state
+		alert_state_value.modulate = (
+			ALERT_ACTIVE_COLOR
+			if has_alerted_enemies
+			else ALERT_CLEAR_COLOR
+		)
 	var weapon_readiness := (
 		0.0
 		if player.ammo <= 0
@@ -275,13 +292,20 @@ func _update_player_panel() -> void:
 			if player.ambush_mode or not player.is_audible()
 			else NOISE_AUDIBLE_COLOR
 		)
-	noise_bar.visible = not player.ambush_mode
+	noise_state_value.visible = has_alerted_enemies
+	noise_bar.visible = has_alerted_enemies and not player.ambush_mode
 	if noise_bar.visible:
 		noise_bar.value = player.noise_level * 100.0
 	ambush_bar.value = player.ambush_energy_ratio() * 100.0
 
 	_update_nearby_enemy_health()
-	player.set_enemy_indicators(_audible_enemy_indicators())
+
+
+func _has_alerted_enemies() -> bool:
+	for enemy: Enemy in _enemies:
+		if not enemy.dead and enemy.is_alerted():
+			return true
+	return false
 
 
 func _update_nearby_enemy_health() -> void:
@@ -832,6 +856,11 @@ func spawn_enemy_bullet(
 		false
 	)
 	bullets.add_child(bullet)
+	shooter.register_enemy_bullet()
+	bullet.tree_exited.connect(func() -> void:
+		if is_instance_valid(shooter):
+			shooter.unregister_enemy_bullet()
+	)
 	_alert_enemies_to_shot(
 		maze.world_to_cell(start_position),
 		shooter
@@ -911,30 +940,6 @@ func _maintain_enemy_population() -> void:
 		_create_enemy(cell, _rng.randi())
 
 
-func _audible_enemy_indicators() -> Array[Dictionary]:
-	var indicators: Array[Dictionary] = []
-	for enemy in _enemies:
-		if enemy.dead:
-			continue
-
-		var offset: Vector2 = enemy.position - player.position
-		if _is_enemy_audible(enemy):
-			indicators.append({
-				"direction": offset.normalized(),
-				"alerted": enemy.state != Enemy.State.PATROL,
-				"can_hear_noise": (
-					offset.length() <= Enemy.STEP_HEARING_RANGE * Maze.CELL_SIZE
-				),
-			})
-	return indicators
-
-
-func _is_enemy_audible(enemy: Enemy) -> bool:
-	return not enemy.dead \
-			and enemy.position.distance_to(player.position) \
-			<= ENEMY_AUDIBLE_RANGE * Maze.CELL_SIZE
-
-
 func _alert_enemies_to_shot(
 	shot_cell: Vector2i,
 	shooter: Enemy = null
@@ -951,7 +956,7 @@ func _alert_enemies_to_shot(
 			continue
 		var enemy_cell: Vector2i = maze.world_to_cell(enemy.position)
 		if Vector2(enemy_cell - shot_cell).length() <= SHOT_HEARING_RANGE:
-			enemy.hear_position(shot_cell)
+			enemy.hear_position(shot_cell, true)
 
 
 func _show_defeat() -> void:

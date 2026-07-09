@@ -196,6 +196,12 @@ theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
 theme_override_font_sizes/font_size = 18
 text = "Двери: 0"
 
+[node name="AlertStateValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.345, 0.839, 0.561, 1)
+theme_override_font_sizes/font_size = 18
+text = "ТРЕВОГА: НЕТ"
+
 [node name="NoiseSpacer" type="Control" parent="GameInterface/PlayerPanel/Margin/VBox"]
 custom_minimum_size = Vector2(0, 18)
 layout_mode = 2

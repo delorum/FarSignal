@@ -5,23 +5,12 @@ signal damaged
 
 @export var speed := 200.0
 
-const ENEMY_ARROW_COLOR := Color("bd3f43")
-const ENEMY_ARROW_EDGE_COLOR := Color("e0787b")
-const HEARING_ARROW_COLOR := Color("e8fbff")
-const HEARING_ARROW_EDGE_COLOR := Color("8fb7c0")
-const PATROL_ARROW_COLOR := Color("58d68d")
-const PATROL_ARROW_EDGE_COLOR := Color("2f7d52")
 const MAX_HEALTH := 100
 const MAX_AMMO := 30
 const MAX_HEALTH_BUY := 20
 const MAX_AMMO_BUY := 10
-const ENERGY_PER_CORE := 10
+const ENERGY_PER_CORE := 20
 const DOOR_COST := 10
-const ENEMY_ARROW_START := 20.0
-const ENEMY_ARROW_LENGTH := 13.0
-const ENEMY_ARROW_RADIUS_STEP := 6.0
-const ENEMY_ARROW_HEAD_LENGTH := 6.0
-const ENEMY_ARROW_HEAD_ANGLE := deg_to_rad(32.0)
 const CELL_SIZE := 48.0
 const RECOIL_DISTANCE := CELL_SIZE
 const NOISE_BUILDUP_DISTANCE := CELL_SIZE * 3.0
@@ -51,7 +40,6 @@ var noise_level := 0.0
 var ambush_energy := AMBUSH_DURATION
 var ambush_mode := false
 var _facing := Vector2.RIGHT
-var _enemy_indicators: Array[Dictionary] = []
 var _animation_time := 0.0
 var _animation_running := false
 var _aim_indicator_readiness := 1.0
@@ -244,13 +232,6 @@ func set_aim_indicator_readiness(readiness: float) -> void:
 	queue_redraw()
 
 
-func set_enemy_indicators(indicators: Array[Dictionary]) -> void:
-	if _enemy_indicators == indicators:
-		return
-	_enemy_indicators = indicators.duplicate(true)
-	queue_redraw()
-
-
 func _process(_delta: float) -> void:
 	var mouse_position := get_local_mouse_position()
 	if not mouse_position.is_equal_approx(_aim_indicator_position):
@@ -336,7 +317,6 @@ func _update_animation(delta: float) -> void:
 
 func _draw() -> void:
 	_draw_aim_indicator()
-	_draw_enemy_directions()
 
 
 func _draw_aim_indicator() -> void:
@@ -364,49 +344,3 @@ func _draw_aim_indicator() -> void:
 			AIM_INDICATOR_LINE_WIDTH,
 			true
 		)
-
-
-func _draw_enemy_directions() -> void:
-	for index in _enemy_indicators.size():
-		var indicator: Dictionary = _enemy_indicators[index]
-		var direction: Vector2 = indicator.direction
-		if direction.is_zero_approx():
-			continue
-
-		var alerted := bool(indicator.alerted)
-		var can_hear_noise := bool(indicator.get("can_hear_noise", false))
-		var arrow_color := (
-			ENEMY_ARROW_COLOR
-			if alerted
-			else (
-				HEARING_ARROW_COLOR
-				if can_hear_noise
-				else PATROL_ARROW_COLOR
-			)
-		)
-		var edge_color := (
-			ENEMY_ARROW_EDGE_COLOR
-			if alerted
-			else (
-				HEARING_ARROW_EDGE_COLOR
-				if can_hear_noise
-				else PATROL_ARROW_EDGE_COLOR
-			)
-		)
-		direction = direction.normalized()
-		var start_distance := (
-			ENEMY_ARROW_START + float(index) * ENEMY_ARROW_RADIUS_STEP
-		)
-		var start := direction * start_distance
-		var tip := start + direction * ENEMY_ARROW_LENGTH
-		draw_line(start, tip, arrow_color, 2.0, true)
-
-		var back := -direction
-		var left_head := tip + back.rotated(
-			ENEMY_ARROW_HEAD_ANGLE
-		) * ENEMY_ARROW_HEAD_LENGTH
-		var right_head := tip + back.rotated(
-			-ENEMY_ARROW_HEAD_ANGLE
-		) * ENEMY_ARROW_HEAD_LENGTH
-		draw_line(tip, left_head, edge_color, 2.0, true)
-		draw_line(tip, right_head, edge_color, 2.0, true)

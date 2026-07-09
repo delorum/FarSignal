@@ -20,6 +20,7 @@ const BULLET_SPEED := 650.0
 const STEP_HEARING_RANGE := 20.0
 const VISION_RANGE := 30.0
 const TARGET_ATTEMPTS := 12
+const PATROL_RADIUS := 10.0
 const SEARCH_DURATION := 5.0
 const MANEUVER_CHANCE := 0.4
 const MANEUVER_DISTANCE := 2
@@ -60,6 +61,8 @@ var _flank_repath_cooldown := 0.0
 var _search_time_left := 0.0
 var _firing_position_repath_cooldown := 0.0
 var _last_known_player_cell := Vector2i(-1, -1)
+var _patrol_anchor_cell := Vector2i(-1, -1)
+var _active_enemy_bullets := 0
 var _active := true
 var _normally_visible := false
 var _ambush_revealed := false
@@ -93,6 +96,7 @@ func setup(
 	_player = player
 	enemy_id = assigned_enemy_id
 	position = maze.cell_to_world(start_cell)
+	_patrol_anchor_cell = start_cell
 	_rng.seed = random_seed
 	z_index = ALIVE_Z_INDEX
 	visible = false
@@ -106,6 +110,14 @@ func restore_state(saved_data: Dictionary) -> void:
 	health = clampi(int(saved_data.get("health", MAX_HEALTH)), 0, MAX_HEALTH)
 	dead = bool(saved_data.get("dead", health <= 0))
 	energy_core_collected = bool(saved_data.get("energy_core_collected", false))
+	var saved_patrol_anchor: Array = saved_data.get("patrol_anchor", [])
+	if saved_patrol_anchor.size() == 2:
+		_patrol_anchor_cell = Vector2i(
+			int(saved_patrol_anchor[0]),
+			int(saved_patrol_anchor[1])
+		)
+	elif _patrol_anchor_cell.x < 0:
+		_patrol_anchor_cell = _maze.world_to_cell(position)
 	if dead:
 		health = 0
 		_apply_dead_state()
@@ -118,6 +130,7 @@ func save_data() -> Dictionary:
 		"health": health,
 		"dead": dead,
 		"energy_core_collected": energy_core_collected,
+		"patrol_anchor": [_patrol_anchor_cell.x, _patrol_anchor_cell.y],
 	}
 
 
@@ -133,6 +146,22 @@ func pursuit_target_cell() -> Vector2i:
 
 func is_attack_state() -> bool:
 	return state == State.COMBAT or state == State.MANEUVER
+
+
+func is_alerted() -> bool:
+	return state != State.PATROL
+
+
+func should_draw_vision_line() -> bool:
+	return not dead and _active_enemy_bullets <= 0
+
+
+func register_enemy_bullet() -> void:
+	_active_enemy_bullets += 1
+
+
+func unregister_enemy_bullet() -> void:
+	_active_enemy_bullets = maxi(0, _active_enemy_bullets - 1)
 
 
 func uses_ambush_marker() -> bool:
@@ -163,8 +192,8 @@ func hear_player() -> void:
 	hear_position(_maze.world_to_cell(_player.position))
 
 
-func hear_position(source_cell: Vector2i) -> void:
-	if dead or not _active or _hearing_cooldown > 0.0:
+func hear_position(source_cell: Vector2i, force: bool = false) -> void:
+	if dead or not _active or (_hearing_cooldown > 0.0 and not force):
 		return
 
 	_last_known_player_cell = source_cell
@@ -299,7 +328,8 @@ func _physics_process(delta: float) -> void:
 	if state == State.COMBAT:
 		_enter_search()
 
-	if _player.is_audible() \
+	if state != State.PATROL \
+			and _player.is_audible() \
 			and distance_to_player <= STEP_HEARING_RANGE \
 			and _hearing_cooldown <= 0.0:
 		hear_player()
@@ -318,6 +348,12 @@ func _physics_process(delta: float) -> void:
 
 
 func _enter_patrol() -> void:
+	_enter_patrol_at(_last_known_player_cell)
+
+
+func _enter_patrol_at(anchor_cell: Vector2i) -> void:
+	if anchor_cell.x >= 0:
+		_patrol_anchor_cell = anchor_cell
 	state = State.PATROL
 	_search_time_left = 0.0
 	_last_known_player_cell = Vector2i(-1, -1)
@@ -650,7 +686,7 @@ func _update_search(delta: float) -> void:
 	velocity = Vector2.ZERO
 	_search_time_left = maxf(0.0, _search_time_left - delta)
 	if _search_time_left <= 0.0:
-		_enter_patrol()
+		_enter_patrol_at(_last_known_player_cell)
 
 
 func _update_maneuver(sees_player: bool) -> void:
@@ -695,15 +731,32 @@ func _follow_path(update_facing: bool = true) -> void:
 
 
 func _choose_random_target() -> void:
+	if _patrol_anchor_cell.x < 0:
+		_patrol_anchor_cell = _maze.world_to_cell(position)
+
 	for attempt in TARGET_ATTEMPTS:
-		var target := _maze.get_random_walkable_cell(_rng)
-		if target.x < 0:
-			return
-		if _maze.is_cell_safe(target):
+		var offset := Vector2i(
+			_rng.randi_range(-int(PATROL_RADIUS), int(PATROL_RADIUS)),
+			_rng.randi_range(-int(PATROL_RADIUS), int(PATROL_RADIUS))
+		)
+		if Vector2(offset).length() > PATROL_RADIUS:
 			continue
-		if _build_path_to(target):
+		var target := _patrol_anchor_cell + offset
+		if not _maze.is_cell_walkable(target) \
+				or _maze.is_cell_safe(target):
+			continue
+		if _build_path_to(target) and _path_stays_near_patrol_anchor():
 			return
 	_path.clear()
+
+
+func _path_stays_near_patrol_anchor() -> bool:
+	for cell in _path:
+		if Vector2(cell - _patrol_anchor_cell).length() > PATROL_RADIUS:
+			_path.clear()
+			_path_index = 0
+			return false
+	return true
 
 
 func _build_path_to(target: Vector2i) -> bool:
