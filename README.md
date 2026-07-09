@@ -32,7 +32,7 @@ binary. When running from the editor, the file is written to the project root.
 When this file exists, the main menu shows `Продолжить`. Starting a new game
 deletes the previous save.
 
-The 200 by 200 cell maze is randomized on every run.
+The 199 by 199 cell maze is randomized on every run.
 Its dimensions are controlled by `COLUMNS` and `ROWS` in `scripts/maze.gd`;
 the internal generation grid is derived automatically.
 The player starts in a random floor cell along the bottom of the maze.

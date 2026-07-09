@@ -4,8 +4,8 @@ class_name Maze
 const ENVIRONMENT_ATLAS := preload(
 	"res://assets/tiles/environment/environment_tileset_48.png"
 )
-const COLUMNS := 200
-const ROWS := 200
+const COLUMNS := 199
+const ROWS := 199
 const LOGICAL_COLUMNS := int((COLUMNS - 1) / 3.0)
 const LOGICAL_ROWS := int((ROWS - 1) / 3.0)
 const LAYOUT_COLUMNS := LOGICAL_COLUMNS * 2 + 1
@@ -20,6 +20,7 @@ const WALL_TILE_OFFSET := 8
 const WALL_TILE_COUNT := 8
 const EXPLORED_WALL_TILE_MODULATE := Color(0.3, 0.32, 0.36, 1.0)
 const SAFE_FLOOR_TILE_MODULATE := Color(0.58, 1.0, 0.7, 1.0)
+const ENEMY_TRAIL_TILE_MODULATE := Color(1.0, 0.38, 0.4, 1.0)
 const LOOP_DENSITY := 0.16
 const NARROW_CORRIDOR_RATIO := 0.35
 const ROOM_MIN_SIZE := 4
@@ -59,6 +60,7 @@ var _room_specs: Array[Dictionary] = []
 var _station_specs: Array[Dictionary] = []
 var _closed_door_cells: Dictionary = {}
 var _safe_cell_mask := PackedByteArray()
+var _enemy_trail_cells: Dictionary = {}
 
 
 func _ready() -> void:
@@ -112,6 +114,11 @@ func is_cell_explored(cell: Vector2i) -> bool:
 
 func is_cell_safe(cell: Vector2i) -> bool:
 	return _is_inside(cell) and _safe_cell_mask[_cell_index(cell)] == 1
+
+
+func set_enemy_trail_cells(cells: Dictionary) -> void:
+	_enemy_trail_cells = cells.duplicate()
+	queue_redraw()
 
 
 func generation_seed() -> int:
@@ -777,8 +784,9 @@ func _rasterize_layout(
 		)
 
 	_add_stations(rng)
-	_remove_disconnected_floor_pockets()
+	_connect_disconnected_floor_pockets()
 	_add_rooms(rng)
+	_connect_disconnected_floor_pockets()
 	_add_exit_door(rng)
 
 	for station_spec in _station_specs:
@@ -911,9 +919,28 @@ func _carve_rect(rect: Rect2i) -> void:
 			_cells[y][x] = 0
 
 
-func _remove_disconnected_floor_pockets() -> void:
+func _connect_disconnected_floor_pockets() -> void:
+	var components := _floor_components()
+	if components.size() <= 1:
+		return
+
+	var connected_component: Array[Vector2i] = components[0]
+	for index in range(1, components.size()):
+		var component: Array[Vector2i] = components[index]
+		var connection := _nearest_component_connection(
+			connected_component,
+			component
+		)
+		if connection.is_empty():
+			continue
+
+		_carve_l_corridor(connection[0], connection[1])
+		connected_component.append_array(component)
+
+
+func _floor_components() -> Array[Array]:
 	var visited: Dictionary = {}
-	var largest_component: Array[Vector2i] = []
+	var components: Array[Array] = []
 	for y in range(1, ROWS - 1):
 		for x in range(1, COLUMNS - 1):
 			var start := Vector2i(x, y)
@@ -936,14 +963,73 @@ func _remove_disconnected_floor_pockets() -> void:
 						continue
 					visited[next] = true
 					pending.append(next)
+			components.append(component)
 
-			if component.size() > largest_component.size():
-				for cell in largest_component:
-					_cells[cell.y][cell.x] = 1
-				largest_component = component
-			else:
-				for cell in component:
-					_cells[cell.y][cell.x] = 1
+	components.sort_custom(
+		func(left: Array[Vector2i], right: Array[Vector2i]) -> bool:
+			return left.size() > right.size()
+	)
+	return components
+
+
+func _nearest_component_connection(
+	from_component: Array[Vector2i],
+	to_component: Array[Vector2i]
+) -> Array[Vector2i]:
+	var from_edges := _component_edge_cells(from_component)
+	var to_edges := _component_edge_cells(to_component)
+	var best_from := Vector2i(-1, -1)
+	var best_to := Vector2i(-1, -1)
+	var best_distance := INF
+
+	for from_cell in from_edges:
+		for to_cell in to_edges:
+			var distance := (
+				absi(from_cell.x - to_cell.x)
+				+ absi(from_cell.y - to_cell.y)
+			)
+			if distance < best_distance:
+				best_distance = distance
+				best_from = from_cell
+				best_to = to_cell
+
+	if best_from.x < 0 or best_to.x < 0:
+		return []
+	return [best_from, best_to]
+
+
+func _component_edge_cells(component: Array[Vector2i]) -> Array[Vector2i]:
+	var edges: Array[Vector2i] = []
+	for cell in component:
+		for direction in CARDINAL_DIRECTIONS:
+			var neighbor := cell + direction
+			if _is_inside(neighbor) and _is_wall(neighbor):
+				edges.append(cell)
+				break
+	return edges
+
+
+func _carve_l_corridor(from_cell: Vector2i, to_cell: Vector2i) -> void:
+	var carve_x_first := from_cell.x % 2 == 0
+	var corner := (
+		Vector2i(to_cell.x, from_cell.y)
+		if carve_x_first
+		else Vector2i(from_cell.x, to_cell.y)
+	)
+	_carve_straight_corridor(from_cell, corner)
+	_carve_straight_corridor(corner, to_cell)
+
+
+func _carve_straight_corridor(from_cell: Vector2i, to_cell: Vector2i) -> void:
+	var step := Vector2i(
+		signi(to_cell.x - from_cell.x),
+		signi(to_cell.y - from_cell.y)
+	)
+	var cell := from_cell
+	while cell != to_cell:
+		_cells[cell.y][cell.x] = 0
+		cell += step
+	_cells[to_cell.y][to_cell.x] = 0
 
 
 func _add_stations(rng: RandomNumberGenerator) -> void:
@@ -1260,8 +1346,17 @@ func _draw() -> void:
 			_draw_environment_tile(
 				cell,
 				false,
-				SAFE_FLOOR_TILE_MODULATE if safe else Color.WHITE
+				_floor_tile_modulate(cell, safe)
 			)
+
+
+func _floor_tile_modulate(cell: Vector2i, safe: bool) -> Color:
+	if safe:
+		return SAFE_FLOOR_TILE_MODULATE
+	if _enemy_trail_cells.has(cell):
+		return ENEMY_TRAIL_TILE_MODULATE
+	return Color.WHITE
+
 
 func _draw_environment_tile(
 	cell: Vector2i,

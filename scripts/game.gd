@@ -20,6 +20,7 @@ const SHOT_HEARING_RANGE := 30.0
 const SHOT_REACTION_DELAY := 2.0
 const PLAYER_SHOOT_INTERVAL := 1.0
 const PLAYER_RECOIL_ENABLED := false
+const ENEMY_TRAIL_DURATION := 30.0
 const CRITICAL_HEALTH_THRESHOLD := 30
 const CRITICAL_AMMO_THRESHOLD := 10
 const ENERGY_CORE_PICKUP_DISTANCE := 0.65 * Maze.CELL_SIZE
@@ -87,6 +88,8 @@ var _shoot_cooldown := 0.0
 var _rng := RandomNumberGenerator.new()
 var _hit_flash_tween: Tween
 var _combat_music_active := false
+var _enemy_trail_cells: Dictionary = {}
+var _game_time_seconds := 0.0
 
 
 func _enter_tree() -> void:
@@ -165,6 +168,7 @@ func _process(delta: float) -> void:
 		_show_defeat()
 		return
 
+	_game_time_seconds += delta
 	_shoot_cooldown = maxf(0.0, _shoot_cooldown - delta)
 	if Input.is_action_just_pressed("shoot"):
 		_shoot()
@@ -182,6 +186,7 @@ func _process(delta: float) -> void:
 	_update_coordinates()
 	_pick_up_energy_cores()
 	_pick_up_mega_core()
+	_update_enemy_trails()
 	_update_player_panel()
 	_update_music_state()
 
@@ -195,6 +200,31 @@ func _update_music_state() -> void:
 	if combat_active != _combat_music_active:
 		_combat_music_active = combat_active
 		AudioManager.set_combat_active(combat_active)
+
+
+func enemy_trail_cells() -> Dictionary:
+	var current_time := _game_time_seconds
+	var result: Dictionary = {}
+	for trail_cell in _enemy_trail_cells:
+		var cell: Vector2i = trail_cell
+		if current_time - float(_enemy_trail_cells[cell]) <= ENEMY_TRAIL_DURATION:
+			result[cell] = true
+	return result
+
+
+func _update_enemy_trails() -> void:
+	var current_time := _game_time_seconds
+	for enemy: Enemy in _enemies:
+		if enemy.dead:
+			continue
+		var cell := maze.world_to_cell(enemy.position)
+		if not maze.is_wall(cell):
+			_enemy_trail_cells[cell] = current_time
+	for trail_cell in _enemy_trail_cells.keys():
+		var cell: Vector2i = trail_cell
+		if current_time - float(_enemy_trail_cells[cell]) > ENEMY_TRAIL_DURATION:
+			_enemy_trail_cells.erase(cell)
+	maze.set_enemy_trail_cells(enemy_trail_cells())
 
 
 func _update_visibility() -> void:
@@ -332,7 +362,13 @@ func _pick_up_mega_core() -> void:
 
 func _mega_core_status_text() -> String:
 	if player.has_mega_core:
-		return "Мегаядро: вернуть на станцию"
+		if not _stations.is_empty():
+			var station_cell: Vector2i = _stations[0].cell
+			return "Мегаядро: Вернуть X: %d, Y: %d" % [
+				station_cell.x,
+				station_cell.y,
+			]
+		return "Мегаядро: Вернуть"
 	if player.mega_core_cell.x >= 0:
 		return "Мегаядро: X: %d, Y: %d" % [
 			player.mega_core_cell.x,

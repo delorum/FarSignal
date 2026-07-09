@@ -11,6 +11,8 @@ const STATION_COLOR := Color("245d3b")
 const STATION_EDGE_COLOR := Color("3d8155")
 const DEAD_ENEMY_COLOR := Color("3b4148")
 const DEAD_ENEMY_EDGE_COLOR := Color("626b75")
+const DEAD_ENEMY_CORE_COLOR := Color(1.0, 0.92, 0.36, 1.0)
+const DEAD_ENEMY_CORE_EDGE_COLOR := Color(1.0, 1.0, 0.78, 1.0)
 const MEGA_CORE_COLOR := Color(1.0, 1.0, 1.0, 1.0)
 
 var scroll_position := Vector2.ZERO
@@ -178,11 +180,15 @@ func _draw_dead_enemies(map_origin: Vector2) -> void:
 		)
 		var radius := cell_size * 0.22
 		if enemy.has_energy_core():
-			draw_circle(center, radius, DEAD_ENEMY_COLOR)
+			draw_circle(center, radius, DEAD_ENEMY_CORE_COLOR)
 		draw_circle(
 			center,
 			radius,
-			DEAD_ENEMY_EDGE_COLOR,
+			(
+				DEAD_ENEMY_CORE_EDGE_COLOR
+				if enemy.has_energy_core()
+				else DEAD_ENEMY_EDGE_COLOR
+			),
 			false,
 			maxf(1.0, cell_size * 0.05),
 			true
