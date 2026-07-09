@@ -10,13 +10,14 @@ const MAX_AMMO := 30
 const MAX_HEALTH_BUY := 20
 const MAX_AMMO_BUY := 10
 const ENERGY_PER_CORE := 20
+const EXPLORED_CELLS_PER_EXCHANGE := 200
+const ENERGY_PER_EXPLORED_CELL_EXCHANGE := 10
+const MEGA_CORE_RETURN_ENERGY := 100
 const DOOR_COST := 10
 const CELL_SIZE := 48.0
 const RECOIL_DISTANCE := CELL_SIZE
 const NOISE_BUILDUP_DISTANCE := CELL_SIZE * 3.0
 const NOISE_DECAY_TIME := 1.0
-const AMBUSH_DURATION := 20.0
-const AMBUSH_RECOVERY_TIME := 40.0
 const ANIMATION_FRAME_COUNT := 8
 const RUN_ANIMATION_FPS := 10.0
 const IDLE_ANIMATION_FPS := 5.0
@@ -26,7 +27,6 @@ const AIM_INDICATOR_INNER_GAP := 1.5
 const AIM_INDICATOR_LINE_WIDTH := 1.5
 const AIM_INDICATOR_COOLDOWN_COLOR := Color(0.12, 0.16, 0.18, 0.45)
 const AIM_INDICATOR_READY_COLOR := Color(0.88, 0.96, 1.0, 0.86)
-const AIM_INDICATOR_AMBUSH_ALPHA := 0.45
 
 @onready var player_sprite: Sprite2D = $Sprite2D
 
@@ -36,9 +36,10 @@ var ammo := MAX_AMMO
 var energy_cores := 0
 var energy := 0
 var door_inventory := 0
+var explored_floor_cells := 0
+var mega_core_cell := Vector2i(-1, -1)
+var has_mega_core := false
 var noise_level := 0.0
-var ambush_energy := AMBUSH_DURATION
-var ambush_mode := false
 var _facing := Vector2.RIGHT
 var _animation_time := 0.0
 var _animation_running := false
@@ -79,13 +80,19 @@ func restore_status(
 	saved_ammo: int,
 	saved_energy_cores: int = 0,
 	saved_energy: int = 0,
-	saved_door_inventory: int = 0
+	saved_door_inventory: int = 0,
+	saved_explored_floor_cells: int = 0,
+	saved_mega_core_cell: Vector2i = Vector2i(-1, -1),
+	saved_has_mega_core: bool = false
 ) -> void:
 	health = clampi(saved_health, 0, MAX_HEALTH)
 	ammo = clampi(saved_ammo, 0, MAX_AMMO)
 	energy_cores = maxi(0, saved_energy_cores)
 	energy = maxi(0, saved_energy)
 	door_inventory = maxi(0, saved_door_inventory)
+	explored_floor_cells = maxi(0, saved_explored_floor_cells)
+	mega_core_cell = saved_mega_core_cell
+	has_mega_core = saved_has_mega_core
 
 
 func consume_ammo() -> bool:
@@ -142,6 +149,20 @@ func can_buy_door() -> bool:
 	return energy >= DOOR_COST
 
 
+func explored_cell_exchange_count() -> int:
+	return floori(
+		float(explored_floor_cells) / float(EXPLORED_CELLS_PER_EXCHANGE)
+	)
+
+
+func explored_cell_exchange_cells() -> int:
+	return explored_cell_exchange_count() * EXPLORED_CELLS_PER_EXCHANGE
+
+
+func explored_cell_exchange_energy() -> int:
+	return explored_cell_exchange_count() * ENERGY_PER_EXPLORED_CELL_EXCHANGE
+
+
 func buy_health() -> bool:
 	if not can_buy_health():
 		return false
@@ -174,8 +195,42 @@ func exchange_energy_cores() -> bool:
 	return true
 
 
+func exchange_explored_floor_cells() -> bool:
+	var exchanged_cells := explored_cell_exchange_cells()
+	if exchanged_cells <= 0:
+		return false
+	energy += explored_cell_exchange_energy()
+	explored_floor_cells -= exchanged_cells
+	return true
+
+
+func assign_mega_core(cell: Vector2i) -> void:
+	mega_core_cell = cell
+	has_mega_core = false
+
+
+func collect_mega_core() -> bool:
+	if has_mega_core or mega_core_cell.x < 0:
+		return false
+	has_mega_core = true
+	return true
+
+
+func return_mega_core() -> bool:
+	if not has_mega_core:
+		return false
+	energy += MEGA_CORE_RETURN_ENERGY
+	mega_core_cell = Vector2i(-1, -1)
+	has_mega_core = false
+	return true
+
+
 func collect_energy_core() -> void:
 	energy_cores += 1
+
+
+func discover_floor_cells(count: int) -> void:
+	explored_floor_cells += maxi(0, count)
 
 
 func take_damage(amount: int) -> bool:
@@ -195,11 +250,10 @@ func is_moving() -> bool:
 
 
 func is_audible() -> bool:
-	return not ambush_mode and is_equal_approx(noise_level, 1.0)
+	return is_equal_approx(noise_level, 1.0)
 
 
 func make_shot_noise() -> void:
-	ambush_mode = false
 	noise_level = 1.0
 	queue_redraw()
 
@@ -208,20 +262,6 @@ func apply_recoil(shot_direction: Vector2) -> void:
 	if shot_direction.is_zero_approx():
 		return
 	move_and_collide(-shot_direction.normalized() * RECOIL_DISTANCE)
-
-
-func toggle_ambush_mode() -> void:
-	if ambush_mode:
-		ambush_mode = false
-	elif ambush_energy > 0.0:
-		ambush_mode = true
-	if ambush_mode:
-		noise_level = 0.0
-	queue_redraw()
-
-
-func ambush_energy_ratio() -> float:
-	return ambush_energy / AMBUSH_DURATION
 
 
 func set_aim_indicator_readiness(readiness: float) -> void:
@@ -265,30 +305,18 @@ func _physics_process(delta: float) -> void:
 	velocity = input_direction * speed
 	move_and_slide()
 
-	if ambush_mode:
-		ambush_energy = maxf(0.0, ambush_energy - delta)
-		if is_zero_approx(ambush_energy):
-			ambush_mode = false
-		noise_level = 0.0
-	elif ambush_energy < AMBUSH_DURATION:
-		ambush_energy = minf(
-			AMBUSH_DURATION,
-			ambush_energy + AMBUSH_DURATION * delta / AMBUSH_RECOVERY_TIME
+	if is_moving():
+		noise_level = move_toward(
+			noise_level,
+			1.0,
+			velocity.length() * delta / NOISE_BUILDUP_DISTANCE
 		)
-
-	if not ambush_mode:
-		if is_moving():
-			noise_level = move_toward(
-				noise_level,
-				1.0,
-				velocity.length() * delta / NOISE_BUILDUP_DISTANCE
-			)
-		else:
-			noise_level = move_toward(
-				noise_level,
-				0.0,
-				delta / NOISE_DECAY_TIME
-			)
+	else:
+		noise_level = move_toward(
+			noise_level,
+			0.0,
+			delta / NOISE_DECAY_TIME
+		)
 
 	_update_animation(delta)
 
@@ -325,8 +353,6 @@ func _draw_aim_indicator() -> void:
 		AIM_INDICATOR_READY_COLOR,
 		_aim_indicator_readiness
 	)
-	if ambush_mode:
-		color.a *= AIM_INDICATOR_AMBUSH_ALPHA
 	var horizontal := Vector2.RIGHT
 	var vertical := Vector2.DOWN
 	for axis in [horizontal, vertical]:

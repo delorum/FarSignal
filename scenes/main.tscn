@@ -1,4 +1,4 @@
-[gd_scene load_steps=21 format=3 uid="uid://dw58ygdj26wbu"]
+[gd_scene load_steps=22 format=3 uid="uid://dw58ygdj26wbu"]
 
 [ext_resource type="Script" uid="uid://b7t1b5rs3b076" path="res://scripts/game.gd" id="1_game"]
 [ext_resource type="Script" uid="uid://1jcmw0g6148v" path="res://scripts/maze.gd" id="2_maze"]
@@ -12,6 +12,7 @@
 [ext_resource type="PackedScene" path="res://scenes/settings_menu.tscn" id="13_settings"]
 [ext_resource type="Texture2D" path="res://assets/characters/player/player_sheet_80x64.png" id="14_player_texture"]
 [ext_resource type="Script" path="res://scripts/victory_menu.gd" id="15_victory"]
+[ext_resource type="Script" path="res://scripts/mega_core_marker.gd" id="16_mega_core_marker"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_player"]
 radius = 14.0
@@ -37,9 +38,6 @@ bg_color = Color(0.82, 0.68, 0.32, 1)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_noise_fill"]
 bg_color = Color(0.82, 0.25, 0.27, 1)
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ambush_fill"]
-bg_color = Color(0.345, 0.839, 0.561, 1)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hit_flash"]
 bg_color = Color(0, 0, 0, 0)
@@ -69,6 +67,10 @@ z_index = 100
 [node name="EnemyTargetMarkers" type="Node2D" parent="."]
 z_index = 90
 script = ExtResource("12_enemy_targets")
+
+[node name="MegaCoreMarker" type="Node2D" parent="."]
+z_index = 95
+script = ExtResource("16_mega_core_marker")
 
 [node name="Player" type="CharacterBody2D" parent="." unique_id=1057369580]
 collision_layer = 2
@@ -196,11 +198,24 @@ theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
 theme_override_font_sizes/font_size = 18
 text = "Двери: 0"
 
-[node name="AlertStateValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
+[node name="ExploredCellsValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.345, 0.839, 0.561, 1)
+theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
 theme_override_font_sizes/font_size = 18
-text = "ТРЕВОГА: НЕТ"
+text = "Клетки: 0"
+
+[node name="MegaCoreValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
+theme_override_font_sizes/font_size = 18
+text = "Мегаядро: нет координат"
+
+[node name="AlertStateValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
+visible = false
+layout_mode = 2
+theme_override_colors/font_color = Color(0.839, 0.42, 0.42, 1)
+theme_override_font_sizes/font_size = 18
+text = "ТРЕВОГА"
 
 [node name="NoiseSpacer" type="Control" parent="GameInterface/PlayerPanel/Margin/VBox"]
 custom_minimum_size = Vector2(0, 18)
@@ -208,53 +223,17 @@ layout_mode = 2
 mouse_filter = 2
 
 [node name="NoiseStateValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
+visible = false
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
 text = "НЕ СЛЫШНО"
 
 [node name="NoiseBar" type="ProgressBar" parent="GameInterface/PlayerPanel/Margin/VBox"]
+visible = false
 custom_minimum_size = Vector2(0, 12)
 layout_mode = 2
 theme_override_styles/background = SubResource("StyleBoxFlat_bar_background")
 theme_override_styles/fill = SubResource("StyleBoxFlat_noise_fill")
-show_percentage = false
-
-[node name="AmbushBar" type="ProgressBar" parent="GameInterface/PlayerPanel/Margin/VBox"]
-custom_minimum_size = Vector2(0, 12)
-layout_mode = 2
-theme_override_styles/background = SubResource("StyleBoxFlat_bar_background")
-theme_override_styles/fill = SubResource("StyleBoxFlat_ambush_fill")
-value = 100.0
-show_percentage = false
-
-[node name="NearbyEnemyHealth" type="VBoxContainer" parent="GameInterface/PlayerPanel/Margin/VBox"]
-visible = false
-layout_mode = 2
-theme_override_constants/separation = 8
-
-[node name="Spacer" type="Control" parent="GameInterface/PlayerPanel/Margin/VBox/NearbyEnemyHealth"]
-custom_minimum_size = Vector2(0, 16)
-layout_mode = 2
-mouse_filter = 2
-
-[node name="Title" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox/NearbyEnemyHealth"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.9, 0.42, 0.42, 1)
-theme_override_font_sizes/font_size = 18
-text = "ЗДОРОВЬЕ ВРАГА"
-
-[node name="Value" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox/NearbyEnemyHealth"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
-theme_override_font_sizes/font_size = 22
-text = "100 / 100"
-
-[node name="Bar" type="ProgressBar" parent="GameInterface/PlayerPanel/Margin/VBox/NearbyEnemyHealth"]
-custom_minimum_size = Vector2(0, 18)
-layout_mode = 2
-theme_override_styles/background = SubResource("StyleBoxFlat_bar_background")
-theme_override_styles/fill = SubResource("StyleBoxFlat_health_fill")
-value = 100.0
 show_percentage = false
 
 [node name="HitFlash" type="Panel" parent="GameInterface"]
@@ -535,6 +514,18 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Сдать энергоядра"
 
+[node name="ExchangeCellsButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Сдать клетки"
+
+[node name="ReturnMegaCoreButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Мегаядро не найдено"
+
 [node name="DoorButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu"]
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
@@ -712,6 +703,8 @@ text = "Главное меню"
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/AmmoButton" to="StationOverlay/StationMenu" method="_on_ammo_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/HealthButton" to="StationOverlay/StationMenu" method="_on_health_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ExchangeButton" to="StationOverlay/StationMenu" method="_on_exchange_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ExchangeCellsButton" to="StationOverlay/StationMenu" method="_on_exchange_cells_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ReturnMegaCoreButton" to="StationOverlay/StationMenu" method="_on_return_mega_core_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/DoorButton" to="StationOverlay/StationMenu" method="_on_door_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/InstructionsButton" to="StationOverlay/StationMenu" method="_on_instructions_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ExitButton" to="StationOverlay/StationMenu" method="_on_exit_pressed"]

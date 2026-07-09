@@ -8,7 +8,7 @@ const ENEMY_SCENE := preload("res://scenes/enemy.tscn")
 const BULLET_SPAWN_DISTANCE := 22.0
 const BULLET_HALF_LENGTH := 6.0
 const BULLET_HALF_WIDTH := 2.0
-const ENEMY_COUNT := 30
+const ENEMY_COUNT := 40
 const MAX_ENEMY_START_DISTANCE := 15.0
 const ENEMY_START_DISTANCE_RATIO := 0.15
 const ENEMY_SPAWN_ATTEMPTS := 256
@@ -16,7 +16,6 @@ const PLAYER_DAMAGE_MIN := 27
 const PLAYER_DAMAGE_MAX := 36
 const ENEMY_DAMAGE_MIN := 17
 const ENEMY_DAMAGE_MAX := 24
-const ENEMY_HEALTH_DISPLAY_RANGE := 10.0
 const SHOT_HEARING_RANGE := 30.0
 const SHOT_REACTION_DELAY := 2.0
 const PLAYER_SHOOT_INTERVAL := 1.0
@@ -45,6 +44,7 @@ const EXIT_DOOR_LOCKED_LABEL := "Нужна безопасная зона"
 @onready var bullets: Node2D = $Bullets
 @onready var damage_numbers: Node2D = $DamageNumbers
 @onready var enemy_target_markers: Node2D = $EnemyTargetMarkers
+@onready var mega_core_marker: Node2D = $MegaCoreMarker
 @onready var camera: Camera2D = $Player/Camera2D
 @onready var player_panel: Panel = $GameInterface/PlayerPanel
 @onready var hit_flash: Panel = $GameInterface/HitFlash
@@ -56,13 +56,11 @@ const EXIT_DOOR_LOCKED_LABEL := "Нужна безопасная зона"
 @onready var energy_cores_value: Label = $GameInterface/PlayerPanel/Margin/VBox/EnergyCoresValue
 @onready var energy_value: Label = $GameInterface/PlayerPanel/Margin/VBox/EnergyValue
 @onready var doors_value: Label = $GameInterface/PlayerPanel/Margin/VBox/DoorsValue
+@onready var explored_cells_value: Label = $GameInterface/PlayerPanel/Margin/VBox/ExploredCellsValue
+@onready var mega_core_value: Label = $GameInterface/PlayerPanel/Margin/VBox/MegaCoreValue
 @onready var alert_state_value: Label = $GameInterface/PlayerPanel/Margin/VBox/AlertStateValue
 @onready var noise_state_value: Label = $GameInterface/PlayerPanel/Margin/VBox/NoiseStateValue
 @onready var noise_bar: ProgressBar = $GameInterface/PlayerPanel/Margin/VBox/NoiseBar
-@onready var ambush_bar: ProgressBar = $GameInterface/PlayerPanel/Margin/VBox/AmbushBar
-@onready var nearby_enemy_health: VBoxContainer = $GameInterface/PlayerPanel/Margin/VBox/NearbyEnemyHealth
-@onready var nearby_enemy_health_value: Label = $GameInterface/PlayerPanel/Margin/VBox/NearbyEnemyHealth/Value
-@onready var nearby_enemy_health_bar: ProgressBar = $GameInterface/PlayerPanel/Margin/VBox/NearbyEnemyHealth/Bar
 @onready var station_menu: Control = $StationOverlay/StationMenu
 @onready var defeat_menu: Control = $DefeatOverlay/DefeatMenu
 @onready var victory_menu: Control = $VictoryOverlay/VictoryMenu
@@ -73,6 +71,8 @@ var _displayed_ammo := -1
 var _displayed_energy_cores := -1
 var _displayed_energy := -1
 var _displayed_door_inventory := -1
+var _displayed_explored_floor_cells := -1
+var _displayed_mega_core_text := ""
 var _displayed_alert_state := ""
 var _displayed_noise_state := ""
 var _doors: Array[Node] = []
@@ -102,6 +102,7 @@ func _ready() -> void:
 	AudioManager.set_combat_active(false)
 	_rng.randomize()
 	enemy_target_markers.setup(maze, enemies)
+	mega_core_marker.setup(maze, player)
 	get_viewport().size_changed.connect(_update_adaptive_layout)
 	player.damaged.connect(_show_hit_flash)
 	_update_adaptive_layout()
@@ -116,6 +117,7 @@ func _ready() -> void:
 			station.discover()
 		_create_generated_doors()
 		_refresh_safe_zone()
+		_assign_new_mega_core()
 		_create_generated_enemies(player_cell)
 	else:
 		_create_generated_stations()
@@ -164,9 +166,6 @@ func _process(delta: float) -> void:
 		return
 
 	_shoot_cooldown = maxf(0.0, _shoot_cooldown - delta)
-	if Input.is_action_just_pressed("toggle_ambush") \
-			and player.controls_enabled:
-		player.toggle_ambush_mode()
 	if Input.is_action_just_pressed("shoot"):
 		_shoot()
 	if Input.is_action_just_pressed("place_door") \
@@ -182,6 +181,7 @@ func _process(delta: float) -> void:
 	_update_visibility()
 	_update_coordinates()
 	_pick_up_energy_cores()
+	_pick_up_mega_core()
 	_update_player_panel()
 	_update_music_state()
 
@@ -198,7 +198,12 @@ func _update_music_state() -> void:
 
 
 func _update_visibility() -> void:
-	maze.update_visibility(player.position, player.facing_direction())
+	var newly_explored_floor_cells := maze.update_visibility(
+		player.position,
+		player.facing_direction()
+	)
+	if newly_explored_floor_cells > 0:
+		player.discover_floor_cells(newly_explored_floor_cells)
 	for door in _doors:
 		door.update_visibility(
 			maze.is_cell_visible(door.cell),
@@ -214,6 +219,7 @@ func _update_visibility() -> void:
 			maze.is_cell_visible(maze.world_to_cell(enemy.position)),
 			false
 		)
+	queue_redraw()
 
 
 func _update_coordinates() -> void:
@@ -254,12 +260,17 @@ func _update_player_panel() -> void:
 	if player.door_inventory != _displayed_door_inventory:
 		_displayed_door_inventory = player.door_inventory
 		doors_value.text = "Двери: %d" % player.door_inventory
+	if player.explored_floor_cells != _displayed_explored_floor_cells:
+		_displayed_explored_floor_cells = player.explored_floor_cells
+		explored_cells_value.text = (
+			"Клетки: %d" % player.explored_floor_cells
+		)
+	var mega_core_text := _mega_core_status_text()
+	if mega_core_text != _displayed_mega_core_text:
+		_displayed_mega_core_text = mega_core_text
+		mega_core_value.text = mega_core_text
 	var has_alerted_enemies := _has_alerted_enemies()
-	var alert_state := (
-		"ТРЕВОГА: ЕСТЬ"
-		if has_alerted_enemies
-		else "ТРЕВОГА: НЕТ"
-	)
+	var alert_state := "ТРЕВОГА" if has_alerted_enemies else ""
 	if alert_state != _displayed_alert_state:
 		_displayed_alert_state = alert_state
 		alert_state_value.text = alert_state
@@ -268,6 +279,7 @@ func _update_player_panel() -> void:
 			if has_alerted_enemies
 			else ALERT_CLEAR_COLOR
 		)
+	alert_state_value.visible = has_alerted_enemies
 	var weapon_readiness := (
 		0.0
 		if player.ammo <= 0
@@ -275,30 +287,19 @@ func _update_player_panel() -> void:
 	)
 	player.set_aim_indicator_readiness(weapon_readiness)
 
-	var noise_state := (
-		"РЕЖИМ ЗАСАДЫ"
-		if player.ambush_mode
-		else (
-			"ВАС СЛЫШНО"
-			if player.is_audible()
-			else "НЕ СЛЫШНО"
-		)
-	)
+	var noise_state := "ВАС СЛЫШНО" if player.is_audible() else "НЕ СЛЫШНО"
 	if noise_state != _displayed_noise_state:
 		_displayed_noise_state = noise_state
 		noise_state_value.text = noise_state
 		noise_state_value.modulate = (
 			NOISE_SILENT_COLOR
-			if player.ambush_mode or not player.is_audible()
+			if not player.is_audible()
 			else NOISE_AUDIBLE_COLOR
 		)
 	noise_state_value.visible = has_alerted_enemies
-	noise_bar.visible = has_alerted_enemies and not player.ambush_mode
+	noise_bar.visible = has_alerted_enemies
 	if noise_bar.visible:
 		noise_bar.value = player.noise_level * 100.0
-	ambush_bar.value = player.ambush_energy_ratio() * 100.0
-
-	_update_nearby_enemy_health()
 
 
 func _has_alerted_enemies() -> bool:
@@ -306,32 +307,6 @@ func _has_alerted_enemies() -> bool:
 		if not enemy.dead and enemy.is_alerted():
 			return true
 	return false
-
-
-func _update_nearby_enemy_health() -> void:
-	var closest_enemy: Enemy
-	var closest_distance := INF
-	var player_cell: Vector2i = maze.world_to_cell(player.position)
-	for enemy in _enemies:
-		if enemy.dead:
-			continue
-
-		var enemy_cell: Vector2i = maze.world_to_cell(enemy.position)
-		var distance := Vector2(enemy_cell - player_cell).length()
-		if distance <= ENEMY_HEALTH_DISPLAY_RANGE \
-				and distance < closest_distance:
-			closest_enemy = enemy
-			closest_distance = distance
-
-	nearby_enemy_health.visible = closest_enemy != null
-	if closest_enemy == null:
-		return
-
-	nearby_enemy_health_value.text = "%d / %d" % [
-		closest_enemy.health,
-		closest_enemy.MAX_HEALTH,
-	]
-	nearby_enemy_health_bar.value = closest_enemy.health
 
 
 func _pick_up_energy_cores() -> void:
@@ -343,6 +318,27 @@ func _pick_up_energy_cores() -> void:
 		if enemy.collect_energy_core():
 			player.collect_energy_core()
 			_update_player_panel()
+
+
+func _pick_up_mega_core() -> void:
+	if player.has_mega_core or player.mega_core_cell.x < 0:
+		return
+	if maze.world_to_cell(player.position) != player.mega_core_cell:
+		return
+	if player.collect_mega_core():
+		_update_player_panel()
+		queue_redraw()
+
+
+func _mega_core_status_text() -> String:
+	if player.has_mega_core:
+		return "Мегаядро: вернуть на станцию"
+	if player.mega_core_cell.x >= 0:
+		return "Мегаядро: X: %d, Y: %d" % [
+			player.mega_core_cell.x,
+			player.mega_core_cell.y,
+		]
+	return "Мегаядро: нет координат"
 
 
 func save_game() -> bool:
@@ -357,6 +353,12 @@ func save_game() -> bool:
 		"player_energy_cores": player.energy_cores,
 		"player_energy": player.energy,
 		"player_doors": player.door_inventory,
+		"player_explored_floor_cells": player.explored_floor_cells,
+		"player_mega_core_cell": [
+			player.mega_core_cell.x,
+			player.mega_core_cell.y,
+		],
+		"player_has_mega_core": player.has_mega_core,
 		"explored_cells": maze.explored_cells_for_save(),
 		"doors": _doors.map(func(door: Node): return door.save_data()),
 		"station_discovered": (
@@ -380,12 +382,25 @@ func _restore_game(save_data: Dictionary) -> void:
 		float(saved_position[1])
 	)
 	player.restore_facing_direction(save_data.player_facing)
+	var saved_mega_core_cell := Vector2i(-1, -1)
+	var saved_mega_core_cell_data: Array = save_data.get(
+		"player_mega_core_cell",
+		[]
+	)
+	if saved_mega_core_cell_data.size() == 2:
+		saved_mega_core_cell = Vector2i(
+			int(saved_mega_core_cell_data[0]),
+			int(saved_mega_core_cell_data[1])
+		)
 	player.restore_status(
 		int(save_data.get("player_health", player.MAX_HEALTH)),
 		int(save_data.get("player_ammo", player.MAX_AMMO)),
 		int(save_data.get("player_energy_cores", 0)),
 		int(save_data.get("player_energy", 0)),
-		int(save_data.get("player_doors", 0))
+		int(save_data.get("player_doors", 0)),
+		int(save_data.get("player_explored_floor_cells", 0)),
+		saved_mega_core_cell,
+		bool(save_data.get("player_has_mega_core", false))
 	)
 	maze.restore_explored_cells(save_data.explored_cells)
 	if not _stations.is_empty():
@@ -404,6 +419,8 @@ func _restore_game(save_data: Dictionary) -> void:
 	else:
 		_create_generated_doors()
 	_refresh_safe_zone()
+	if not player.has_mega_core and player.mega_core_cell.x < 0:
+		_assign_new_mega_core()
 	_enemies_killed = int(save_data.get("enemies_killed", 0))
 	if save_data.has("enemies"):
 		for index in save_data.enemies.size():
@@ -456,13 +473,28 @@ func _find_enemy_spawn_cell(
 	)
 	for attempt in ENEMY_SPAWN_ATTEMPTS:
 		var cell := maze.get_random_walkable_cell(enemy_rng)
-		if cell.distance_to(player_cell) < minimum_distance \
-				or occupied_cells.has(cell) \
-				or _has_door_at(cell) \
-				or maze.is_cell_safe(cell):
+		if not _enemy_spawn_cell_is_valid(
+			cell,
+			player_cell,
+			occupied_cells,
+			minimum_distance
+		):
 			continue
 		return cell
 	return Vector2i(-1, -1)
+
+
+func _enemy_spawn_cell_is_valid(
+	cell: Vector2i,
+	player_cell: Vector2i,
+	occupied_cells: Dictionary,
+	minimum_distance: float
+) -> bool:
+	return cell.distance_to(player_cell) >= minimum_distance \
+			and not occupied_cells.has(cell) \
+			and not _has_door_at(cell) \
+			and not maze.is_cell_safe(cell) \
+			and maze.is_cell_walkable(cell)
 
 
 func _occupied_enemy_cells() -> Dictionary:
@@ -839,6 +871,49 @@ func exchange_energy_cores() -> bool:
 	var exchanged := player.exchange_energy_cores()
 	_update_player_panel()
 	return exchanged
+
+
+func exchange_explored_floor_cells() -> bool:
+	var exchanged := player.exchange_explored_floor_cells()
+	_update_player_panel()
+	return exchanged
+
+
+func return_mega_core() -> bool:
+	if not player.return_mega_core():
+		return false
+	_assign_new_mega_core()
+	_update_player_panel()
+	return true
+
+
+func _assign_new_mega_core() -> void:
+	var cell := _find_mega_core_cell()
+	if cell.x >= 0:
+		player.assign_mega_core(cell)
+		queue_redraw()
+
+
+func _find_mega_core_cell() -> Vector2i:
+	for attempt in 512:
+		var cell := maze.get_random_floor_cell(_rng)
+		if _mega_core_cell_is_valid(cell):
+			return cell
+
+	var grid_size := maze.grid_size()
+	for y in grid_size.y:
+		for x in grid_size.x:
+			var cell := Vector2i(x, y)
+			if _mega_core_cell_is_valid(cell):
+				return cell
+	return Vector2i(-1, -1)
+
+
+func _mega_core_cell_is_valid(cell: Vector2i) -> bool:
+	return cell.x >= 0 \
+			and not maze.is_cell_safe(cell) \
+			and not _has_door_at(cell) \
+			and maze.is_cell_walkable(cell)
 
 
 func spawn_enemy_bullet(

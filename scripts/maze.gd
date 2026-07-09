@@ -102,6 +102,10 @@ func is_wall(cell: Vector2i) -> bool:
 	return _is_inside(cell) and _is_wall(cell)
 
 
+func is_closed_door(cell: Vector2i) -> bool:
+	return _closed_door_cells.has(cell)
+
+
 func is_cell_explored(cell: Vector2i) -> bool:
 	return _explored_cells.has(cell)
 
@@ -610,10 +614,10 @@ func get_random_floor_cell(rng: RandomNumberGenerator) -> Vector2i:
 func update_visibility(
 	viewer_position: Vector2,
 	viewer_direction: Vector2
-) -> void:
+) -> int:
 	var viewer_cell := world_to_cell(viewer_position)
 	if not _is_inside(viewer_cell) or viewer_direction.is_zero_approx():
-		return
+		return 0
 
 	if viewer_cell != _view_cell:
 		_view_cell = viewer_cell
@@ -622,7 +626,7 @@ func update_visibility(
 	var normalized_direction := viewer_direction.normalized()
 	if viewer_position.is_equal_approx(_view_position) \
 			and normalized_direction.is_equal_approx(_view_direction):
-		return
+		return 0
 
 	_view_position = viewer_position
 	_view_direction = normalized_direction
@@ -632,10 +636,14 @@ func update_visibility(
 		viewer_cell
 	)
 
+	var newly_explored_floor_cells := 0
 	for cell in _visible_cells:
+		if not _explored_cells.has(cell) and not _is_wall(cell):
+			newly_explored_floor_cells += 1
 		_explored_cells[cell] = true
 
 	queue_redraw()
+	return newly_explored_floor_cells
 
 
 func is_cell_visible(cell: Vector2i) -> bool:

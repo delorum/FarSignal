@@ -74,7 +74,9 @@ func _draw_visible_vision_line(enemy: Enemy) -> void:
 
 func _is_visible_floor_point(point: Vector2) -> bool:
 	var cell := maze.world_to_cell(point)
-	return maze.is_cell_visible(cell) and not maze.is_wall(cell)
+	return maze.is_cell_visible(cell) \
+			and not maze.is_wall(cell) \
+			and not maze.is_closed_door(cell)
 
 
 func _vision_line_end(start: Vector2, direction: Vector2) -> Vector2:
@@ -83,7 +85,9 @@ func _vision_line_end(start: Vector2, direction: Vector2) -> Vector2:
 	var steps := ceili(max_distance / SAMPLE_STEP)
 	for index in range(1, steps + 1):
 		var point := start + direction * SAMPLE_STEP * float(index)
-		if maze.is_wall(maze.world_to_cell(point)) \
+		var cell := maze.world_to_cell(point)
+		if maze.is_wall(cell) \
+				or maze.is_closed_door(cell) \
 				or not maze.has_line_of_sight(
 					start,
 					point,

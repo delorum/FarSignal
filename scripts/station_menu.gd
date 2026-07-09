@@ -10,6 +10,8 @@ const LoreText = preload("res://scripts/lore_text.gd")
 @onready var ammo_button: Button = $Background/Center/Menu/AmmoButton
 @onready var health_button: Button = $Background/Center/Menu/HealthButton
 @onready var exchange_button: Button = $Background/Center/Menu/ExchangeButton
+@onready var exchange_cells_button: Button = $Background/Center/Menu/ExchangeCellsButton
+@onready var return_mega_core_button: Button = $Background/Center/Menu/ReturnMegaCoreButton
 @onready var door_button: Button = $Background/Center/Menu/DoorButton
 @onready var instructions_button: Button = $Background/Center/Menu/InstructionsButton
 @onready var exit_button: Button = $Background/Center/Menu/ExitButton
@@ -43,6 +45,10 @@ func _show_menu() -> void:
 	instructions_screen.visible = false
 	if not exchange_button.disabled:
 		exchange_button.grab_focus()
+	elif not return_mega_core_button.disabled:
+		return_mega_core_button.grab_focus()
+	elif not exchange_cells_button.disabled:
+		exchange_cells_button.grab_focus()
 	elif not health_button.disabled:
 		health_button.grab_focus()
 	elif not ammo_button.disabled:
@@ -79,6 +85,18 @@ func _on_health_pressed() -> void:
 
 func _on_exchange_pressed() -> void:
 	game.exchange_energy_cores()
+	_update_buttons()
+	_show_menu()
+
+
+func _on_exchange_cells_pressed() -> void:
+	game.exchange_explored_floor_cells()
+	_update_buttons()
+	_show_menu()
+
+
+func _on_return_mega_core_pressed() -> void:
+	game.return_mega_core()
 	_update_buttons()
 	_show_menu()
 
@@ -132,6 +150,25 @@ func _update_buttons() -> void:
 		else "Сдать энергоядра: +%d энергии" % (
 			game.player.energy_cores * Player.ENERGY_PER_CORE
 		)
+	)
+
+	var exchanged_cells: int = game.player.explored_cell_exchange_cells()
+	var exchange_energy: int = game.player.explored_cell_exchange_energy()
+	exchange_cells_button.disabled = exchanged_cells <= 0
+	exchange_cells_button.text = (
+		"Нужно %d клеток для обмена" % Player.EXPLORED_CELLS_PER_EXCHANGE
+		if exchanged_cells <= 0
+		else "Сдать %d клеток: +%d энергии" % [
+			exchanged_cells,
+			exchange_energy,
+		]
+	)
+
+	return_mega_core_button.disabled = not game.player.has_mega_core
+	return_mega_core_button.text = (
+		"Вернуть мегаядро: +%d энергии" % Player.MEGA_CORE_RETURN_ENERGY
+		if game.player.has_mega_core
+		else "Мегаядро не найдено"
 	)
 
 	door_button.disabled = not game.player.can_buy_door()

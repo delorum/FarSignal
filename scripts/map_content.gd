@@ -11,6 +11,7 @@ const STATION_COLOR := Color("245d3b")
 const STATION_EDGE_COLOR := Color("3d8155")
 const DEAD_ENEMY_COLOR := Color("3b4148")
 const DEAD_ENEMY_EDGE_COLOR := Color("626b75")
+const MEGA_CORE_COLOR := Color(1.0, 1.0, 1.0, 1.0)
 
 var scroll_position := Vector2.ZERO
 var cell_size := 40.0
@@ -79,6 +80,7 @@ func _draw() -> void:
 	_draw_doors(map_origin)
 	_draw_stations(map_origin)
 	_draw_dead_enemies(map_origin)
+	_draw_mega_core(map_origin)
 
 	var player_cell := _maze.world_to_cell(_player.position)
 	var player_position := (
@@ -185,3 +187,22 @@ func _draw_dead_enemies(map_origin: Vector2) -> void:
 			maxf(1.0, cell_size * 0.05),
 			true
 		)
+
+
+func _draw_mega_core(map_origin: Vector2) -> void:
+	if _player.has_mega_core or _player.mega_core_cell.x < 0:
+		return
+
+	var center := (
+		map_origin
+		+ (Vector2(_player.mega_core_cell) + Vector2.ONE * 0.5) * cell_size
+	)
+	var radius := cell_size * 0.28
+	var points := PackedVector2Array([
+		center + Vector2(0.0, -radius),
+		center + Vector2(radius, 0.0),
+		center + Vector2(0.0, radius),
+		center + Vector2(-radius, 0.0),
+		center + Vector2(0.0, -radius),
+	])
+	draw_polyline(points, MEGA_CORE_COLOR, maxf(1.5, cell_size * 0.08), true)
