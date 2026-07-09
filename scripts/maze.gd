@@ -20,7 +20,6 @@ const WALL_TILE_OFFSET := 8
 const WALL_TILE_COUNT := 8
 const EXPLORED_WALL_TILE_MODULATE := Color(0.3, 0.32, 0.36, 1.0)
 const SAFE_FLOOR_TILE_MODULATE := Color(0.58, 1.0, 0.7, 1.0)
-const ENEMY_TRAIL_TILE_MODULATE := Color(1.0, 0.38, 0.4, 1.0)
 const LOOP_DENSITY := 0.16
 const NARROW_CORRIDOR_RATIO := 0.35
 const ROOM_MIN_SIZE := 4
@@ -60,7 +59,6 @@ var _room_specs: Array[Dictionary] = []
 var _station_specs: Array[Dictionary] = []
 var _closed_door_cells: Dictionary = {}
 var _safe_cell_mask := PackedByteArray()
-var _enemy_trail_cells: Dictionary = {}
 
 
 func _ready() -> void:
@@ -114,11 +112,6 @@ func is_cell_explored(cell: Vector2i) -> bool:
 
 func is_cell_safe(cell: Vector2i) -> bool:
 	return _is_inside(cell) and _safe_cell_mask[_cell_index(cell)] == 1
-
-
-func set_enemy_trail_cells(cells: Dictionary) -> void:
-	_enemy_trail_cells = cells.duplicate()
-	queue_redraw()
 
 
 func generation_seed() -> int:
@@ -1346,16 +1339,8 @@ func _draw() -> void:
 			_draw_environment_tile(
 				cell,
 				false,
-				_floor_tile_modulate(cell, safe)
+				SAFE_FLOOR_TILE_MODULATE if safe else Color.WHITE
 			)
-
-
-func _floor_tile_modulate(cell: Vector2i, safe: bool) -> Color:
-	if safe:
-		return SAFE_FLOOR_TILE_MODULATE
-	if _enemy_trail_cells.has(cell):
-		return ENEMY_TRAIL_TILE_MODULATE
-	return Color.WHITE
 
 
 func _draw_environment_tile(

@@ -8,6 +8,7 @@ const FRAME_COLOR := Color("6f8eaa")
 const TEXT_COLOR := Color("d8e7f5")
 
 @onready var maze: Maze = $"../../Maze"
+@onready var game: Node = $"../.."
 @onready var player: Player = $"../../Player"
 @onready var doors: Node2D = $"../../Doors"
 @onready var stations: Node2D = $"../../Stations"
@@ -26,7 +27,7 @@ var _cell_size := MIN_MAP_CELL_SIZE
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	resized.connect(_on_resized)
-	map_content.setup(maze, player, doors, stations, enemies, _cell_size)
+	map_content.setup(game, maze, player, doors, stations, enemies, _cell_size)
 
 
 func _exit_tree() -> void:
@@ -40,6 +41,13 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	if event.is_action_pressed("ui_cancel"):
 		_close_map()
+		get_viewport().set_input_as_handled()
+		return
+
+	if event is InputEventMouseButton \
+			and event.button_index == MOUSE_BUTTON_RIGHT \
+			and event.pressed:
+		_set_marker_at_mouse()
 		get_viewport().set_input_as_handled()
 		return
 
@@ -116,6 +124,22 @@ func _clamp_scroll_position() -> void:
 func _update_map_content() -> void:
 	map_content.scroll_position = _scroll_position
 	map_content.cell_size = _cell_size
+	map_content.queue_redraw()
+
+
+func _set_marker_at_mouse() -> void:
+	var local_position := map_content.get_local_mouse_position()
+	if not Rect2(Vector2.ZERO, map_content.size).has_point(local_position):
+		return
+
+	var cell: Vector2i = map_content.cell_at_local_position(local_position)
+	if cell.x < 0 or not maze.is_cell_explored(cell):
+		return
+
+	if game.has_map_marker() and game.map_marker_cell() == cell:
+		game.clear_map_marker()
+	else:
+		game.set_map_marker_cell(cell)
 	map_content.queue_redraw()
 
 

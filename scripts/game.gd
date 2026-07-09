@@ -16,11 +16,10 @@ const PLAYER_DAMAGE_MIN := 27
 const PLAYER_DAMAGE_MAX := 36
 const ENEMY_DAMAGE_MIN := 17
 const ENEMY_DAMAGE_MAX := 24
-const SHOT_HEARING_RANGE := 30.0
 const SHOT_REACTION_DELAY := 2.0
 const PLAYER_SHOOT_INTERVAL := 1.0
 const PLAYER_RECOIL_ENABLED := false
-const ENEMY_TRAIL_DURATION := 30.0
+const MAP_MARKER_PATH_REFRESH_SECONDS := 5.0
 const CRITICAL_HEALTH_THRESHOLD := 30
 const CRITICAL_AMMO_THRESHOLD := 10
 const ENERGY_CORE_PICKUP_DISTANCE := 0.65 * Maze.CELL_SIZE
@@ -59,6 +58,7 @@ const EXIT_DOOR_LOCKED_LABEL := "Нужна безопасная зона"
 @onready var doors_value: Label = $GameInterface/PlayerPanel/Margin/VBox/DoorsValue
 @onready var explored_cells_value: Label = $GameInterface/PlayerPanel/Margin/VBox/ExploredCellsValue
 @onready var mega_core_value: Label = $GameInterface/PlayerPanel/Margin/VBox/MegaCoreValue
+@onready var nearby_enemies_value: Label = $GameInterface/PlayerPanel/Margin/VBox/NearbyEnemiesValue
 @onready var alert_state_value: Label = $GameInterface/PlayerPanel/Margin/VBox/AlertStateValue
 @onready var noise_state_value: Label = $GameInterface/PlayerPanel/Margin/VBox/NoiseStateValue
 @onready var noise_bar: ProgressBar = $GameInterface/PlayerPanel/Margin/VBox/NoiseBar
@@ -74,6 +74,7 @@ var _displayed_energy := -1
 var _displayed_door_inventory := -1
 var _displayed_explored_floor_cells := -1
 var _displayed_mega_core_text := ""
+var _displayed_nearby_enemy_count := -1
 var _displayed_alert_state := ""
 var _displayed_noise_state := ""
 var _doors: Array[Node] = []
@@ -88,8 +89,10 @@ var _shoot_cooldown := 0.0
 var _rng := RandomNumberGenerator.new()
 var _hit_flash_tween: Tween
 var _combat_music_active := false
-var _enemy_trail_cells: Dictionary = {}
 var _game_time_seconds := 0.0
+var _map_marker_cell := Vector2i(-1, -1)
+var _map_marker_path: Array[Vector2i] = []
+var _map_marker_path_refresh_left := 0.0
 
 
 func _enter_tree() -> void:
@@ -105,7 +108,7 @@ func _ready() -> void:
 	AudioManager.set_combat_active(false)
 	_rng.randomize()
 	enemy_target_markers.setup(maze, enemies)
-	mega_core_marker.setup(maze, player)
+	mega_core_marker.setup(maze, player, self)
 	get_viewport().size_changed.connect(_update_adaptive_layout)
 	player.damaged.connect(_show_hit_flash)
 	_update_adaptive_layout()
@@ -184,9 +187,10 @@ func _process(delta: float) -> void:
 
 	_update_visibility()
 	_update_coordinates()
+	_clear_reached_map_marker()
+	_update_map_marker_path(delta)
 	_pick_up_energy_cores()
 	_pick_up_mega_core()
-	_update_enemy_trails()
 	_update_player_panel()
 	_update_music_state()
 
@@ -202,29 +206,78 @@ func _update_music_state() -> void:
 		AudioManager.set_combat_active(combat_active)
 
 
-func enemy_trail_cells() -> Dictionary:
-	var current_time := _game_time_seconds
-	var result: Dictionary = {}
-	for trail_cell in _enemy_trail_cells:
-		var cell: Vector2i = trail_cell
-		if current_time - float(_enemy_trail_cells[cell]) <= ENEMY_TRAIL_DURATION:
-			result[cell] = true
-	return result
+func has_map_marker() -> bool:
+	return _map_marker_cell.x >= 0
 
 
-func _update_enemy_trails() -> void:
-	var current_time := _game_time_seconds
-	for enemy: Enemy in _enemies:
-		if enemy.dead:
-			continue
-		var cell := maze.world_to_cell(enemy.position)
-		if not maze.is_wall(cell):
-			_enemy_trail_cells[cell] = current_time
-	for trail_cell in _enemy_trail_cells.keys():
-		var cell: Vector2i = trail_cell
-		if current_time - float(_enemy_trail_cells[cell]) > ENEMY_TRAIL_DURATION:
-			_enemy_trail_cells.erase(cell)
-	maze.set_enemy_trail_cells(enemy_trail_cells())
+func map_marker_cell() -> Vector2i:
+	return _map_marker_cell
+
+
+func map_marker_path() -> Array[Vector2i]:
+	return _map_marker_path.duplicate()
+
+
+func set_map_marker_cell(cell: Vector2i) -> void:
+	_map_marker_cell = cell
+	_refresh_map_marker_path()
+	queue_redraw()
+
+
+func clear_map_marker() -> void:
+	_map_marker_cell = Vector2i(-1, -1)
+	_map_marker_path.clear()
+	queue_redraw()
+
+
+func _clear_reached_map_marker() -> void:
+	if has_map_marker() and maze.world_to_cell(player.position) == _map_marker_cell:
+		clear_map_marker()
+
+
+func _update_map_marker_path(delta: float) -> void:
+	if not has_map_marker():
+		return
+
+	_map_marker_path_refresh_left -= delta
+	if _map_marker_path_refresh_left <= 0.0:
+		_refresh_map_marker_path()
+
+
+func _refresh_map_marker_path() -> void:
+	_map_marker_path_refresh_left = MAP_MARKER_PATH_REFRESH_SECONDS
+	if not has_map_marker():
+		_map_marker_path.clear()
+		return
+
+	var player_cell := maze.world_to_cell(player.position)
+	if player_cell == _map_marker_cell:
+		clear_map_marker()
+		return
+
+	var explored_path := maze.find_path(
+		player_cell,
+		_map_marker_cell,
+		false,
+		true,
+		true
+	)
+	if not explored_path.is_empty():
+		_map_marker_path = explored_path
+		return
+
+	var full_path := maze.find_path(
+		player_cell,
+		_map_marker_cell,
+		false,
+		false,
+		true
+	)
+	_map_marker_path.clear()
+	for cell in full_path:
+		_map_marker_path.append(cell)
+		if not maze.is_cell_explored(cell):
+			break
 
 
 func _update_visibility() -> void:
@@ -299,6 +352,10 @@ func _update_player_panel() -> void:
 	if mega_core_text != _displayed_mega_core_text:
 		_displayed_mega_core_text = mega_core_text
 		mega_core_value.text = mega_core_text
+	var nearby_enemy_count := _nearby_enemy_count()
+	if nearby_enemy_count != _displayed_nearby_enemy_count:
+		_displayed_nearby_enemy_count = nearby_enemy_count
+		nearby_enemies_value.text = "Количество врагов: %d" % nearby_enemy_count
 	var has_alerted_enemies := _has_alerted_enemies()
 	var alert_state := "ТРЕВОГА" if has_alerted_enemies else ""
 	if alert_state != _displayed_alert_state:
@@ -337,6 +394,17 @@ func _has_alerted_enemies() -> bool:
 		if not enemy.dead and enemy.is_alerted():
 			return true
 	return false
+
+
+func _nearby_enemy_count() -> int:
+	var count := 0
+	var hearing_radius := Enemy.HEARING_RANGE * Maze.CELL_SIZE
+	for enemy: Enemy in _enemies:
+		if enemy.dead:
+			continue
+		if enemy.position.distance_to(player.position) <= hearing_radius:
+			count += 1
+	return count
 
 
 func _pick_up_energy_cores() -> void:
@@ -395,6 +463,10 @@ func save_game() -> bool:
 			player.mega_core_cell.y,
 		],
 		"player_has_mega_core": player.has_mega_core,
+		"map_marker_cell": [
+			_map_marker_cell.x,
+			_map_marker_cell.y,
+		],
 		"explored_cells": maze.explored_cells_for_save(),
 		"doors": _doors.map(func(door: Node): return door.save_data()),
 		"station_discovered": (
@@ -438,6 +510,12 @@ func _restore_game(save_data: Dictionary) -> void:
 		saved_mega_core_cell,
 		bool(save_data.get("player_has_mega_core", false))
 	)
+	var saved_map_marker_cell: Array = save_data.get("map_marker_cell", [])
+	if saved_map_marker_cell.size() == 2:
+		_map_marker_cell = Vector2i(
+			int(saved_map_marker_cell[0]),
+			int(saved_map_marker_cell[1])
+		)
 	maze.restore_explored_cells(save_data.explored_cells)
 	if not _stations.is_empty():
 		_stations[0].discovered = bool(
@@ -1066,7 +1144,7 @@ func _alert_enemies_to_shot(
 		if enemy.dead or enemy == shooter:
 			continue
 		var enemy_cell: Vector2i = maze.world_to_cell(enemy.position)
-		if Vector2(enemy_cell - shot_cell).length() <= SHOT_HEARING_RANGE:
+		if Vector2(enemy_cell - shot_cell).length() <= Enemy.HEARING_RANGE:
 			enemy.hear_position(shot_cell, true)
 
 

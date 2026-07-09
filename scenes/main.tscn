@@ -210,6 +210,12 @@ theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
 theme_override_font_sizes/font_size = 18
 text = "Мегаядро: нет координат"
 
+[node name="NearbyEnemiesValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
+theme_override_font_sizes/font_size = 18
+text = "Количество врагов: 0"
+
 [node name="AlertStateValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
 visible = false
 layout_mode = 2

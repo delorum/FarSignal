@@ -14,10 +14,13 @@ const DEAD_ENEMY_EDGE_COLOR := Color("626b75")
 const DEAD_ENEMY_CORE_COLOR := Color(1.0, 0.92, 0.36, 1.0)
 const DEAD_ENEMY_CORE_EDGE_COLOR := Color(1.0, 1.0, 0.78, 1.0)
 const MEGA_CORE_COLOR := Color(1.0, 1.0, 1.0, 1.0)
+const MAP_MARKER_COLOR := Color(1.0, 1.0, 1.0, 1.0)
+const MAP_MARKER_PATH_COLOR := Color(1.0, 1.0, 1.0, 0.62)
 
 var scroll_position := Vector2.ZERO
 var cell_size := 40.0
 
+var _game: Node
 var _maze: Maze
 var _player: Player
 var _doors: Node2D
@@ -26,6 +29,7 @@ var _enemies: Node2D
 
 
 func setup(
+	game: Node,
 	maze: Maze,
 	player: Player,
 	doors: Node2D,
@@ -33,6 +37,7 @@ func setup(
 	enemies: Node2D,
 	cell_size: float
 ) -> void:
+	_game = game
 	_maze = maze
 	_player = player
 	_doors = doors
@@ -80,9 +85,11 @@ func _draw() -> void:
 			draw_rect(cell_rect.grow(-1.0), color)
 
 	_draw_doors(map_origin)
+	_draw_map_marker_path(map_origin)
 	_draw_stations(map_origin)
 	_draw_dead_enemies(map_origin)
 	_draw_mega_core(map_origin)
+	_draw_map_marker(map_origin)
 
 	var player_cell := _maze.world_to_cell(_player.position)
 	var player_position := (
@@ -90,6 +97,18 @@ func _draw() -> void:
 		+ (Vector2(player_cell) + Vector2.ONE * 0.5) * cell_size
 	)
 	draw_circle(player_position, cell_size * 0.22, PLAYER_COLOR)
+
+
+func cell_at_local_position(local_position: Vector2) -> Vector2i:
+	var map_origin := size * 0.5 - scroll_position
+	var cell := Vector2i(floor((local_position - map_origin) / cell_size))
+	if _maze == null:
+		return Vector2i(-1, -1)
+	var grid_size := _maze.grid_size()
+	if cell.x < 0 or cell.y < 0 \
+			or cell.x >= grid_size.x or cell.y >= grid_size.y:
+		return Vector2i(-1, -1)
+	return cell
 
 
 func _draw_doors(map_origin: Vector2) -> void:
@@ -212,3 +231,46 @@ func _draw_mega_core(map_origin: Vector2) -> void:
 		center + Vector2(0.0, -radius),
 	])
 	draw_polyline(points, MEGA_CORE_COLOR, maxf(1.5, cell_size * 0.08), true)
+
+
+func _draw_map_marker_path(map_origin: Vector2) -> void:
+	if _game == null \
+			or not _game.has_method("map_marker_path") \
+			or _player == null:
+		return
+
+	var path: Array[Vector2i] = _game.map_marker_path()
+	if path.is_empty():
+		return
+
+	var points := PackedVector2Array()
+	for cell in path:
+		points.append(_map_cell_center(map_origin, cell))
+
+	if points.size() >= 2:
+		draw_polyline(
+			points,
+			MAP_MARKER_PATH_COLOR,
+			maxf(2.0, cell_size * 0.08),
+			true
+		)
+
+
+func _draw_map_marker(map_origin: Vector2) -> void:
+	if _game == null \
+			or not _game.has_method("has_map_marker") \
+			or not _game.has_map_marker():
+		return
+
+	var marker_cell: Vector2i = _game.map_marker_cell()
+	if not _maze.is_cell_explored(marker_cell):
+		return
+
+	var center := (
+		_map_cell_center(map_origin, marker_cell)
+	)
+	draw_circle(center, cell_size * 0.22, MAP_MARKER_COLOR)
+
+
+func _map_cell_center(map_origin: Vector2, cell: Vector2i) -> Vector2:
+	return map_origin + (Vector2(cell) + Vector2.ONE * 0.5) * cell_size

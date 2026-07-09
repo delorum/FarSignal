@@ -17,7 +17,7 @@ const AMBUSH_ARROW_HEAD_ANGLE := deg_to_rad(32.0)
 const HEARING_INTERVAL := 5.0
 const SHOOT_INTERVAL := 2.0
 const BULLET_SPEED := 650.0
-const STEP_HEARING_RANGE := 20.0
+const HEARING_RANGE := 20.0
 const VISION_RANGE := 30.0
 const VISION_HALF_ANGLE := deg_to_rad(45.0)
 const TARGET_ATTEMPTS := 12
@@ -319,7 +319,7 @@ func _physics_process(delta: float) -> void:
 
 	if state != State.PATROL \
 			and _player.is_audible() \
-			and distance_to_player <= STEP_HEARING_RANGE \
+			and distance_to_player <= HEARING_RANGE \
 			and _hearing_cooldown <= 0.0:
 		hear_player()
 
