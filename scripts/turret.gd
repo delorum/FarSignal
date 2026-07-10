@@ -24,6 +24,7 @@ var ammo := MAX_AMMO
 var base_direction := Vector2.RIGHT
 var aim_direction := Vector2.RIGHT
 var firing := false
+var _normally_visible := false
 
 var _game: Node
 var _maze: Maze
@@ -62,6 +63,7 @@ func setup(
 	health = clampi(saved_health, 0, MAX_HEALTH)
 	ammo = clampi(saved_ammo, 0, MAX_AMMO)
 	z_index = 2
+	visible = false
 	_update_sprite()
 
 
@@ -98,6 +100,14 @@ func show_damage_number(amount: int, direction: Vector2) -> void:
 
 func is_active() -> bool:
 	return health > 0 and ammo > 0
+
+
+func update_visibility(currently_visible: bool) -> void:
+	if _normally_visible == currently_visible:
+		return
+	_normally_visible = currently_visible
+	visible = _normally_visible
+	queue_redraw()
 
 
 func _process(delta: float) -> void:

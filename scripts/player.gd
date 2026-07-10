@@ -17,8 +17,10 @@ const DOOR_COST := 10
 const TURRET_COST := 50
 const TURRET_MAX_HEALTH := 100
 const TURRET_MAX_AMMO := 30
-const STARTING_DOORS := 5
-const STARTING_TURRETS := 5
+const STARTING_DOORS := 0
+const STARTING_TURRETS := 2
+const MAX_DOOR_INVENTORY := 5
+const MAX_TURRET_INVENTORY := 5
 const CELL_SIZE := 48.0
 const RECOIL_DISTANCE := CELL_SIZE
 const NOISE_BUILDUP_DISTANCE := CELL_SIZE * 3.0
@@ -37,9 +39,6 @@ var energy_cores := 0
 var energy := 0
 var door_inventory := STARTING_DOORS
 var turret_inventory: Array[Dictionary] = [
-	{"health": TURRET_MAX_HEALTH, "ammo": TURRET_MAX_AMMO},
-	{"health": TURRET_MAX_HEALTH, "ammo": TURRET_MAX_AMMO},
-	{"health": TURRET_MAX_HEALTH, "ammo": TURRET_MAX_AMMO},
 	{"health": TURRET_MAX_HEALTH, "ammo": TURRET_MAX_AMMO},
 	{"health": TURRET_MAX_HEALTH, "ammo": TURRET_MAX_AMMO},
 ]
@@ -95,7 +94,7 @@ func restore_status(
 	ammo = clampi(saved_ammo, 0, MAX_AMMO)
 	energy_cores = maxi(0, saved_energy_cores)
 	energy = maxi(0, saved_energy)
-	door_inventory = maxi(0, saved_door_inventory)
+	door_inventory = clampi(saved_door_inventory, 0, MAX_DOOR_INVENTORY)
 	turret_inventory = _sanitize_turret_inventory(saved_turret_inventory)
 	explored_floor_cells = maxi(0, saved_explored_floor_cells)
 	mega_core_cell = saved_mega_core_cell
@@ -153,11 +152,19 @@ func can_buy_ammo() -> bool:
 
 
 func can_buy_door() -> bool:
-	return energy >= DOOR_COST
+	return energy >= DOOR_COST and can_store_door()
 
 
 func can_buy_turret() -> bool:
-	return energy >= TURRET_COST
+	return energy >= TURRET_COST and can_store_turret()
+
+
+func can_store_door() -> bool:
+	return door_inventory < MAX_DOOR_INVENTORY
+
+
+func can_store_turret() -> bool:
+	return turret_inventory_count() < MAX_TURRET_INVENTORY
 
 
 func explored_cell_exchange_count() -> int:
@@ -220,6 +227,8 @@ func take_turret_from_inventory() -> Dictionary:
 
 
 func store_turret_in_inventory(health_value: int, ammo_value: int) -> void:
+	if not can_store_turret():
+		return
 	turret_inventory.append({
 		"health": clampi(health_value, 0, TURRET_MAX_HEALTH),
 		"ammo": clampi(ammo_value, 0, TURRET_MAX_AMMO),
@@ -281,6 +290,8 @@ func _sanitize_turret_inventory(saved_turrets: Array) -> Array[Dictionary]:
 	for saved_turret in saved_turrets:
 		if not saved_turret is Dictionary:
 			continue
+		if restored.size() >= MAX_TURRET_INVENTORY:
+			break
 		restored.append({
 			"health": clampi(
 				int(saved_turret.get("health", TURRET_MAX_HEALTH)),

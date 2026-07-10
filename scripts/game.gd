@@ -21,6 +21,7 @@ const SHOT_REACTION_DELAY := 2.0
 const PLAYER_SHOOT_INTERVAL := 1.0
 const PLAYER_RECOIL_ENABLED := false
 const MAP_MARKER_PATH_REFRESH_SECONDS := 5.0
+const BUILD_ACTION_DURATION := 3.0
 const MEGA_CORE_SAFE_ZONE_ANCHOR_RADIUS := 100.0
 const ENEMY_PATHFIND_BUDGET_PER_PHYSICS_FRAME := 4
 const SLOW_FRAME_LOG_THRESHOLD := 0.08
@@ -46,10 +47,19 @@ const LOCKED_DOOR_LABEL := "закрыто"
 const EXIT_DOOR_LOCKED_LABEL := "Нужна безопасная зона"
 const SAFE_ZONE_BOUNDARY_DOOR_LABEL := "Граница безопасной зоны"
 const DOOR_REMOVE_FORBIDDEN_LABEL := "нельзя удалить"
+const INVENTORY_LIMIT_LABEL := "лимит"
 
 enum BuildMode {
 	DOOR,
 	TURRET,
+}
+
+enum BuildActionType {
+	NONE,
+	PLACE_DOOR,
+	REMOVE_DOOR,
+	PLACE_TURRET,
+	REMOVE_TURRET,
 }
 
 @onready var maze: Maze = $Maze
@@ -62,6 +72,7 @@ enum BuildMode {
 @onready var damage_numbers: Node2D = $DamageNumbers
 @onready var enemy_target_markers: Node2D = $EnemyTargetMarkers
 @onready var mega_core_marker: Node2D = $MegaCoreMarker
+@onready var build_action_marker: Node2D = $BuildActionMarker
 @onready var camera: Camera2D = $Player/Camera2D
 @onready var player_panel: Panel = $GameInterface/PlayerPanel
 @onready var hit_flash: Panel = $GameInterface/HitFlash
@@ -116,6 +127,12 @@ var _map_marker_cell := Vector2i(-1, -1)
 var _map_marker_path: Array[Vector2i] = []
 var _map_marker_path_refresh_left := 0.0
 var _build_mode := BuildMode.DOOR
+var _build_action_type := BuildActionType.NONE
+var _build_action_elapsed := 0.0
+var _build_action_cell := Vector2i(-1, -1)
+var _build_action_position := Vector2.ZERO
+var _build_action_direction := Vector2.RIGHT
+var _build_action_horizontal_passage := false
 var _ai_budget_physics_frame := -1
 var _ai_pathfind_used_this_frame := 0
 var _perf_pathfind_requests := 0
@@ -141,6 +158,7 @@ func _ready() -> void:
 	mega_core_marker.setup(maze, player, self)
 	get_viewport().size_changed.connect(_update_adaptive_layout)
 	player.damaged.connect(_show_hit_flash)
+	player.damaged.connect(_cancel_build_action_from_damage)
 	_update_adaptive_layout()
 	var save_data := SaveStore.consume_pending_save()
 	if save_data.is_empty():
@@ -225,6 +243,7 @@ func _process(delta: float) -> void:
 
 	_game_time_seconds += delta
 	_shoot_cooldown = maxf(0.0, _shoot_cooldown - delta)
+	_update_build_action(delta)
 	if Input.is_action_just_pressed("shoot"):
 		_shoot()
 	if Input.is_action_just_pressed("place_door") \
@@ -436,6 +455,10 @@ func _update_visibility() -> void:
 		station.update_visibility(
 			maze.is_cell_visible(station.cell),
 			maze.is_cell_explored(station.cell)
+		)
+	for turret in _turrets:
+		turret.update_visibility(
+			maze.is_cell_visible(maze.world_to_cell(turret.position))
 		)
 	for enemy in _enemies:
 		enemy.update_visibility(
@@ -966,7 +989,7 @@ func _create_door(
 	return door
 
 
-func _toggle_player_door_at(target_cell: Vector2i) -> void:
+func _start_door_action_at(target_cell: Vector2i) -> void:
 	var player_cell := maze.world_to_cell(player.position)
 	var cell_offset := target_cell - player_cell
 	if absi(cell_offset.x) + absi(cell_offset.y) != 1:
@@ -974,8 +997,21 @@ func _toggle_player_door_at(target_cell: Vector2i) -> void:
 
 	var existing_door := _door_at(target_cell)
 	if existing_door != null:
+		if not player.can_store_door():
+			spawn_floating_text(
+				existing_door.position + Vector2(0.0, -Door.CELL_SIZE * 0.35),
+				INVENTORY_LIMIT_LABEL,
+				Vector2.UP
+			)
+			return
 		if _can_remove_door(existing_door):
-			_remove_door(existing_door)
+			_start_build_action(
+				BuildActionType.REMOVE_DOOR,
+				target_cell,
+				maze.cell_to_world(target_cell),
+				Vector2.RIGHT,
+				false
+			)
 		return
 
 	if player.door_inventory <= 0:
@@ -994,9 +1030,36 @@ func _toggle_player_door_at(target_cell: Vector2i) -> void:
 			or not maze.is_wall(target_cell - wall_axis):
 		return
 
-	var door := _create_door(
+	_start_build_action(
+		BuildActionType.PLACE_DOOR,
 		target_cell,
-		horizontal_passage,
+		maze.cell_to_world(target_cell),
+		Vector2.RIGHT,
+		horizontal_passage
+	)
+
+
+func _finish_place_door() -> void:
+	var player_cell := maze.world_to_cell(player.position)
+	var cell_offset := _build_action_cell - player_cell
+	if absi(cell_offset.x) + absi(cell_offset.y) != 1 \
+			or player.door_inventory <= 0 \
+			or maze.is_wall(_build_action_cell) \
+			or _door_at(_build_action_cell) != null:
+		return
+
+	var wall_axis := (
+		Vector2i.UP
+		if _build_action_horizontal_passage
+		else Vector2i.LEFT
+	)
+	if not maze.is_wall(_build_action_cell + wall_axis) \
+			or not maze.is_wall(_build_action_cell - wall_axis):
+		return
+
+	var door := _create_door(
+		_build_action_cell,
+		_build_action_horizontal_passage,
 		false,
 		false,
 		true
@@ -1008,11 +1071,20 @@ func _toggle_player_door_at(target_cell: Vector2i) -> void:
 		_update_player_panel()
 
 
+func _finish_remove_door() -> void:
+	var existing_door := _door_at(_build_action_cell)
+	if existing_door != null and player.can_store_door() \
+			and _can_remove_door(existing_door):
+		_remove_door(existing_door)
+
+
 func _use_build_mode_at(target_position: Vector2) -> void:
+	if _build_action_type != BuildActionType.NONE:
+		return
 	if _build_mode == BuildMode.DOOR:
-		_toggle_player_door_at(maze.world_to_cell(target_position))
+		_start_door_action_at(maze.world_to_cell(target_position))
 	else:
-		_toggle_turret_at(target_position)
+		_start_turret_action_at(target_position)
 
 
 func _build_mode_for_save() -> String:
@@ -1027,7 +1099,86 @@ func _restore_build_mode(saved_build_mode: String) -> void:
 	)
 
 
-func _toggle_turret_at(target_position: Vector2) -> void:
+func _start_build_action(
+	action_type: BuildActionType,
+	target_cell: Vector2i,
+	world_position: Vector2,
+	direction: Vector2,
+	horizontal_passage: bool
+) -> void:
+	_build_action_type = action_type
+	_build_action_elapsed = 0.0
+	_build_action_cell = target_cell
+	_build_action_position = world_position
+	_build_action_direction = (
+		Vector2.RIGHT
+		if direction.is_zero_approx()
+		else direction.normalized()
+	)
+	_build_action_horizontal_passage = horizontal_passage
+	build_action_marker.show_action(
+		maze.cell_to_world(target_cell),
+		_build_action_label(action_type)
+	)
+
+
+func _update_build_action(delta: float) -> void:
+	if _build_action_type == BuildActionType.NONE:
+		return
+	if player.is_moving():
+		_cancel_build_action()
+		return
+
+	_build_action_elapsed += delta
+	build_action_marker.set_progress(
+		_build_action_elapsed / BUILD_ACTION_DURATION
+	)
+	if _build_action_elapsed < BUILD_ACTION_DURATION:
+		return
+
+	var completed_action := _build_action_type
+	match completed_action:
+		BuildActionType.PLACE_DOOR:
+			_finish_place_door()
+		BuildActionType.REMOVE_DOOR:
+			_finish_remove_door()
+		BuildActionType.PLACE_TURRET:
+			_finish_place_turret()
+		BuildActionType.REMOVE_TURRET:
+			_finish_remove_turret()
+	_clear_build_action()
+
+
+func _cancel_build_action_from_damage() -> void:
+	_cancel_build_action()
+
+
+func _cancel_build_action() -> void:
+	if _build_action_type == BuildActionType.NONE:
+		return
+	_clear_build_action()
+
+
+func _clear_build_action() -> void:
+	_build_action_type = BuildActionType.NONE
+	_build_action_elapsed = 0.0
+	_build_action_cell = Vector2i(-1, -1)
+	_build_action_position = Vector2.ZERO
+	_build_action_direction = Vector2.RIGHT
+	_build_action_horizontal_passage = false
+	build_action_marker.hide_action()
+
+
+func _build_action_label(action_type: BuildActionType) -> String:
+	return (
+		"демонтаж"
+		if action_type == BuildActionType.REMOVE_DOOR \
+				or action_type == BuildActionType.REMOVE_TURRET
+		else "установка"
+	)
+
+
+func _start_turret_action_at(target_position: Vector2) -> void:
 	var placement_direction := player.position.direction_to(target_position)
 	if placement_direction.is_zero_approx():
 		placement_direction = player.facing_direction()
@@ -1038,6 +1189,20 @@ func _toggle_turret_at(target_position: Vector2) -> void:
 
 	var existing_turret := _turret_at(target_cell)
 	if existing_turret != null:
+		if not player.can_store_turret():
+			spawn_floating_text(
+				existing_turret.position + Vector2(0.0, -Maze.CELL_SIZE * 0.35),
+				INVENTORY_LIMIT_LABEL,
+				Vector2.UP
+			)
+			return
+		_start_build_action(
+			BuildActionType.REMOVE_TURRET,
+			target_cell,
+			maze.cell_to_world(target_cell),
+			placement_direction,
+			false
+		)
 		return
 
 	if player.turret_inventory_count() <= 0 \
@@ -1046,17 +1211,48 @@ func _toggle_turret_at(target_position: Vector2) -> void:
 			or _has_door_at(target_cell):
 		return
 
+	_start_build_action(
+		BuildActionType.PLACE_TURRET,
+		target_cell,
+		placement_position,
+		placement_direction,
+		false
+	)
+
+
+func _finish_place_turret() -> void:
+	if player.turret_inventory_count() <= 0 \
+			or not maze.is_cell_walkable(_build_action_cell) \
+			or _has_turret_near(_build_action_position) \
+			or _has_door_at(_build_action_cell) \
+			or _turret_at(_build_action_cell) != null:
+		return
+
 	var turret_data := player.take_turret_from_inventory()
 	if turret_data.is_empty():
 		return
 
 	_create_turret(
-		target_cell,
-		placement_direction,
+		_build_action_cell,
+		_build_action_direction,
 		int(turret_data.get("health", Player.TURRET_MAX_HEALTH)),
 		int(turret_data.get("ammo", Player.TURRET_MAX_AMMO)),
-		placement_position
+		_build_action_position
 	)
+	_update_player_panel()
+
+
+func _finish_remove_turret() -> void:
+	var existing_turret := _turret_at(_build_action_cell)
+	if existing_turret == null or not player.can_store_turret():
+		return
+
+	player.store_turret_in_inventory(
+		existing_turret.health,
+		existing_turret.ammo
+	)
+	_turrets.erase(existing_turret)
+	existing_turret.queue_free()
 	_update_player_panel()
 
 
@@ -1183,7 +1379,7 @@ func _remove_door(door: Door) -> void:
 	maze.set_door_closed(door.cell, false)
 	_doors.erase(door)
 	door.queue_free()
-	if door.player_placed:
+	if door.player_placed and player.can_store_door():
 		player.door_inventory += 1
 	_refresh_safe_zone()
 	_update_player_panel()
@@ -1600,6 +1796,7 @@ func _shoot() -> void:
 			or not player.consume_ammo():
 		return
 
+	_cancel_build_action()
 	var direction: Vector2 = player.facing_direction()
 	var bullet: Node = BULLET_SCENE.instantiate()
 	bullet.setup(
