@@ -8,10 +8,10 @@ const VISION_HALF_ANGLE := PI * 0.5
 const TURN_SPEED := deg_to_rad(180.0)
 const AIM_TOLERANCE := deg_to_rad(6.0)
 const SHOOT_INTERVAL := 1.0
-const BODY_RADIUS := 12.0
+const BODY_RADIUS := 24.0
 const BARREL_LENGTH := 20.0
-const STATUS_BACK_OFFSET := 24.0
-const STATUS_SIDE_OFFSET := 8.0
+const STATUS_BACK_OFFSET := 18.0
+const STATUS_SIDE_OFFSET := 10.0
 const IDLE_COLOR := Color(1.0, 1.0, 1.0, 1.0)
 const FIRING_COLOR := Color("e03f43")
 const AMMO_TEXT_COLOR := Color(1.0, 1.0, 1.0, 1.0)
@@ -30,6 +30,12 @@ var _maze: Maze
 var _enemies: Node2D
 var _shoot_cooldown := 0.0
 var _firing_flash_left := 0.0
+
+@onready var turret_sprite: Sprite2D = $Sprite2D
+
+
+func _ready() -> void:
+	_update_sprite()
 
 
 func setup(
@@ -56,6 +62,7 @@ func setup(
 	health = clampi(saved_health, 0, MAX_HEALTH)
 	ammo = clampi(saved_ammo, 0, MAX_AMMO)
 	z_index = 2
+	_update_sprite()
 
 
 func save_data() -> Dictionary:
@@ -183,21 +190,23 @@ func _fire() -> void:
 
 func _draw() -> void:
 	var body_color := FIRING_COLOR if firing else IDLE_COLOR
-	draw_circle(
-		Vector2.ZERO,
-		BODY_RADIUS,
-		body_color,
-		false,
-		OUTLINE_WIDTH,
-		true
-	)
-	draw_line(
-		Vector2.ZERO,
-		aim_direction * BARREL_LENGTH,
-		body_color,
-		3.0,
-		true
-	)
+	_update_sprite()
+	if turret_sprite == null or turret_sprite.texture == null:
+		draw_circle(
+			Vector2.ZERO,
+			BODY_RADIUS,
+			body_color,
+			false,
+			OUTLINE_WIDTH,
+			true
+		)
+		draw_line(
+			Vector2.ZERO,
+			aim_direction * BARREL_LENGTH,
+			body_color,
+			3.0,
+			true
+		)
 	var back_direction := -aim_direction.normalized()
 	var side_direction := Vector2(-aim_direction.y, aim_direction.x).normalized()
 	var status_position := (
@@ -221,4 +230,15 @@ func _draw() -> void:
 		40.0,
 		14,
 		HEALTH_TEXT_COLOR
+	)
+
+
+func _update_sprite() -> void:
+	if turret_sprite == null:
+		return
+	turret_sprite.rotation = aim_direction.angle()
+	turret_sprite.modulate = (
+		FIRING_COLOR
+		if firing
+		else IDLE_COLOR
 	)

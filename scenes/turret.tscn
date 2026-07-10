@@ -1,6 +1,7 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scripts/turret.gd" id="1_turret"]
+[ext_resource type="Texture2D" path="res://assets/objects/turret/turret.png" id="2_turret_texture"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_turret"]
 radius = 12.0
@@ -9,6 +10,10 @@ radius = 12.0
 collision_layer = 8
 collision_mask = 1
 script = ExtResource("1_turret")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+scale = Vector2(0.055, 0.055)
+texture = ExtResource("2_turret_texture")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("CircleShape2D_turret")

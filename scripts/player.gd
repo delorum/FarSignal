@@ -27,13 +27,8 @@ const ANIMATION_FRAME_COUNT := 8
 const RUN_ANIMATION_FPS := 10.0
 const IDLE_ANIMATION_FPS := 5.0
 const IDLE_FRAME_OFFSET := 8
-const AIM_INDICATOR_ARM_LENGTH := 6.0
-const AIM_INDICATOR_INNER_GAP := 1.5
-const AIM_INDICATOR_LINE_WIDTH := 1.5
-const AIM_INDICATOR_COOLDOWN_COLOR := Color(0.12, 0.16, 0.18, 0.45)
-const AIM_INDICATOR_READY_COLOR := Color(0.88, 0.96, 1.0, 0.86)
-
 @onready var player_sprite: Sprite2D = $Sprite2D
+@onready var aim_indicator: Node2D = $"../AimIndicator"
 
 var controls_enabled := true
 var health := MAX_HEALTH
@@ -55,8 +50,6 @@ var noise_level := 0.0
 var _facing := Vector2.RIGHT
 var _animation_time := 0.0
 var _animation_running := false
-var _aim_indicator_readiness := 1.0
-var _aim_indicator_position := Vector2.ZERO
 
 
 func _ready() -> void:
@@ -335,20 +328,12 @@ func apply_recoil(shot_direction: Vector2) -> void:
 
 
 func set_aim_indicator_readiness(readiness: float) -> void:
-	var normalized_readiness := clampf(readiness, 0.0, 1.0)
-	if is_equal_approx(_aim_indicator_readiness, normalized_readiness):
-		return
-	_aim_indicator_readiness = normalized_readiness
-	queue_redraw()
+	if aim_indicator != null and aim_indicator.has_method("set_readiness"):
+		aim_indicator.set_readiness(readiness)
 
 
 func _process(_delta: float) -> void:
-	var mouse_position := get_local_mouse_position()
-	if not mouse_position.is_equal_approx(_aim_indicator_position):
-		_aim_indicator_position = mouse_position
-		queue_redraw()
-
-	var mouse_direction := mouse_position
+	var mouse_direction := get_global_mouse_position() - global_position
 	if mouse_direction.is_zero_approx():
 		return
 
@@ -414,29 +399,4 @@ func _update_animation(delta: float) -> void:
 
 
 func _draw() -> void:
-	_draw_aim_indicator()
-
-
-func _draw_aim_indicator() -> void:
-	var center := _aim_indicator_position
-	var color := AIM_INDICATOR_COOLDOWN_COLOR.lerp(
-		AIM_INDICATOR_READY_COLOR,
-		_aim_indicator_readiness
-	)
-	var horizontal := Vector2.RIGHT
-	var vertical := Vector2.DOWN
-	for axis in [horizontal, vertical]:
-		draw_line(
-			center - axis * AIM_INDICATOR_ARM_LENGTH,
-			center - axis * AIM_INDICATOR_INNER_GAP,
-			color,
-			AIM_INDICATOR_LINE_WIDTH,
-			true
-		)
-		draw_line(
-			center + axis * AIM_INDICATOR_INNER_GAP,
-			center + axis * AIM_INDICATOR_ARM_LENGTH,
-			color,
-			AIM_INDICATOR_LINE_WIDTH,
-			true
-		)
+	pass

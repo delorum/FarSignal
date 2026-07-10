@@ -1,4 +1,4 @@
-[gd_scene load_steps=22 format=3 uid="uid://dw58ygdj26wbu"]
+[gd_scene load_steps=23 format=3 uid="uid://dw58ygdj26wbu"]
 
 [ext_resource type="Script" uid="uid://b7t1b5rs3b076" path="res://scripts/game.gd" id="1_game"]
 [ext_resource type="Script" uid="uid://1jcmw0g6148v" path="res://scripts/maze.gd" id="2_maze"]
@@ -13,6 +13,7 @@
 [ext_resource type="Texture2D" path="res://assets/characters/player/player_sheet_80x64.png" id="14_player_texture"]
 [ext_resource type="Script" path="res://scripts/victory_menu.gd" id="15_victory"]
 [ext_resource type="Script" path="res://scripts/mega_core_marker.gd" id="16_mega_core_marker"]
+[ext_resource type="Script" path="res://scripts/aim_indicator.gd" id="17_aim_indicator"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_player"]
 radius = 14.0
@@ -73,6 +74,10 @@ script = ExtResource("12_enemy_targets")
 [node name="MegaCoreMarker" type="Node2D" parent="."]
 z_index = 95
 script = ExtResource("16_mega_core_marker")
+
+[node name="AimIndicator" type="Node2D" parent="."]
+z_index = 200
+script = ExtResource("17_aim_indicator")
 
 [node name="Player" type="CharacterBody2D" parent="." unique_id=1057369580]
 collision_layer = 2
