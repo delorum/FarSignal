@@ -21,6 +21,10 @@ const SHOT_REACTION_DELAY := 2.0
 const PLAYER_SHOOT_INTERVAL := 1.0
 const PLAYER_RECOIL_ENABLED := false
 const MAP_MARKER_PATH_REFRESH_SECONDS := 5.0
+const MEGA_CORE_SAFE_ZONE_ANCHOR_RADIUS := 100.0
+const ENEMY_PATHFIND_BUDGET_PER_PHYSICS_FRAME := 4
+const SLOW_FRAME_LOG_THRESHOLD := 0.08
+const PERFORMANCE_LOGGING_ENABLED := true
 const CRITICAL_HEALTH_THRESHOLD := 30
 const CRITICAL_AMMO_THRESHOLD := 10
 const ENERGY_CORE_PICKUP_DISTANCE := 0.65 * Maze.CELL_SIZE
@@ -112,6 +116,13 @@ var _map_marker_cell := Vector2i(-1, -1)
 var _map_marker_path: Array[Vector2i] = []
 var _map_marker_path_refresh_left := 0.0
 var _build_mode := BuildMode.DOOR
+var _ai_budget_physics_frame := -1
+var _ai_pathfind_used_this_frame := 0
+var _perf_pathfind_requests := 0
+var _perf_pathfind_denied := 0
+var _perf_pathfind_usec := 0
+var _perf_line_of_sight_checks := 0
+var _perf_projectile_path_checks := 0
 
 
 func _enter_tree() -> void:
@@ -234,6 +245,7 @@ func _process(delta: float) -> void:
 	_pick_up_mega_core()
 	_update_player_panel()
 	_update_music_state()
+	_log_slow_frame_if_needed(delta)
 
 
 func _update_music_state() -> void:
@@ -245,6 +257,79 @@ func _update_music_state() -> void:
 	if combat_active != _combat_music_active:
 		_combat_music_active = combat_active
 		AudioManager.set_combat_active(combat_active)
+
+
+func find_enemy_path(
+	start: Vector2i,
+	target: Vector2i,
+	avoid_station: bool = false,
+	explored_only: bool = false,
+	ignore_closed_doors: bool = false
+) -> Array[Vector2i]:
+	_prepare_ai_budget_frame()
+	_perf_pathfind_requests += 1
+	if _ai_pathfind_used_this_frame >= ENEMY_PATHFIND_BUDGET_PER_PHYSICS_FRAME:
+		_perf_pathfind_denied += 1
+		return []
+
+	_ai_pathfind_used_this_frame += 1
+	var started_at := Time.get_ticks_usec()
+	var path := maze.find_path(
+		start,
+		target,
+		avoid_station,
+		explored_only,
+		ignore_closed_doors
+	)
+	_perf_pathfind_usec += Time.get_ticks_usec() - started_at
+	return path
+
+
+func enemy_path_budget_available() -> bool:
+	_prepare_ai_budget_frame()
+	return _ai_pathfind_used_this_frame < ENEMY_PATHFIND_BUDGET_PER_PHYSICS_FRAME
+
+
+func enemy_has_line_of_sight(
+	start_position: Vector2,
+	target_position: Vector2,
+	range_cells: float
+) -> bool:
+	_perf_line_of_sight_checks += 1
+	return maze.has_line_of_sight(start_position, target_position, range_cells)
+
+
+func _prepare_ai_budget_frame() -> void:
+	var current_frame := Engine.get_physics_frames()
+	if current_frame == _ai_budget_physics_frame:
+		return
+	_ai_budget_physics_frame = current_frame
+	_ai_pathfind_used_this_frame = 0
+
+
+func _log_slow_frame_if_needed(delta: float) -> void:
+	if PERFORMANCE_LOGGING_ENABLED and delta >= SLOW_FRAME_LOG_THRESHOLD:
+		print(
+			"slow frame %.1f ms | paths %d denied %d path %.2f ms | los %d projectile %d | enemies %d"
+			% [
+				delta * 1000.0,
+				_perf_pathfind_requests,
+				_perf_pathfind_denied,
+				float(_perf_pathfind_usec) / 1000.0,
+				_perf_line_of_sight_checks,
+				_perf_projectile_path_checks,
+				_living_enemy_count(),
+			]
+		)
+	_reset_performance_counters()
+
+
+func _reset_performance_counters() -> void:
+	_perf_pathfind_requests = 0
+	_perf_pathfind_denied = 0
+	_perf_pathfind_usec = 0
+	_perf_line_of_sight_checks = 0
+	_perf_projectile_path_checks = 0
 
 
 func has_map_marker() -> bool:
@@ -507,13 +592,13 @@ func _mega_core_status_text() -> String:
 	if player.has_mega_core:
 		if not _stations.is_empty():
 			var station_cell: Vector2i = _stations[0].cell
-			return "Мегаядро: Вернуть X: %d, Y: %d" % [
+			return "Мегаядро: вернуть\nX: %d, Y: %d" % [
 				station_cell.x,
 				station_cell.y,
 			]
 		return "Мегаядро: Вернуть"
 	if player.mega_core_cell.x >= 0:
-		return "Мегаядро: X: %d, Y: %d" % [
+		return "Мегаядро: искать\nX: %d, Y: %d" % [
 			player.mega_core_cell.x,
 			player.mega_core_cell.y,
 		]
@@ -1284,22 +1369,45 @@ func _assign_new_mega_core() -> void:
 
 
 func _find_mega_core_cell() -> Vector2i:
+	var anchor_cell := _farthest_safe_zone_cell()
 	for attempt in 512:
 		var cell := maze.get_random_floor_cell(_rng)
-		if _mega_core_cell_is_valid(cell):
+		if _mega_core_cell_is_valid(cell, anchor_cell):
 			return cell
 
 	var grid_size := maze.grid_size()
 	for y in grid_size.y:
 		for x in grid_size.x:
 			var cell := Vector2i(x, y)
-			if _mega_core_cell_is_valid(cell):
+			if _mega_core_cell_is_valid(cell, anchor_cell):
 				return cell
 	return Vector2i(-1, -1)
 
 
-func _mega_core_cell_is_valid(cell: Vector2i) -> bool:
+func _farthest_safe_zone_cell() -> Vector2i:
+	var origin := maze.station_start_cell()
+	if origin.x < 0:
+		origin = maze.world_to_cell(player.position)
+
+	var farthest_cell := origin
+	var farthest_distance := -1.0
+	var grid_size := maze.grid_size()
+	for y in grid_size.y:
+		for x in grid_size.x:
+			var cell := Vector2i(x, y)
+			if not maze.is_cell_safe(cell):
+				continue
+			var distance := Vector2(cell - origin).length()
+			if distance > farthest_distance:
+				farthest_distance = distance
+				farthest_cell = cell
+	return farthest_cell
+
+
+func _mega_core_cell_is_valid(cell: Vector2i, anchor_cell: Vector2i) -> bool:
 	return cell.x >= 0 \
+			and Vector2(cell - anchor_cell).length() \
+					<= MEGA_CORE_SAFE_ZONE_ANCHOR_RADIUS \
 			and not maze.is_cell_safe(cell) \
 			and not _has_door_at(cell) \
 			and maze.is_cell_walkable(cell)
@@ -1356,6 +1464,7 @@ func enemy_has_clear_shot(
 	start_position: Vector2,
 	target_position: Vector2
 ) -> bool:
+	_perf_projectile_path_checks += 1
 	var direction := start_position.direction_to(target_position)
 	if direction.is_zero_approx() \
 			or start_position.distance_to(target_position) \
@@ -1388,7 +1497,11 @@ func visible_turret_for_enemy(
 		var direction: Vector2 = offset.normalized()
 		if absf(facing_direction.angle_to(direction)) > half_angle:
 			continue
-		if not maze.has_line_of_sight(enemy.position, turret.position, range_cells):
+		if not enemy_has_line_of_sight(
+			enemy.position,
+			turret.position,
+			range_cells
+		):
 			continue
 		if distance_cells < best_distance:
 			best_distance = distance_cells

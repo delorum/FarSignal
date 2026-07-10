@@ -142,7 +142,11 @@ func _visible_target() -> Node:
 		var direction := offset.normalized()
 		if absf(base_direction.angle_to(direction)) > VISION_HALF_ANGLE:
 			continue
-		if not _maze.has_line_of_sight(position, enemy.position, VISION_RANGE):
+		if not _game.enemy_has_line_of_sight(
+			position,
+			enemy.position,
+			VISION_RANGE
+		):
 			continue
 		if distance_cells < best_distance:
 			best_distance = distance_cells

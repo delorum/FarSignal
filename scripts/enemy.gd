@@ -22,6 +22,7 @@ const VISION_RANGE := 30.0
 const VISION_HALF_ANGLE := deg_to_rad(45.0)
 const TARGET_ATTEMPTS := 12
 const SEARCH_DURATION := 5.0
+const PATROL_REPATH_INTERVAL := 1.0
 const MANEUVER_CHANCE := 0.4
 const MANEUVER_DISTANCE := 2
 const FLANK_GROUP_RANGE := 18.0
@@ -32,7 +33,8 @@ const FLANK_TARGET_SEARCH_RADIUS := 2
 const TURN_SPEED := deg_to_rad(150.0)
 const AIM_TOLERANCE := deg_to_rad(10.0)
 const FIRING_POSITION_SEARCH_RADIUS := 6
-const FIRING_POSITION_REPATH_INTERVAL := 1.0
+const FIRING_POSITION_REPATH_INTERVAL := 1.5
+const TARGET_SCAN_INTERVAL := 0.15
 const ANIMATION_FRAME_COUNT := 8
 const RUN_ANIMATION_FPS := 10.0
 const IDLE_ANIMATION_FPS := 5.0
@@ -55,12 +57,15 @@ var _facing := Vector2.LEFT
 var _desired_facing := Vector2.LEFT
 var _path: Array[Vector2i] = []
 var _path_index := 0
+var _patrol_repath_cooldown := 0.0
 var _hearing_cooldown := 0.0
 var _shoot_cooldown := 0.0
 var _flank_repath_cooldown := 0.0
 var _search_time_left := 0.0
 var _firing_position_repath_cooldown := 0.0
+var _target_scan_cooldown := 0.0
 var _last_known_player_cell := Vector2i(-1, -1)
+var _cached_turret_target: Node
 var _active_enemy_bullets := 0
 var _active := true
 var _normally_visible := false
@@ -259,12 +264,14 @@ func _physics_process(delta: float) -> void:
 		return
 
 	_hearing_cooldown = maxf(0.0, _hearing_cooldown - delta)
+	_patrol_repath_cooldown = maxf(0.0, _patrol_repath_cooldown - delta)
 	_shoot_cooldown = maxf(0.0, _shoot_cooldown - delta)
 	_flank_repath_cooldown = maxf(0.0, _flank_repath_cooldown - delta)
 	_firing_position_repath_cooldown = maxf(
 		0.0,
 		_firing_position_repath_cooldown - delta
 	)
+	_target_scan_cooldown = maxf(0.0, _target_scan_cooldown - delta)
 	_update_facing(delta)
 
 	var player_cell := _maze.world_to_cell(_player.position)
@@ -272,15 +279,14 @@ func _physics_process(delta: float) -> void:
 		player_cell - _maze.world_to_cell(position)
 	).length()
 	var direction_to_player := position.direction_to(_player.position)
-	var sees_player := distance_to_player <= VISION_RANGE \
+	var sees_player: bool = distance_to_player <= VISION_RANGE \
 			and absf(_facing.angle_to(direction_to_player)) <= VISION_HALF_ANGLE \
-			and _maze.has_line_of_sight(position, _player.position, VISION_RANGE)
-	var turret_target: Node = _game.visible_turret_for_enemy(
-		self,
-		VISION_RANGE,
-		_facing,
-		VISION_HALF_ANGLE
-	)
+			and _game.enemy_has_line_of_sight(
+				position,
+				_player.position,
+				VISION_RANGE
+			)
+	var turret_target: Node = _visible_turret_target()
 	var target: Node = _player if sees_player else turret_target
 	var target_position := Vector2.ZERO
 	var target_cell := Vector2i(-1, -1)
@@ -323,6 +329,7 @@ func _physics_process(delta: float) -> void:
 				if _firing_position_repath_cooldown <= 0.0:
 					_firing_position_repath_cooldown = (
 						FIRING_POSITION_REPATH_INTERVAL
+						+ _rng.randf_range(0.0, 0.5)
 					)
 					_try_reposition_for_clear_shot(
 						target_cell,
@@ -384,6 +391,24 @@ func _enter_search() -> void:
 		_path_index = 0
 
 
+func _visible_turret_target() -> Node:
+	if _target_scan_cooldown > 0.0:
+		return (
+			_cached_turret_target
+			if is_instance_valid(_cached_turret_target)
+			else null
+		)
+
+	_target_scan_cooldown = TARGET_SCAN_INTERVAL + _rng.randf_range(0.0, 0.05)
+	_cached_turret_target = _game.visible_turret_for_enemy(
+		self,
+		VISION_RANGE,
+		_facing,
+		VISION_HALF_ANGLE
+	)
+	return _cached_turret_target
+
+
 func _try_start_combat_maneuver(direction_to_player: Vector2) -> bool:
 	if _rng.randf() >= MANEUVER_CHANCE:
 		return false
@@ -438,7 +463,12 @@ func _try_reposition_for_clear_shot(
 						):
 					continue
 
-				var path := _maze.find_path(current_cell, candidate)
+				if not _game.enemy_path_budget_available():
+					return false
+				var path: Array[Vector2i] = _game.find_enemy_path(
+					current_cell,
+					candidate
+				)
 				if path.is_empty():
 					continue
 				if best_path.is_empty() or path.size() < best_path.size():
@@ -500,7 +530,12 @@ func _find_flank_path(
 		if current_cell.distance_to(target) <= 1.0:
 			continue
 
-		var path := _maze.find_path(current_cell, target)
+		if not _game.enemy_path_budget_available():
+			return best_path
+		var path: Array[Vector2i] = _game.find_enemy_path(
+			current_cell,
+			target
+		)
 		if path.is_empty() or _path_crosses_flank_danger(path, player_cell):
 			continue
 		if best_path.is_empty() or path.size() < best_path.size():
@@ -675,6 +710,12 @@ func _is_aimed_at(direction: Vector2) -> bool:
 
 func _update_patrol() -> void:
 	if _path.is_empty() or _path_index >= _path.size():
+		if _patrol_repath_cooldown > 0.0:
+			velocity = Vector2.ZERO
+			return
+		_patrol_repath_cooldown = (
+			PATROL_REPATH_INTERVAL + _rng.randf_range(0.0, 0.5)
+		)
 		_choose_random_target()
 	_follow_path()
 
@@ -741,7 +782,12 @@ func _follow_path(update_facing: bool = true) -> void:
 
 
 func _choose_random_target() -> void:
+	if not _game.enemy_path_budget_available():
+		return
+
 	for attempt in TARGET_ATTEMPTS:
+		if not _game.enemy_path_budget_available():
+			return
 		var target := _maze.get_random_walkable_cell(_rng)
 		if target.x < 0:
 			return
@@ -753,8 +799,10 @@ func _choose_random_target() -> void:
 
 
 func _build_path_to(target: Vector2i) -> bool:
+	if not _game.enemy_path_budget_available():
+		return false
 	var start := _maze.world_to_cell(position)
-	_path = _maze.find_path(start, target)
+	_path = _game.find_enemy_path(start, target)
 	_path_index = 0
 	return not _path.is_empty()
 
