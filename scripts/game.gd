@@ -1,7 +1,6 @@
 extends Node2D
 
 const DOOR_SCENE := preload("res://scenes/door.tscn")
-const TURRET_SCENE := preload("res://scenes/turret.tscn")
 const BULLET_SCENE := preload("res://scenes/bullet.tscn")
 const DAMAGE_NUMBER_SCENE := preload("res://scenes/damage_number.tscn")
 const STATION_SCENE := preload("res://scenes/station.tscn")
@@ -21,7 +20,7 @@ const SHOT_REACTION_DELAY := 2.0
 const PLAYER_SHOOT_INTERVAL := 1.0
 const PLAYER_RECOIL_ENABLED := false
 const MAP_MARKER_PATH_REFRESH_SECONDS := 5.0
-const BUILD_ACTION_DURATION := 3.0
+const BUILD_ACTION_DURATION := 2.0
 const MEGA_CORE_SAFE_ZONE_ANCHOR_RADIUS := 100.0
 const ENEMY_PATHFIND_BUDGET_PER_PHYSICS_FRAME := 4
 const SLOW_FRAME_LOG_THRESHOLD := 0.08
@@ -29,7 +28,6 @@ const PERFORMANCE_LOGGING_ENABLED := true
 const CRITICAL_HEALTH_THRESHOLD := 30
 const CRITICAL_AMMO_THRESHOLD := 10
 const ENERGY_CORE_PICKUP_DISTANCE := 0.65 * Maze.CELL_SIZE
-const MIN_TURRET_PLACEMENT_DISTANCE := 0.5 * Maze.CELL_SIZE
 const STATUS_VALUE_COLOR := Color(0.92, 0.94, 0.97, 1.0)
 const STATUS_CRITICAL_COLOR := Color(0.9, 0.25, 0.27, 1.0)
 const NOISE_SILENT_COLOR := Color("58d68d")
@@ -49,23 +47,15 @@ const SAFE_ZONE_BOUNDARY_DOOR_LABEL := "Граница безопасной зо
 const DOOR_REMOVE_FORBIDDEN_LABEL := "нельзя удалить"
 const INVENTORY_LIMIT_LABEL := "лимит"
 
-enum BuildMode {
-	DOOR,
-	TURRET,
-}
-
 enum BuildActionType {
 	NONE,
 	PLACE_DOOR,
 	REMOVE_DOOR,
-	PLACE_TURRET,
-	REMOVE_TURRET,
 }
 
 @onready var maze: Maze = $Maze
 @onready var player: Player = $Player
 @onready var doors: Node2D = $Doors
-@onready var turrets: Node2D = $Turrets
 @onready var stations: Node2D = $Stations
 @onready var enemies: Node2D = $Enemies
 @onready var bullets: Node2D = $Bullets
@@ -84,8 +74,6 @@ enum BuildActionType {
 @onready var energy_cores_value: Label = $GameInterface/PlayerPanel/Margin/VBox/EnergyCoresValue
 @onready var energy_value: Label = $GameInterface/PlayerPanel/Margin/VBox/EnergyValue
 @onready var doors_value: Label = $GameInterface/PlayerPanel/Margin/VBox/DoorsValue
-@onready var turrets_value: Label = $GameInterface/PlayerPanel/Margin/VBox/TurretsValue
-@onready var build_mode_value: Label = $GameInterface/PlayerPanel/Margin/VBox/BuildModeValue
 @onready var explored_cells_value: Label = $GameInterface/PlayerPanel/Margin/VBox/ExploredCellsValue
 @onready var mega_core_value: Label = $GameInterface/PlayerPanel/Margin/VBox/MegaCoreValue
 @onready var nearby_enemies_value: Label = $GameInterface/PlayerPanel/Margin/VBox/NearbyEnemiesValue
@@ -102,15 +90,12 @@ var _displayed_ammo := -1
 var _displayed_energy_cores := -1
 var _displayed_energy := -1
 var _displayed_door_inventory := -1
-var _displayed_turret_inventory := -1
-var _displayed_build_mode := -1
 var _displayed_explored_floor_cells := -1
 var _displayed_mega_core_text := ""
 var _displayed_nearby_enemy_count := -1
 var _displayed_alert_state := ""
 var _displayed_noise_state := ""
 var _doors: Array[Node] = []
-var _turrets: Array[Node] = []
 var _stations: Array[Node] = []
 var _enemies: Array[Node] = []
 var _enemies_killed := 0
@@ -126,7 +111,6 @@ var _game_time_seconds := 0.0
 var _map_marker_cell := Vector2i(-1, -1)
 var _map_marker_path: Array[Vector2i] = []
 var _map_marker_path_refresh_left := 0.0
-var _build_mode := BuildMode.DOOR
 var _build_action_type := BuildActionType.NONE
 var _build_action_elapsed := 0.0
 var _build_action_cell := Vector2i(-1, -1)
@@ -188,25 +172,7 @@ func _exit_tree() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not player.controls_enabled:
-		return
-	if event is InputEventMouseButton \
-			and event.pressed \
-			and (
-				event.button_index == MOUSE_BUTTON_WHEEL_UP
-				or event.button_index == MOUSE_BUTTON_WHEEL_DOWN
-			):
-		_toggle_build_mode()
-		get_viewport().set_input_as_handled()
-
-
-func _toggle_build_mode() -> void:
-	_build_mode = (
-		BuildMode.TURRET
-		if _build_mode == BuildMode.DOOR
-		else BuildMode.DOOR
-	)
-	_update_player_panel()
+	pass
 
 
 func _update_adaptive_layout() -> void:
@@ -248,7 +214,7 @@ func _process(delta: float) -> void:
 		_shoot()
 	if Input.is_action_just_pressed("place_door") \
 			and player.controls_enabled:
-		_use_build_mode_at(
+		_start_build_at(
 			get_global_mouse_position()
 		)
 
@@ -456,10 +422,6 @@ func _update_visibility() -> void:
 			maze.is_cell_visible(station.cell),
 			maze.is_cell_explored(station.cell)
 		)
-	for turret in _turrets:
-		turret.update_visibility(
-			maze.is_cell_visible(maze.world_to_cell(turret.position))
-		)
 	for enemy in _enemies:
 		enemy.update_visibility(
 			maze.is_cell_visible(maze.world_to_cell(enemy.position)),
@@ -506,15 +468,6 @@ func _update_player_panel() -> void:
 	if player.door_inventory != _displayed_door_inventory:
 		_displayed_door_inventory = player.door_inventory
 		doors_value.text = "Двери: %d" % player.door_inventory
-	var turret_count := player.turret_inventory_count()
-	if turret_count != _displayed_turret_inventory:
-		_displayed_turret_inventory = turret_count
-		turrets_value.text = "Турели: %d" % turret_count
-	if _build_mode != _displayed_build_mode:
-		_displayed_build_mode = _build_mode
-		build_mode_value.text = "Ставим: %s" % (
-			"дверь" if _build_mode == BuildMode.DOOR else "турель"
-		)
 	if player.explored_floor_cells != _displayed_explored_floor_cells:
 		_displayed_explored_floor_cells = player.explored_floor_cells
 		explored_cells_value.text = (
@@ -640,8 +593,6 @@ func save_game() -> bool:
 		"player_energy_cores": player.energy_cores,
 		"player_energy": player.energy,
 		"player_doors": player.door_inventory,
-		"player_turrets": player.turret_inventory_for_save(),
-		"build_mode": _build_mode_for_save(),
 		"player_explored_floor_cells": player.explored_floor_cells,
 		"player_mega_core_cell": [
 			player.mega_core_cell.x,
@@ -654,7 +605,6 @@ func save_game() -> bool:
 		],
 		"explored_cells": maze.explored_cells_for_save(),
 		"doors": _doors.map(func(door: Node): return door.save_data()),
-		"turrets": _turrets.map(func(turret: Node): return turret.save_data()),
 		"removed_generated_doors": _removed_generated_door_cells_for_save(),
 		"station_discovered": (
 			not _stations.is_empty() and _stations[0].discovered
@@ -695,8 +645,7 @@ func _restore_game(save_data: Dictionary) -> void:
 		int(save_data.get("player_doors", 0)),
 		int(save_data.get("player_explored_floor_cells", 0)),
 		saved_mega_core_cell,
-		bool(save_data.get("player_has_mega_core", false)),
-		save_data.get("player_turrets", [])
+		bool(save_data.get("player_has_mega_core", false))
 	)
 	var saved_map_marker_cell: Array = save_data.get("map_marker_cell", [])
 	if saved_map_marker_cell.size() == 2:
@@ -704,7 +653,6 @@ func _restore_game(save_data: Dictionary) -> void:
 			int(saved_map_marker_cell[0]),
 			int(saved_map_marker_cell[1])
 		)
-	_restore_build_mode(str(save_data.get("build_mode", "door")))
 	maze.restore_explored_cells(save_data.explored_cells)
 	if not _stations.is_empty():
 		_stations[0].discovered = bool(
@@ -725,9 +673,6 @@ func _restore_game(save_data: Dictionary) -> void:
 	else:
 		_create_generated_doors()
 	_refresh_safe_zone()
-	if save_data.has("turrets"):
-		for turret_data in save_data.turrets:
-			_create_turret_from_save(turret_data)
 	if not player.has_mega_core and player.mega_core_cell.x < 0:
 		_assign_new_mega_core()
 	_enemies_killed = int(save_data.get("enemies_killed", 0))
@@ -895,10 +840,6 @@ func _has_door_at(cell: Vector2i) -> bool:
 		if door.cell == cell:
 			return true
 	return false
-
-
-func _has_turret_at(cell: Vector2i) -> bool:
-	return _turret_at(cell) != null
 
 
 func _is_generated_door_data(door_data: Dictionary) -> bool:
@@ -1078,25 +1019,10 @@ func _finish_remove_door() -> void:
 		_remove_door(existing_door)
 
 
-func _use_build_mode_at(target_position: Vector2) -> void:
+func _start_build_at(target_position: Vector2) -> void:
 	if _build_action_type != BuildActionType.NONE:
 		return
-	if _build_mode == BuildMode.DOOR:
-		_start_door_action_at(maze.world_to_cell(target_position))
-	else:
-		_start_turret_action_at(target_position)
-
-
-func _build_mode_for_save() -> String:
-	return "turret" if _build_mode == BuildMode.TURRET else "door"
-
-
-func _restore_build_mode(saved_build_mode: String) -> void:
-	_build_mode = (
-		BuildMode.TURRET
-		if saved_build_mode == "turret"
-		else BuildMode.DOOR
-	)
+	_start_door_action_at(maze.world_to_cell(target_position))
 
 
 func _start_build_action(
@@ -1142,10 +1068,6 @@ func _update_build_action(delta: float) -> void:
 			_finish_place_door()
 		BuildActionType.REMOVE_DOOR:
 			_finish_remove_door()
-		BuildActionType.PLACE_TURRET:
-			_finish_place_turret()
-		BuildActionType.REMOVE_TURRET:
-			_finish_remove_turret()
 	_clear_build_action()
 
 
@@ -1172,169 +1094,9 @@ func _clear_build_action() -> void:
 func _build_action_label(action_type: BuildActionType) -> String:
 	return (
 		"демонтаж"
-		if action_type == BuildActionType.REMOVE_DOOR \
-				or action_type == BuildActionType.REMOVE_TURRET
+		if action_type == BuildActionType.REMOVE_DOOR
 		else "установка"
 	)
-
-
-func _start_turret_action_at(target_position: Vector2) -> void:
-	var placement_direction := player.position.direction_to(target_position)
-	if placement_direction.is_zero_approx():
-		placement_direction = player.facing_direction()
-	var placement_position := (
-		player.position + placement_direction.normalized() * Maze.CELL_SIZE
-	)
-	var target_cell := maze.world_to_cell(placement_position)
-
-	var existing_turret := _turret_at(target_cell)
-	if existing_turret != null:
-		if not player.can_store_turret():
-			spawn_floating_text(
-				existing_turret.position + Vector2(0.0, -Maze.CELL_SIZE * 0.35),
-				INVENTORY_LIMIT_LABEL,
-				Vector2.UP
-			)
-			return
-		_start_build_action(
-			BuildActionType.REMOVE_TURRET,
-			target_cell,
-			maze.cell_to_world(target_cell),
-			placement_direction,
-			false
-		)
-		return
-
-	if player.turret_inventory_count() <= 0 \
-			or not maze.is_cell_walkable(target_cell) \
-			or _has_turret_near(placement_position) \
-			or _has_door_at(target_cell):
-		return
-
-	_start_build_action(
-		BuildActionType.PLACE_TURRET,
-		target_cell,
-		placement_position,
-		placement_direction,
-		false
-	)
-
-
-func _finish_place_turret() -> void:
-	if player.turret_inventory_count() <= 0 \
-			or not maze.is_cell_walkable(_build_action_cell) \
-			or _has_turret_near(_build_action_position) \
-			or _has_door_at(_build_action_cell) \
-			or _turret_at(_build_action_cell) != null:
-		return
-
-	var turret_data := player.take_turret_from_inventory()
-	if turret_data.is_empty():
-		return
-
-	_create_turret(
-		_build_action_cell,
-		_build_action_direction,
-		int(turret_data.get("health", Player.TURRET_MAX_HEALTH)),
-		int(turret_data.get("ammo", Player.TURRET_MAX_AMMO)),
-		_build_action_position
-	)
-	_update_player_panel()
-
-
-func _finish_remove_turret() -> void:
-	var existing_turret := _turret_at(_build_action_cell)
-	if existing_turret == null or not player.can_store_turret():
-		return
-
-	player.store_turret_in_inventory(
-		existing_turret.health,
-		existing_turret.ammo
-	)
-	_turrets.erase(existing_turret)
-	existing_turret.queue_free()
-	_update_player_panel()
-
-
-func _turret_at(cell: Vector2i) -> Node:
-	for turret in _turrets:
-		if turret.cell == cell:
-			return turret
-	return null
-
-
-func _has_turret_near(world_position: Vector2) -> bool:
-	for turret in _turrets:
-		if turret.position.distance_to(world_position) < MIN_TURRET_PLACEMENT_DISTANCE:
-			return true
-	return false
-
-
-func _create_turret(
-	cell: Vector2i,
-	facing_direction: Vector2,
-	health_value: int = Player.TURRET_MAX_HEALTH,
-	ammo_value: int = Player.TURRET_MAX_AMMO,
-	world_position: Vector2 = Vector2.INF
-) -> Node:
-	var turret: Node = TURRET_SCENE.instantiate()
-	turret.setup(
-		self,
-		maze,
-		enemies,
-		cell,
-		facing_direction,
-		health_value,
-		ammo_value,
-		world_position
-	)
-	turrets.add_child(turret)
-	_turrets.append(turret)
-	return turret
-
-
-func _create_turret_from_save(saved_data: Dictionary) -> void:
-	var saved_cell: Array = saved_data.get("cell", [])
-	if saved_cell.size() != 2:
-		return
-	var cell := Vector2i(int(saved_cell[0]), int(saved_cell[1]))
-	if not maze.is_cell_walkable(cell) or _has_turret_at(cell):
-		return
-	var saved_position: Array = saved_data.get("position", [])
-	var world_position := Vector2.INF
-	if saved_position.size() == 2:
-		world_position = Vector2(
-			float(saved_position[0]),
-			float(saved_position[1])
-		)
-	var saved_direction: Array = saved_data.get("base_direction", [])
-	var direction := Vector2.RIGHT
-	if saved_direction.size() == 2:
-		direction = Vector2(
-			float(saved_direction[0]),
-			float(saved_direction[1])
-		).normalized()
-	var turret: Node = _create_turret(
-		cell,
-		direction,
-		int(saved_data.get("health", Player.TURRET_MAX_HEALTH)),
-		int(saved_data.get("ammo", Player.TURRET_MAX_AMMO)),
-		world_position
-	)
-	var saved_aim: Array = saved_data.get("aim_direction", [])
-	if saved_aim.size() == 2:
-		turret.aim_direction = Vector2(
-			float(saved_aim[0]),
-			float(saved_aim[1])
-		).normalized()
-
-
-func destroy_turret(turret: Node) -> void:
-	if not is_instance_valid(turret):
-		return
-	_turrets.erase(turret)
-	turret.queue_free()
-	_update_player_panel()
 
 
 func _door_at(cell: Vector2i) -> Door:
@@ -1531,12 +1293,6 @@ func buy_door() -> bool:
 	return bought
 
 
-func buy_turret() -> bool:
-	var bought := player.buy_turret()
-	_update_player_panel()
-	return bought
-
-
 func exchange_energy_cores() -> bool:
 	var exchanged := player.exchange_energy_cores()
 	_update_player_panel()
@@ -1635,27 +1391,6 @@ func spawn_enemy_bullet(
 	)
 
 
-func spawn_turret_bullet(
-	start_position: Vector2,
-	direction: Vector2,
-	shooter: Node
-) -> void:
-	AudioManager.play_player_shot()
-	var bullet: Node = BULLET_SCENE.instantiate()
-	bullet.setup(
-		start_position + direction * BULLET_SPAWN_DISTANCE,
-		direction,
-		maze,
-		_rng.randi_range(PLAYER_DAMAGE_MIN, PLAYER_DAMAGE_MAX),
-		true
-	)
-	bullets.add_child(bullet)
-	_alert_enemies_to_shot(
-		maze.world_to_cell(start_position),
-		shooter
-	)
-
-
 func enemy_has_clear_shot(
 	start_position: Vector2,
 	target_position: Vector2
@@ -1673,36 +1408,6 @@ func enemy_has_clear_shot(
 		BULLET_HALF_LENGTH,
 		BULLET_HALF_WIDTH
 	)
-
-
-func visible_turret_for_enemy(
-	enemy: Enemy,
-	range_cells: float,
-	facing_direction: Vector2,
-	half_angle: float
-) -> Node:
-	var best_turret: Node
-	var best_distance := INF
-	for turret in _turrets:
-		if not turret.is_active():
-			continue
-		var offset: Vector2 = turret.position - enemy.position
-		var distance_cells: float = offset.length() / Maze.CELL_SIZE
-		if distance_cells > range_cells:
-			continue
-		var direction: Vector2 = offset.normalized()
-		if absf(facing_direction.angle_to(direction)) > half_angle:
-			continue
-		if not enemy_has_line_of_sight(
-			enemy.position,
-			turret.position,
-			range_cells
-		):
-			continue
-		if distance_cells < best_distance:
-			best_distance = distance_cells
-			best_turret = turret
-	return best_turret
 
 
 func spawn_damage_number(

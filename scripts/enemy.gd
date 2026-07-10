@@ -34,7 +34,6 @@ const TURN_SPEED := deg_to_rad(150.0)
 const AIM_TOLERANCE := deg_to_rad(10.0)
 const FIRING_POSITION_SEARCH_RADIUS := 6
 const FIRING_POSITION_REPATH_INTERVAL := 1.5
-const TARGET_SCAN_INTERVAL := 0.15
 const ANIMATION_FRAME_COUNT := 8
 const RUN_ANIMATION_FPS := 10.0
 const IDLE_ANIMATION_FPS := 5.0
@@ -63,9 +62,7 @@ var _shoot_cooldown := 0.0
 var _flank_repath_cooldown := 0.0
 var _search_time_left := 0.0
 var _firing_position_repath_cooldown := 0.0
-var _target_scan_cooldown := 0.0
 var _last_known_player_cell := Vector2i(-1, -1)
-var _cached_turret_target: Node
 var _active_enemy_bullets := 0
 var _active := true
 var _normally_visible := false
@@ -271,7 +268,6 @@ func _physics_process(delta: float) -> void:
 		0.0,
 		_firing_position_repath_cooldown - delta
 	)
-	_target_scan_cooldown = maxf(0.0, _target_scan_cooldown - delta)
 	_update_facing(delta)
 
 	var player_cell := _maze.world_to_cell(_player.position)
@@ -286,28 +282,22 @@ func _physics_process(delta: float) -> void:
 				_player.position,
 				VISION_RANGE
 			)
-	var turret_target: Node = _visible_turret_target()
-	var target: Node = _player if sees_player else turret_target
 	var target_position := Vector2.ZERO
 	var target_cell := Vector2i(-1, -1)
 	var direction_to_target := Vector2.ZERO
 	var aim_position := Vector2.ZERO
 	var aim_direction := Vector2.ZERO
-	if target != null:
-		target_position = target.position
+	if sees_player:
+		target_position = _player.position
 		target_cell = _maze.world_to_cell(target_position)
 		direction_to_target = position.direction_to(target_position)
-		aim_position = (
-			_predicted_player_position()
-			if target == _player
-			else target_position
-		)
+		aim_position = _predicted_player_position()
 		aim_direction = position.direction_to(aim_position)
 		if aim_direction.is_zero_approx():
 			aim_direction = direction_to_target
 
 	if state == State.MANEUVER:
-		if target != null:
+		if sees_player:
 			_last_known_player_cell = target_cell
 			_desired_facing = direction_to_target
 			_update_maneuver(true)
@@ -315,7 +305,7 @@ func _physics_process(delta: float) -> void:
 			_update_maneuver(false)
 		return
 
-	if target != null:
+	if sees_player:
 		_last_known_player_cell = target_cell
 		if state != State.COMBAT:
 			_enter_combat()
@@ -336,7 +326,7 @@ func _physics_process(delta: float) -> void:
 						target_position
 					)
 				return
-		if target == _player and _try_start_coordinated_flank(player_cell):
+		if _try_start_coordinated_flank(player_cell):
 			return
 		if _shoot_cooldown <= 0.0 and _is_aimed_at(aim_direction):
 			_game.spawn_enemy_bullet(position, aim_direction, self)
@@ -389,24 +379,6 @@ func _enter_search() -> void:
 	if not _build_path_to(_last_known_player_cell):
 		_path.clear()
 		_path_index = 0
-
-
-func _visible_turret_target() -> Node:
-	if _target_scan_cooldown > 0.0:
-		return (
-			_cached_turret_target
-			if is_instance_valid(_cached_turret_target)
-			else null
-		)
-
-	_target_scan_cooldown = TARGET_SCAN_INTERVAL + _rng.randf_range(0.0, 0.05)
-	_cached_turret_target = _game.visible_turret_for_enemy(
-		self,
-		VISION_RANGE,
-		_facing,
-		VISION_HALF_ANGLE
-	)
-	return _cached_turret_target
 
 
 func _try_start_combat_maneuver(direction_to_player: Vector2) -> bool:

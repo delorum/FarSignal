@@ -13,7 +13,6 @@ const LoreText = preload("res://scripts/lore_text.gd")
 @onready var exchange_cells_button: Button = $Background/Center/Menu/ActionsGrid/ExchangeCellsButton
 @onready var return_mega_core_button: Button = $Background/Center/Menu/ActionsGrid/ReturnMegaCoreButton
 @onready var door_button: Button = $Background/Center/Menu/ActionsGrid/DoorButton
-@onready var turret_button: Button = $Background/Center/Menu/ActionsGrid/TurretButton
 @onready var instructions_button: Button = $Background/Center/Menu/ActionsGrid/InstructionsButton
 @onready var exit_button: Button = $Background/Center/Menu/ActionsGrid/ExitButton
 @onready var instructions_back_button: Button = $Background/InstructionsPanel/InstructionsScreen/BackButton
@@ -56,8 +55,6 @@ func _show_menu() -> void:
 		ammo_button.grab_focus()
 	elif not door_button.disabled:
 		door_button.grab_focus()
-	elif not turret_button.disabled:
-		turret_button.grab_focus()
 	else:
 		exit_button.grab_focus()
 
@@ -106,12 +103,6 @@ func _on_return_mega_core_pressed() -> void:
 
 func _on_door_pressed() -> void:
 	game.buy_door()
-	_update_buttons()
-	_show_menu()
-
-
-func _on_turret_pressed() -> void:
-	game.buy_turret()
 	_update_buttons()
 	_show_menu()
 
@@ -185,11 +176,4 @@ func _update_buttons() -> void:
 		"Двери: максимум"
 		if not game.player.can_store_door()
 		else "Купить дверь за %d энергии" % Player.DOOR_COST
-	)
-
-	turret_button.disabled = not game.player.can_buy_turret()
-	turret_button.text = (
-		"Турели: максимум"
-		if not game.player.can_store_turret()
-		else "Купить турель за %d энергии" % Player.TURRET_COST
 	)

@@ -1,8 +1,8 @@
 extends StaticBody2D
 class_name Turret
 
-const MAX_HEALTH := Player.TURRET_MAX_HEALTH
-const MAX_AMMO := Player.TURRET_MAX_AMMO
+const MAX_HEALTH := 100
+const MAX_AMMO := 30
 const VISION_RANGE := 30.0
 const VISION_HALF_ANGLE := PI * 0.5
 const TURN_SPEED := deg_to_rad(180.0)

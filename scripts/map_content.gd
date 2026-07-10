@@ -16,11 +16,6 @@ const DEAD_ENEMY_CORE_EDGE_COLOR := Color(1.0, 1.0, 0.78, 1.0)
 const MEGA_CORE_COLOR := Color(1.0, 1.0, 1.0, 1.0)
 const MAP_MARKER_COLOR := Color(1.0, 1.0, 1.0, 1.0)
 const MAP_MARKER_PATH_COLOR := Color(1.0, 1.0, 1.0, 0.62)
-const TURRET_IDLE_COLOR := Color(1.0, 1.0, 1.0, 1.0)
-const TURRET_FIRING_COLOR := Color("e03f43")
-const TURRET_HEALTH_COLOR := Color(0.9, 0.25, 0.27, 1.0)
-const TURRET_STATUS_BACK_OFFSET := 0.62
-const TURRET_STATUS_SIDE_OFFSET := 0.16
 
 var scroll_position := Vector2.ZERO
 var cell_size := 40.0
@@ -29,7 +24,6 @@ var _game: Node
 var _maze: Maze
 var _player: Player
 var _doors: Node2D
-var _turrets: Node2D
 var _stations: Node2D
 var _enemies: Node2D
 
@@ -39,7 +33,6 @@ func setup(
 	maze: Maze,
 	player: Player,
 	doors: Node2D,
-	turrets: Node2D,
 	stations: Node2D,
 	enemies: Node2D,
 	cell_size: float
@@ -48,7 +41,6 @@ func setup(
 	_maze = maze
 	_player = player
 	_doors = doors
-	_turrets = turrets
 	_stations = stations
 	_enemies = enemies
 	self.cell_size = cell_size
@@ -96,7 +88,6 @@ func _draw() -> void:
 	_draw_map_marker_path(map_origin)
 	_draw_stations(map_origin)
 	_draw_dead_enemies(map_origin)
-	_draw_turrets(map_origin)
 	_draw_mega_core(map_origin)
 	_draw_map_marker(map_origin)
 
@@ -220,62 +211,6 @@ func _draw_dead_enemies(map_origin: Vector2) -> void:
 			false,
 			maxf(1.0, cell_size * 0.05),
 			true
-		)
-
-
-func _draw_turrets(map_origin: Vector2) -> void:
-	if _turrets == null:
-		return
-
-	for turret in _turrets.get_children():
-		if not _maze.is_cell_explored(turret.cell):
-			continue
-
-		var center := _map_cell_center(map_origin, turret.cell)
-		var color := TURRET_FIRING_COLOR if turret.firing else TURRET_IDLE_COLOR
-		var radius := cell_size * 0.2
-		draw_circle(
-			center,
-			radius,
-			color,
-			false,
-			maxf(1.5, cell_size * 0.06),
-			true
-		)
-		draw_line(
-			center,
-			center + turret.aim_direction * cell_size * 0.35,
-			color,
-			maxf(1.5, cell_size * 0.08),
-			true
-		)
-		var back_direction: Vector2 = -turret.aim_direction.normalized()
-		var side_direction: Vector2 = Vector2(
-			-turret.aim_direction.y,
-			turret.aim_direction.x
-		).normalized()
-		var status_position: Vector2 = (
-			center
-			+ back_direction * (radius + cell_size * TURRET_STATUS_BACK_OFFSET)
-			+ side_direction * cell_size * TURRET_STATUS_SIDE_OFFSET
-		)
-		draw_string(
-			ThemeDB.fallback_font,
-			status_position,
-			str(turret.ammo),
-			HORIZONTAL_ALIGNMENT_LEFT,
-			cell_size,
-			maxi(10, roundi(cell_size * 0.5)),
-			TURRET_IDLE_COLOR
-		)
-		draw_string(
-			ThemeDB.fallback_font,
-			status_position + Vector2(0.0, cell_size * 0.42),
-			str(turret.health),
-			HORIZONTAL_ALIGNMENT_LEFT,
-			cell_size,
-			maxi(10, roundi(cell_size * 0.5)),
-			TURRET_HEALTH_COLOR
 		)
 
 
