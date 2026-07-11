@@ -22,6 +22,7 @@ const MAP_MARKER_PATH_REFRESH_SECONDS := 5.0
 const BUILD_ACTION_DURATION := 2.0
 const MEGA_CORE_SAFE_ZONE_ANCHOR_RADIUS := 100.0
 const MAX_ALERTED_ENEMIES := 3
+const DANGER_FORECAST_INTERVAL := 3.0
 const ENEMY_PATHFIND_BUDGET_PER_PHYSICS_FRAME := 4
 const SLOW_FRAME_LOG_THRESHOLD := 0.08
 const PERFORMANCE_LOGGING_ENABLED := true
@@ -69,6 +70,7 @@ enum BuildActionType {
 @onready var doors_value: Label = $GameInterface/PlayerPanel/Margin/VBox/DoorsValue
 @onready var explored_cells_value: Label = $GameInterface/PlayerPanel/Margin/VBox/ExploredCellsValue
 @onready var mega_core_value: Label = $GameInterface/PlayerPanel/Margin/VBox/MegaCoreValue
+@onready var alert_value: Label = $GameInterface/PlayerPanel/Margin/VBox/AlertValue
 @onready var station_menu: Control = $StationOverlay/StationMenu
 @onready var defeat_menu: Control = $DefeatOverlay/DefeatMenu
 @onready var victory_menu: Control = $VictoryOverlay/VictoryMenu
@@ -85,6 +87,7 @@ var _doors: Array[Node] = []
 var _stations: Array[Node] = []
 var _enemies: Array[Node] = []
 var _enemies_killed := 0
+var _mega_cores_returned := 0
 var _next_enemy_id := 1
 var _defeated := false
 var _victorious := false
@@ -102,6 +105,7 @@ var _build_action_cell := Vector2i(-1, -1)
 var _build_action_position := Vector2.ZERO
 var _build_action_direction := Vector2.RIGHT
 var _build_action_horizontal_passage := false
+var _danger_forecast_refresh_left := 0.0
 var _ai_budget_physics_frame := -1
 var _ai_pathfind_used_this_frame := 0
 var _perf_pathfind_requests := 0
@@ -207,6 +211,7 @@ func _process(delta: float) -> void:
 			_interact_with_door()
 
 	_update_visibility()
+	_update_danger_forecast(delta)
 	_update_coordinates()
 	_clear_reached_map_marker()
 	_update_map_marker_path(delta)
@@ -427,6 +432,33 @@ func _update_visibility() -> void:
 	queue_redraw()
 
 
+func _update_danger_forecast(delta: float) -> void:
+	_danger_forecast_refresh_left -= delta
+	if _danger_forecast_refresh_left > 0.0:
+		return
+	_danger_forecast_refresh_left = DANGER_FORECAST_INTERVAL
+
+	var danger_cells: Dictionary = {}
+	var has_alerted_enemies := false
+	var processed_destinations: Dictionary = {}
+	for enemy: Enemy in _enemies:
+		if enemy.dead or not enemy.is_alerted():
+			continue
+		has_alerted_enemies = true
+		var destination := enemy.movement_destination_cell()
+		if destination.x < 0 or processed_destinations.has(destination):
+			continue
+		processed_destinations[destination] = true
+		for cell in maze.floor_cells_visible_from(
+			destination,
+			Enemy.VISION_RANGE
+		):
+			danger_cells[cell] = true
+
+	alert_value.visible = has_alerted_enemies
+	maze.set_danger_cells(danger_cells)
+
+
 func _update_coordinates() -> void:
 	var player_cell: Vector2i = maze.world_to_cell(player.position)
 	if player_cell == _displayed_player_cell:
@@ -547,6 +579,7 @@ func save_game() -> bool:
 		"station_instructions_seen": _station_instructions_seen,
 		"enemies": _enemies.map(func(enemy: Node): return enemy.save_data()),
 		"enemies_killed": _enemies_killed,
+		"mega_cores_returned": _mega_cores_returned,
 	}
 	return SaveStore.write_save(save_data)
 
@@ -611,12 +644,13 @@ func _restore_game(save_data: Dictionary) -> void:
 	if not player.has_mega_core and player.mega_core_cell.x < 0:
 		_assign_new_mega_core()
 	_enemies_killed = int(save_data.get("enemies_killed", 0))
+	_mega_cores_returned = int(save_data.get("mega_cores_returned", 0))
 	if save_data.has("enemies"):
 		for index in save_data.enemies.size():
 			_create_enemy_from_save(save_data.enemies[index], index)
 		_create_generated_enemies(
 			maze.world_to_cell(player.position),
-			maxi(0, ENEMY_COUNT - _living_enemy_count())
+			maxi(0, _target_enemy_count() - _living_enemy_count())
 		)
 	else:
 		_create_generated_enemies(maze.world_to_cell(player.position))
@@ -632,8 +666,10 @@ func _create_generated_stations() -> void:
 
 func _create_generated_enemies(
 	player_cell: Vector2i,
-	enemy_count: int = ENEMY_COUNT
+	enemy_count: int = -1
 ) -> void:
+	if enemy_count < 0:
+		enemy_count = _target_enemy_count()
 	var enemy_rng := RandomNumberGenerator.new()
 	enemy_rng.seed = maze.generation_seed() ^ 0x5e71a9
 	var occupied_cells := _occupied_enemy_cells()
@@ -699,6 +735,35 @@ func _living_enemy_count() -> int:
 		if not enemy.dead:
 			count += 1
 	return count
+
+
+func _target_enemy_count() -> int:
+	var total_floor_cells := maze.floor_cell_count()
+	if total_floor_cells <= 0:
+		return 0
+	var unsafe_floor_cells := maxi(
+		0,
+		total_floor_cells - maze.safe_floor_cell_count()
+	)
+	return clampi(
+		roundi(
+			float(ENEMY_COUNT) * float(unsafe_floor_cells)
+			/ float(total_floor_cells)
+		),
+		0,
+		ENEMY_COUNT
+	)
+
+
+func station_statistics() -> Dictionary:
+	return {
+		"explored_cells": maze.explored_floor_cell_count(),
+		"safe_zone_size": maze.safe_floor_cell_count(),
+		"total_floor_cells": maze.floor_cell_count(),
+		"enemies_killed": _enemies_killed,
+		"living_enemies": _living_enemy_count(),
+		"mega_cores_returned": _mega_cores_returned,
+	}
 
 
 func _create_enemy_from_save(saved_data: Dictionary, index: int) -> void:
@@ -1089,6 +1154,7 @@ func _refresh_safe_zone() -> void:
 
 	maze.update_safe_zone(door_cells)
 	_assert_station_floor_is_safe()
+	call_deferred("_maintain_enemy_population")
 
 
 func _assert_station_floor_is_safe() -> void:
@@ -1243,6 +1309,7 @@ func exchange_explored_floor_cells() -> bool:
 func return_mega_core() -> bool:
 	if not player.return_mega_core():
 		return false
+	_mega_cores_returned += 1
 	_assign_new_mega_core()
 	_update_player_panel()
 	return true
@@ -1385,7 +1452,7 @@ func attackers_near_player(
 
 
 func _maintain_enemy_population() -> void:
-	var missing_enemies := ENEMY_COUNT - _living_enemy_count()
+	var missing_enemies := _target_enemy_count() - _living_enemy_count()
 	if missing_enemies <= 0 or _defeated or _victorious:
 		return
 
@@ -1422,13 +1489,25 @@ func _alert_enemies_to_shot(
 func _show_defeat() -> void:
 	_defeated = true
 	player.controls_enabled = false
-	defeat_menu.open(_enemies_killed)
+	defeat_menu.open(
+		_enemies_killed,
+		maze.explored_floor_cell_count(),
+		maze.safe_floor_cell_count(),
+		maze.floor_cell_count(),
+		_mega_cores_returned
+	)
 
 
 func _show_victory() -> void:
 	_victorious = true
 	player.controls_enabled = false
-	victory_menu.open(_enemies_killed)
+	victory_menu.open(
+		_enemies_killed,
+		maze.explored_floor_cell_count(),
+		maze.safe_floor_cell_count(),
+		maze.floor_cell_count(),
+		_mega_cores_returned
+	)
 
 
 func _shoot() -> void:

@@ -3,9 +3,6 @@ extends Node2D
 const VISION_LINE_COLOR := Color("bd3f43")
 const VISION_LINE_WIDTH := 2.0
 const SAMPLE_STEP := Maze.CELL_SIZE * 0.25
-const DEBUG_TARGET_COLOR := Color("f4d35e")
-const DEBUG_TARGET_RADIUS := 9.0
-const DEBUG_TARGET_WIDTH := 3.0
 
 var enemies: Node2D
 var maze: Maze
@@ -26,24 +23,9 @@ func _draw() -> void:
 		return
 
 	for enemy: Enemy in enemies.get_children():
-		_draw_debug_target(enemy)
 		if not enemy.should_draw_vision_line():
 			continue
 		_draw_visible_vision_line(enemy)
-
-
-func _draw_debug_target(enemy: Enemy) -> void:
-	var target_cell := enemy.debug_destination_cell()
-	if target_cell.x < 0:
-		return
-	draw_circle(
-		maze.cell_to_world(target_cell),
-		DEBUG_TARGET_RADIUS,
-		DEBUG_TARGET_COLOR,
-		false,
-		DEBUG_TARGET_WIDTH,
-		true
-	)
 
 
 func _draw_visible_vision_line(enemy: Enemy) -> void:

@@ -139,14 +139,12 @@ func pursuit_target_cell() -> Vector2i:
 	return _last_known_player_cell
 
 
-func debug_destination_cell() -> Vector2i:
-	if dead:
+func movement_destination_cell() -> Vector2i:
+	if dead or state == State.PATROL:
 		return Vector2i(-1, -1)
 	if _path_index < _path.size():
 		return _path[_path.size() - 1]
-	if state != State.PATROL:
-		return _last_known_player_cell
-	return Vector2i(-1, -1)
+	return _last_known_player_cell
 
 
 func is_attack_state() -> bool:

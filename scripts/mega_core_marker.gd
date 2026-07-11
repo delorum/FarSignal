@@ -1,13 +1,16 @@
 extends Node2D
 
-const MARKER_COLOR := Color(1.0, 1.0, 1.0, 1.0)
-const MARKER_RADIUS := Maze.CELL_SIZE * 0.28
+const ANIMATION_FRAME_COUNT := 8
+const ANIMATION_FPS := 5.0
 const MAP_MARKER_PATH_COLOR := Color(1.0, 1.0, 1.0, 0.58)
 const MAP_MARKER_PATH_WIDTH := 3.0
 
 var maze: Maze
 var player: Player
 var game: Node
+var _animation_time := 0.0
+
+@onready var mega_core_sprite: Sprite2D = $Sprite2D
 
 
 func setup(maze_node: Maze, player_node: Player, game_node: Node) -> void:
@@ -17,32 +20,31 @@ func setup(maze_node: Maze, player_node: Player, game_node: Node) -> void:
 	queue_redraw()
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	_update_mega_core_sprite(delta)
 	queue_redraw()
 
 
 func _draw() -> void:
 	_draw_map_marker_path()
-	_draw_mega_core_marker()
 
 
-func _draw_mega_core_marker() -> void:
-	if player == null \
-			or maze == null \
-			or player.has_mega_core \
-			or player.mega_core_cell.x < 0 \
-			or not maze.is_cell_visible(player.mega_core_cell):
+func _update_mega_core_sprite(delta: float) -> void:
+	var should_show := player != null \
+			and maze != null \
+			and not player.has_mega_core \
+			and player.mega_core_cell.x >= 0 \
+			and maze.is_cell_visible(player.mega_core_cell)
+	mega_core_sprite.visible = should_show
+	if not should_show:
 		return
 
-	var center := maze.cell_to_world(player.mega_core_cell)
-	var points := PackedVector2Array([
-		center + Vector2(0.0, -MARKER_RADIUS),
-		center + Vector2(MARKER_RADIUS, 0.0),
-		center + Vector2(0.0, MARKER_RADIUS),
-		center + Vector2(-MARKER_RADIUS, 0.0),
-		center + Vector2(0.0, -MARKER_RADIUS),
-	])
-	draw_polyline(points, MARKER_COLOR, 3.0, true)
+	mega_core_sprite.position = maze.cell_to_world(player.mega_core_cell)
+	_animation_time += delta
+	mega_core_sprite.frame = posmod(
+		floori(_animation_time * ANIMATION_FPS),
+		ANIMATION_FRAME_COUNT
+	)
 
 
 func _draw_map_marker_path() -> void:

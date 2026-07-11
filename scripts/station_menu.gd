@@ -6,7 +6,10 @@ const LoreText = preload("res://scripts/lore_text.gd")
 @onready var menu: VBoxContainer = $Background/Center/Menu
 @onready var instructions_screen: Control = $Background/InstructionsPanel
 @onready var instructions_text: Label = $Background/InstructionsPanel/InstructionsScreen/InstructionsText
+@onready var information_screen: Control = $Background/InformationPanel
+@onready var information_text: Label = $Background/InformationPanel/InformationScreen/InformationText
 @onready var energy_value: Label = $Background/Center/Menu/EnergyValue
+@onready var player_status_value: Label = $Background/Center/Menu/PlayerStatusValue
 @onready var ammo_button: Button = $Background/Center/Menu/ActionsGrid/AmmoButton
 @onready var health_button: Button = $Background/Center/Menu/ActionsGrid/HealthButton
 @onready var exchange_button: Button = $Background/Center/Menu/ActionsGrid/ExchangeButton
@@ -14,8 +17,10 @@ const LoreText = preload("res://scripts/lore_text.gd")
 @onready var return_mega_core_button: Button = $Background/Center/Menu/ActionsGrid/ReturnMegaCoreButton
 @onready var door_button: Button = $Background/Center/Menu/ActionsGrid/DoorButton
 @onready var instructions_button: Button = $Background/Center/Menu/ActionsGrid/InstructionsButton
+@onready var information_button: Button = $Background/Center/Menu/ActionsGrid/InformationButton
 @onready var exit_button: Button = $Background/Center/Menu/ActionsGrid/ExitButton
 @onready var instructions_back_button: Button = $Background/InstructionsPanel/InstructionsScreen/BackButton
+@onready var information_back_button: Button = $Background/InformationPanel/InformationScreen/BackButton
 
 
 func _ready() -> void:
@@ -43,6 +48,7 @@ func open(show_instructions: bool = false) -> void:
 func _show_menu() -> void:
 	menu.visible = true
 	instructions_screen.visible = false
+	information_screen.visible = false
 	if not exchange_button.disabled:
 		exchange_button.grab_focus()
 	elif not return_mega_core_button.disabled:
@@ -62,7 +68,38 @@ func _show_menu() -> void:
 func _show_instructions() -> void:
 	menu.visible = false
 	instructions_screen.visible = true
+	information_screen.visible = false
 	instructions_back_button.grab_focus()
+
+
+func _show_information() -> void:
+	var statistics: Dictionary = game.station_statistics()
+	var total_floor_cells: int = statistics.total_floor_cells
+	information_text.text = (
+		"Исследовано клеток: %d (%.1f%%)\n"
+		+ "Размер безопасной зоны: %d (%.1f%%)\n"
+		+ "Убито врагов: %d\n"
+		+ "Врагов на карте: %d\n"
+		+ "Возвращено мегаядер: %d"
+	) % [
+		statistics.explored_cells,
+		_percentage(statistics.explored_cells, total_floor_cells),
+		statistics.safe_zone_size,
+		_percentage(statistics.safe_zone_size, total_floor_cells),
+		statistics.enemies_killed,
+		statistics.living_enemies,
+		statistics.mega_cores_returned,
+	]
+	menu.visible = false
+	instructions_screen.visible = false
+	information_screen.visible = true
+	information_back_button.grab_focus()
+
+
+func _percentage(value: int, total: int) -> float:
+	if total <= 0:
+		return 0.0
+	return float(value) * 100.0 / float(total)
 
 
 func close() -> void:
@@ -111,7 +148,15 @@ func _on_instructions_pressed() -> void:
 	_show_instructions()
 
 
+func _on_information_pressed() -> void:
+	_show_information()
+
+
 func _on_instructions_back_pressed() -> void:
+	_show_menu()
+
+
+func _on_information_back_pressed() -> void:
 	_show_menu()
 
 
@@ -121,6 +166,10 @@ func _on_exit_pressed() -> void:
 
 func _update_buttons() -> void:
 	energy_value.text = "Энергия: %d" % game.player.energy
+	player_status_value.text = "Здоровье: %d    Патроны: %d" % [
+		game.player.health,
+		game.player.ammo,
+	]
 
 	var ammo_amount: int = game.player.ammo_purchase_amount()
 	var ammo_cost: int = game.player.ammo_purchase_cost()

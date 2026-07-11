@@ -3,17 +3,41 @@ extends Control
 const MAIN_MENU_SCENE := "res://scenes/menu.tscn"
 
 @onready var kills_value: Label = $Background/Center/Menu/KillsValue
+@onready var explored_value: Label = $Background/Center/Menu/ExploredValue
+@onready var safe_zone_value: Label = $Background/Center/Menu/SafeZoneValue
+@onready var mega_cores_value: Label = $Background/Center/Menu/MegaCoresValue
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 
 
-func open(enemies_killed: int) -> void:
+func open(
+	enemies_killed: int,
+	explored_cells: int,
+	safe_zone_size: int,
+	total_floor_cells: int,
+	mega_cores_returned: int
+) -> void:
 	kills_value.text = "Убито врагов: %d" % enemies_killed
+	explored_value.text = "Исследовано клеток: %d (%.1f%%)" % [
+		explored_cells,
+		_percentage(explored_cells, total_floor_cells),
+	]
+	safe_zone_value.text = "Размер безопасной зоны: %d (%.1f%%)" % [
+		safe_zone_size,
+		_percentage(safe_zone_size, total_floor_cells),
+	]
+	mega_cores_value.text = "Возвращено мегаядер: %d" % mega_cores_returned
 	visible = true
 	get_tree().paused = true
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+
+
+func _percentage(value: int, total: int) -> float:
+	if total <= 0:
+		return 0.0
+	return float(value) * 100.0 / float(total)
 
 
 func _on_main_menu_pressed() -> void:
