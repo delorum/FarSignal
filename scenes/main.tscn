@@ -222,38 +222,6 @@ theme_override_font_sizes/font_size = 18
 text = "Мегаядро: нет координат"
 autowrap_mode = 2
 
-[node name="NearbyEnemiesValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
-theme_override_font_sizes/font_size = 18
-text = "Количество врагов: 0"
-
-[node name="AlertStateValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
-visible = false
-layout_mode = 2
-theme_override_colors/font_color = Color(0.839, 0.42, 0.42, 1)
-theme_override_font_sizes/font_size = 18
-text = "ТРЕВОГА"
-
-[node name="NoiseSpacer" type="Control" parent="GameInterface/PlayerPanel/Margin/VBox"]
-custom_minimum_size = Vector2(0, 18)
-layout_mode = 2
-mouse_filter = 2
-
-[node name="NoiseStateValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
-visible = false
-layout_mode = 2
-theme_override_font_sizes/font_size = 18
-text = "НЕ СЛЫШНО"
-
-[node name="NoiseBar" type="ProgressBar" parent="GameInterface/PlayerPanel/Margin/VBox"]
-visible = false
-custom_minimum_size = Vector2(0, 12)
-layout_mode = 2
-theme_override_styles/background = SubResource("StyleBoxFlat_bar_background")
-theme_override_styles/fill = SubResource("StyleBoxFlat_noise_fill")
-show_percentage = false
-
 [node name="HitFlash" type="Panel" parent="GameInterface"]
 modulate = Color(1, 1, 1, 0)
 layout_mode = 1

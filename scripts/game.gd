@@ -14,14 +14,14 @@ const ENEMY_START_DISTANCE_RATIO := 0.15
 const ENEMY_SPAWN_ATTEMPTS := 256
 const PLAYER_DAMAGE_MIN := 27
 const PLAYER_DAMAGE_MAX := 36
-const ENEMY_DAMAGE_MIN := 17
-const ENEMY_DAMAGE_MAX := 24
+const ENEMY_DAMAGE_MIN := 8
+const ENEMY_DAMAGE_MAX := 12
 const SHOT_REACTION_DELAY := 2.0
-const PLAYER_SHOOT_INTERVAL := 1.0
 const PLAYER_RECOIL_ENABLED := false
 const MAP_MARKER_PATH_REFRESH_SECONDS := 5.0
 const BUILD_ACTION_DURATION := 2.0
 const MEGA_CORE_SAFE_ZONE_ANCHOR_RADIUS := 100.0
+const MAX_ALERTED_ENEMIES := 3
 const ENEMY_PATHFIND_BUDGET_PER_PHYSICS_FRAME := 4
 const SLOW_FRAME_LOG_THRESHOLD := 0.08
 const PERFORMANCE_LOGGING_ENABLED := true
@@ -30,13 +30,6 @@ const CRITICAL_AMMO_THRESHOLD := 10
 const ENERGY_CORE_PICKUP_DISTANCE := 0.65 * Maze.CELL_SIZE
 const STATUS_VALUE_COLOR := Color(0.92, 0.94, 0.97, 1.0)
 const STATUS_CRITICAL_COLOR := Color(0.9, 0.25, 0.27, 1.0)
-const NOISE_SILENT_COLOR := Color("58d68d")
-const NOISE_AUDIBLE_COLOR := Color("d66b6b")
-const ALERT_CLEAR_COLOR := Color("58d68d")
-const ALERT_ACTIVE_COLOR := Color("d66b6b")
-const NEARBY_ENEMIES_CLEAR_COLOR := Color("58d68d")
-const NEARBY_ENEMIES_WARNING_COLOR := Color("d8c35a")
-const NEARBY_ENEMIES_DANGER_COLOR := Color("d66b6b")
 const PANEL_WIDTH_RATIO := 0.2
 const MIN_PANEL_WIDTH := 260.0
 const MAX_PANEL_WIDTH := 360.0
@@ -76,10 +69,6 @@ enum BuildActionType {
 @onready var doors_value: Label = $GameInterface/PlayerPanel/Margin/VBox/DoorsValue
 @onready var explored_cells_value: Label = $GameInterface/PlayerPanel/Margin/VBox/ExploredCellsValue
 @onready var mega_core_value: Label = $GameInterface/PlayerPanel/Margin/VBox/MegaCoreValue
-@onready var nearby_enemies_value: Label = $GameInterface/PlayerPanel/Margin/VBox/NearbyEnemiesValue
-@onready var alert_state_value: Label = $GameInterface/PlayerPanel/Margin/VBox/AlertStateValue
-@onready var noise_state_value: Label = $GameInterface/PlayerPanel/Margin/VBox/NoiseStateValue
-@onready var noise_bar: ProgressBar = $GameInterface/PlayerPanel/Margin/VBox/NoiseBar
 @onready var station_menu: Control = $StationOverlay/StationMenu
 @onready var defeat_menu: Control = $DefeatOverlay/DefeatMenu
 @onready var victory_menu: Control = $VictoryOverlay/VictoryMenu
@@ -92,9 +81,6 @@ var _displayed_energy := -1
 var _displayed_door_inventory := -1
 var _displayed_explored_floor_cells := -1
 var _displayed_mega_core_text := ""
-var _displayed_nearby_enemy_count := -1
-var _displayed_alert_state := ""
-var _displayed_noise_state := ""
 var _doors: Array[Node] = []
 var _stations: Array[Node] = []
 var _enemies: Array[Node] = []
@@ -103,7 +89,6 @@ var _next_enemy_id := 1
 var _defeated := false
 var _victorious := false
 var _station_instructions_seen := false
-var _shoot_cooldown := 0.0
 var _rng := RandomNumberGenerator.new()
 var _hit_flash_tween: Tween
 var _combat_music_active := false
@@ -208,7 +193,6 @@ func _process(delta: float) -> void:
 		return
 
 	_game_time_seconds += delta
-	_shoot_cooldown = maxf(0.0, _shoot_cooldown - delta)
 	_update_build_action(delta)
 	if Input.is_action_just_pressed("shoot"):
 		_shoot()
@@ -282,6 +266,19 @@ func enemy_has_line_of_sight(
 ) -> bool:
 	_perf_line_of_sight_checks += 1
 	return maze.has_line_of_sight(start_position, target_position, range_cells)
+
+
+func can_enemy_become_alerted(enemy_to_alert: Enemy) -> bool:
+	if enemy_to_alert.is_alerted():
+		return true
+
+	var alerted_count := 0
+	for enemy: Enemy in _enemies:
+		if enemy.dead:
+			continue
+		if enemy.is_alerted():
+			alerted_count += 1
+	return alerted_count < MAX_ALERTED_ENEMIES
 
 
 func _prepare_ai_budget_frame() -> void:
@@ -477,70 +474,8 @@ func _update_player_panel() -> void:
 	if mega_core_text != _displayed_mega_core_text:
 		_displayed_mega_core_text = mega_core_text
 		mega_core_value.text = mega_core_text
-	var nearby_enemy_count := _nearby_enemy_count()
-	if nearby_enemy_count != _displayed_nearby_enemy_count:
-		_displayed_nearby_enemy_count = nearby_enemy_count
-		nearby_enemies_value.text = "Количество врагов: %d" % nearby_enemy_count
-		nearby_enemies_value.modulate = _nearby_enemies_color(
-			nearby_enemy_count
-		)
-	var has_alerted_enemies := _has_alerted_enemies()
-	var alert_state := "ТРЕВОГА" if has_alerted_enemies else ""
-	if alert_state != _displayed_alert_state:
-		_displayed_alert_state = alert_state
-		alert_state_value.text = alert_state
-		alert_state_value.modulate = (
-			ALERT_ACTIVE_COLOR
-			if has_alerted_enemies
-			else ALERT_CLEAR_COLOR
-		)
-	alert_state_value.visible = has_alerted_enemies
-	var weapon_readiness := (
-		0.0
-		if player.ammo <= 0
-		else 1.0 - _shoot_cooldown / PLAYER_SHOOT_INTERVAL
-	)
+	var weapon_readiness := 1.0 if player.ammo > 0 else 0.0
 	player.set_aim_indicator_readiness(weapon_readiness)
-
-	var noise_state := "ВАС СЛЫШНО" if player.is_audible() else "НЕ СЛЫШНО"
-	if noise_state != _displayed_noise_state:
-		_displayed_noise_state = noise_state
-		noise_state_value.text = noise_state
-		noise_state_value.modulate = (
-			NOISE_SILENT_COLOR
-			if not player.is_audible()
-			else NOISE_AUDIBLE_COLOR
-		)
-	noise_state_value.visible = has_alerted_enemies
-	noise_bar.visible = has_alerted_enemies
-	if noise_bar.visible:
-		noise_bar.value = player.noise_level * 100.0
-
-
-func _has_alerted_enemies() -> bool:
-	for enemy: Enemy in _enemies:
-		if not enemy.dead and enemy.is_alerted():
-			return true
-	return false
-
-
-func _nearby_enemy_count() -> int:
-	var count := 0
-	var hearing_radius := Enemy.HEARING_RANGE * Maze.CELL_SIZE
-	for enemy: Enemy in _enemies:
-		if enemy.dead:
-			continue
-		if enemy.position.distance_to(player.position) <= hearing_radius:
-			count += 1
-	return count
-
-
-func _nearby_enemies_color(enemy_count: int) -> Color:
-	if enemy_count <= 0:
-		return NEARBY_ENEMIES_CLEAR_COLOR
-	if enemy_count <= 2:
-		return NEARBY_ENEMIES_WARNING_COLOR
-	return NEARBY_ENEMIES_DANGER_COLOR
 
 
 func _pick_up_energy_cores() -> void:
@@ -1141,7 +1076,7 @@ func _remove_door(door: Door) -> void:
 	maze.set_door_closed(door.cell, false)
 	_doors.erase(door)
 	door.queue_free()
-	if door.player_placed and player.can_store_door():
+	if player.can_store_door():
 		player.door_inventory += 1
 	_refresh_safe_zone()
 	_update_player_panel()
@@ -1497,8 +1432,7 @@ func _show_victory() -> void:
 
 
 func _shoot() -> void:
-	if _shoot_cooldown > 0.0 or not player.controls_enabled \
-			or not player.consume_ammo():
+	if not player.controls_enabled or not player.consume_ammo():
 		return
 
 	_cancel_build_action()
@@ -1515,7 +1449,6 @@ func _shoot() -> void:
 	AudioManager.play_player_shot()
 	if PLAYER_RECOIL_ENABLED:
 		player.apply_recoil(direction)
-	_shoot_cooldown = PLAYER_SHOOT_INTERVAL
 	player.make_shot_noise()
 	_alert_enemies_to_shot(maze.world_to_cell(player.position))
 	_update_player_panel()

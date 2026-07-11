@@ -14,7 +14,7 @@ const ALIVE_Z_INDEX := 1
 const AMBUSH_ARROW_LENGTH := 24.0
 const AMBUSH_ARROW_HEAD_LENGTH := 7.0
 const AMBUSH_ARROW_HEAD_ANGLE := deg_to_rad(32.0)
-const HEARING_INTERVAL := 5.0
+const HEARING_INTERVAL := 3.0
 const SHOOT_INTERVAL := 2.0
 const BULLET_SPEED := 650.0
 const HEARING_RANGE := 20.0
@@ -22,6 +22,7 @@ const VISION_RANGE := 30.0
 const VISION_HALF_ANGLE := deg_to_rad(45.0)
 const TARGET_ATTEMPTS := 12
 const SEARCH_DURATION := 5.0
+const SEARCH_REPATH_INTERVAL := 0.5
 const PATROL_REPATH_INTERVAL := 1.0
 const MANEUVER_CHANCE := 0.4
 const MANEUVER_DISTANCE := 2
@@ -61,7 +62,10 @@ var _hearing_cooldown := 0.0
 var _shoot_cooldown := 0.0
 var _flank_repath_cooldown := 0.0
 var _search_time_left := 0.0
+var _search_repath_cooldown := 0.0
+var _search_path_retry_needed := false
 var _firing_position_repath_cooldown := 0.0
+var _last_path_build_deferred := false
 var _last_known_player_cell := Vector2i(-1, -1)
 var _active_enemy_bullets := 0
 var _active := true
@@ -135,6 +139,16 @@ func pursuit_target_cell() -> Vector2i:
 	return _last_known_player_cell
 
 
+func debug_destination_cell() -> Vector2i:
+	if dead:
+		return Vector2i(-1, -1)
+	if _path_index < _path.size():
+		return _path[_path.size() - 1]
+	if state != State.PATROL:
+		return _last_known_player_cell
+	return Vector2i(-1, -1)
+
+
 func is_attack_state() -> bool:
 	return state == State.COMBAT or state == State.MANEUVER
 
@@ -185,6 +199,8 @@ func hear_player() -> void:
 
 func hear_position(source_cell: Vector2i, force: bool = false) -> void:
 	if dead or not _active or (_hearing_cooldown > 0.0 and not force):
+		return
+	if not _game.can_enemy_become_alerted(self):
 		return
 
 	_last_known_player_cell = source_cell
@@ -268,6 +284,7 @@ func _physics_process(delta: float) -> void:
 		0.0,
 		_firing_position_repath_cooldown - delta
 	)
+	_search_repath_cooldown = maxf(0.0, _search_repath_cooldown - delta)
 	_update_facing(delta)
 
 	var player_cell := _maze.world_to_cell(_player.position)
@@ -359,6 +376,8 @@ func _physics_process(delta: float) -> void:
 func _enter_patrol() -> void:
 	state = State.PATROL
 	_search_time_left = 0.0
+	_search_repath_cooldown = 0.0
+	_search_path_retry_needed = false
 	_last_known_player_cell = Vector2i(-1, -1)
 	_path.clear()
 	_path_index = 0
@@ -376,9 +395,12 @@ func _enter_combat() -> void:
 func _enter_search() -> void:
 	state = State.SEARCH
 	_search_time_left = SEARCH_DURATION
+	_search_repath_cooldown = 0.0
+	_search_path_retry_needed = false
 	if not _build_path_to(_last_known_player_cell):
 		_path.clear()
 		_path_index = 0
+		_search_path_retry_needed = _last_path_build_deferred
 
 
 func _try_start_combat_maneuver(direction_to_player: Vector2) -> bool:
@@ -706,6 +728,17 @@ func _update_search(delta: float) -> void:
 		_follow_path()
 		return
 
+	var current_cell := _maze.world_to_cell(position)
+	if _search_path_retry_needed \
+			and current_cell != _last_known_player_cell \
+			and _search_repath_cooldown <= 0.0:
+		_search_repath_cooldown = SEARCH_REPATH_INTERVAL
+		if _build_path_to(_last_known_player_cell):
+			_search_path_retry_needed = false
+			_follow_path()
+			return
+		_search_path_retry_needed = _last_path_build_deferred
+
 	velocity = Vector2.ZERO
 	_search_time_left = maxf(0.0, _search_time_left - delta)
 	if _search_time_left <= 0.0:
@@ -771,7 +804,9 @@ func _choose_random_target() -> void:
 
 
 func _build_path_to(target: Vector2i) -> bool:
+	_last_path_build_deferred = false
 	if not _game.enemy_path_budget_available():
+		_last_path_build_deferred = true
 		return false
 	var start := _maze.world_to_cell(position)
 	_path = _game.find_enemy_path(start, target)
