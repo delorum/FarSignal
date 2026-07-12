@@ -7,7 +7,9 @@ signal damaged
 
 const MAX_HEALTH := 100
 const MAX_AMMO := 30
-const MAX_UPGRADE_LEVEL := 5
+const PLAYER_LEVEL_COUNT := 5
+const MAX_UPGRADE_LEVEL := PLAYER_LEVEL_COUNT - 1
+const UPGRADES_PER_STATION := 2
 const UPGRADE_COST := 300
 const MAX_UPGRADED_HEALTH := 340
 const MAX_UPGRADED_AMMO := 200
@@ -17,7 +19,7 @@ const MAX_UPGRADED_DAMAGE_MIN := 308
 const MAX_UPGRADED_DAMAGE_MAX := 338
 const MAX_HEALTH_BUY := 20
 const MAX_AMMO_BUY := 10
-const AMMO_COST_PER_ROUND := 5
+const AMMO_COST_PER_ROUND := 1
 const ENERGY_PER_CORE := 20
 const EXPLORED_CELLS_PER_EXCHANGE := 200
 const ENERGY_PER_EXPLORED_CELL_EXCHANGE := 10
@@ -159,28 +161,32 @@ func damage_max() -> int:
 	))
 
 
-func can_upgrade_damage() -> bool:
-	return damage_upgrade_level < MAX_UPGRADE_LEVEL and energy >= UPGRADE_COST
+func current_level() -> int:
+	return mini(damage_upgrade_level, health_upgrade_level) + 1
 
 
-func can_upgrade_health() -> bool:
-	return health_upgrade_level < MAX_UPGRADE_LEVEL and energy >= UPGRADE_COST
+func can_upgrade_damage_at_station(station_id: int) -> bool:
+	return _can_upgrade_at_station(damage_upgrade_level, station_id)
 
 
-func can_upgrade_ammo() -> bool:
-	return ammo_upgrade_level < MAX_UPGRADE_LEVEL and energy >= UPGRADE_COST
+func can_upgrade_health_at_station(station_id: int) -> bool:
+	return _can_upgrade_at_station(health_upgrade_level, station_id)
 
 
-func upgrade_damage() -> bool:
-	if not can_upgrade_damage():
+func can_upgrade_ammo_at_station(station_id: int) -> bool:
+	return _can_upgrade_at_station(ammo_upgrade_level, station_id)
+
+
+func upgrade_damage(station_id: int) -> bool:
+	if not can_upgrade_damage_at_station(station_id):
 		return false
 	energy -= UPGRADE_COST
 	damage_upgrade_level += 1
 	return true
 
 
-func upgrade_health() -> bool:
-	if not can_upgrade_health():
+func upgrade_health(station_id: int) -> bool:
+	if not can_upgrade_health_at_station(station_id):
 		return false
 	var previous_max := max_health
 	energy -= UPGRADE_COST
@@ -190,8 +196,8 @@ func upgrade_health() -> bool:
 	return true
 
 
-func upgrade_ammo() -> bool:
-	if not can_upgrade_ammo():
+func upgrade_ammo(station_id: int) -> bool:
+	if not can_upgrade_ammo_at_station(station_id):
 		return false
 	var previous_max := max_ammo
 	energy -= UPGRADE_COST
@@ -199,6 +205,20 @@ func upgrade_ammo() -> bool:
 	_update_maximums()
 	ammo += max_ammo - previous_max
 	return true
+
+
+func _can_upgrade_at_station(
+	level: int,
+	station_id: int
+) -> bool:
+	var station_index := station_id - 2
+	if station_index < 0 or station_index >= 2:
+		return false
+	var minimum_level := station_index * UPGRADES_PER_STATION
+	var maximum_level := minimum_level + UPGRADES_PER_STATION
+	return level >= minimum_level \
+			and level < maximum_level \
+			and energy >= UPGRADE_COST
 
 
 func _update_maximums() -> void:

@@ -1,8 +1,7 @@
 extends Node
 
 const SAVE_FILE_NAME := "far_signal_save.json"
-const SAVE_VERSION := 3
-const SUPPORTED_SAVE_VERSIONS: Array[int] = [2, SAVE_VERSION]
+const SAVE_VERSION := 4
 
 var pending_save: Dictionary = {}
 
@@ -80,7 +79,7 @@ func consume_pending_save() -> Dictionary:
 func _is_valid_save(save_data) -> bool:
 	if not save_data is Dictionary:
 		return false
-	if not SUPPORTED_SAVE_VERSIONS.has(int(save_data.get("version", 0))):
+	if int(save_data.get("version", 0)) != SAVE_VERSION:
 		return false
 	if not save_data.has("maze_seed"):
 		return false

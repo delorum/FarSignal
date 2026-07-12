@@ -16,6 +16,9 @@ const DEAD_ENEMY_CORE_EDGE_COLOR := Color(1.0, 1.0, 0.78, 1.0)
 const MEGA_CORE_COLOR := Color(1.0, 1.0, 1.0, 1.0)
 const MAP_MARKER_COLOR := Color(1.0, 1.0, 1.0, 1.0)
 const MAP_MARKER_PATH_COLOR := Color(1.0, 1.0, 1.0, 0.62)
+const LEVEL_BOUNDARY_COLOR := Color(1.0, 1.0, 1.0, 0.82)
+const LEVEL_LABEL_SHADOW_COLOR := Color(0.02, 0.03, 0.04, 0.95)
+const ENEMY_LEVEL_COUNT := 5
 
 var scroll_position := Vector2.ZERO
 var cell_size := 40.0
@@ -84,6 +87,7 @@ func _draw() -> void:
 			)
 			draw_rect(cell_rect.grow(-1.0), color)
 
+	_draw_enemy_level_boundaries(map_origin, grid_size)
 	_draw_doors(map_origin)
 	_draw_map_marker_path(map_origin)
 	_draw_stations(map_origin)
@@ -97,6 +101,77 @@ func _draw() -> void:
 		+ (Vector2(player_cell) + Vector2.ONE * 0.5) * cell_size
 	)
 	draw_circle(player_position, cell_size * 0.22, PLAYER_COLOR)
+
+
+func _draw_enemy_level_boundaries(
+	map_origin: Vector2,
+	grid_size: Vector2i
+) -> void:
+	var map_left := map_origin.x
+	var map_right := map_origin.x + float(grid_size.x) * cell_size
+	var visible_left := maxf(0.0, map_left)
+	var visible_right := minf(size.x, map_right)
+	if visible_left >= visible_right:
+		return
+
+	var font := ThemeDB.fallback_font
+	var font_size := maxi(12, roundi(cell_size * 0.8))
+	for boundary_index in range(1, ENEMY_LEVEL_COUNT):
+		var boundary_cell_y := floori(
+			float(boundary_index * grid_size.y) / float(ENEMY_LEVEL_COUNT)
+		)
+		var line_y := map_origin.y + float(boundary_cell_y) * cell_size
+		if line_y < 0.0 or line_y > size.y:
+			continue
+		draw_line(
+			Vector2(visible_left, line_y),
+			Vector2(visible_right, line_y),
+			LEVEL_BOUNDARY_COLOR,
+			2.0,
+			true
+		)
+
+		var upper_level := ENEMY_LEVEL_COUNT + 1 - boundary_index
+		var lower_level := ENEMY_LEVEL_COUNT - boundary_index
+		var label_x := visible_left + 6.0
+		_draw_level_label(
+			font,
+			Vector2(label_x, line_y - 5.0),
+			str(upper_level),
+			font_size
+		)
+		_draw_level_label(
+			font,
+			Vector2(label_x, line_y + float(font_size) + 5.0),
+			str(lower_level),
+			font_size
+		)
+
+
+func _draw_level_label(
+	font: Font,
+	position: Vector2,
+	text: String,
+	font_size: int
+) -> void:
+	draw_string(
+		font,
+		position + Vector2.ONE,
+		text,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1.0,
+		font_size,
+		LEVEL_LABEL_SHADOW_COLOR
+	)
+	draw_string(
+		font,
+		position,
+		text,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1.0,
+		font_size,
+		LEVEL_BOUNDARY_COLOR
+	)
 
 
 func cell_at_local_position(local_position: Vector2) -> Vector2i:

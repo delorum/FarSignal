@@ -22,5 +22,20 @@ frame = 8
 visible = false
 texture = ExtResource("3_fallen_texture")
 
+[node name="LevelLabel" type="Label" parent="."]
+visible = false
+z_index = 2
+offset_left = 34.0
+offset_top = -42.0
+offset_right = 84.0
+offset_bottom = -18.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.86, 0.92, 0.98, 0.92)
+theme_override_colors/font_shadow_color = Color(0.02, 0.03, 0.04, 0.9)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 1
+theme_override_font_sizes/font_size = 16
+text = "1"
+
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("CircleShape2D_enemy")

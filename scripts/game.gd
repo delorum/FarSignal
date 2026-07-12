@@ -11,6 +11,7 @@ const BULLET_HALF_WIDTH := 2.0
 const ENEMY_COUNT := 40
 const MAX_ENEMY_START_DISTANCE := 15.0
 const ENEMY_START_DISTANCE_RATIO := 0.15
+const ENEMY_RESPAWN_MIN_DISTANCE := 30.0
 const ENEMY_SPAWN_ATTEMPTS := 256
 const ENEMY_BASE_HEALTH := 100
 const ENEMY_MAX_HEALTH := 615
@@ -18,6 +19,7 @@ const ENEMY_BASE_DAMAGE_MIN := 8
 const ENEMY_BASE_DAMAGE_MAX := 12
 const ENEMY_MAX_DAMAGE_MIN := 34
 const ENEMY_MAX_DAMAGE_MAX := 38
+const ENEMY_LEVEL_COUNT := 5
 const SHOT_REACTION_DELAY := 2.0
 const PLAYER_RECOIL_ENABLED := false
 const MAP_MARKER_PATH_REFRESH_SECONDS := 5.0
@@ -92,10 +94,6 @@ var _stations: Array[Node] = []
 var _enemies: Array[Node] = []
 var _enemies_killed := 0
 var _mega_cores_returned := 0
-var _enemy_level_progress := 0.0
-var _enemy_health := ENEMY_BASE_HEALTH
-var _enemy_damage_min := ENEMY_BASE_DAMAGE_MIN
-var _enemy_damage_max := ENEMY_BASE_DAMAGE_MAX
 var _next_enemy_id := 1
 var _defeated := false
 var _victorious := false
@@ -128,12 +126,6 @@ func _enter_tree() -> void:
 		var maze_node: Maze = get_node("Maze")
 		maze_node.generation_seed_override = int(
 			SaveStore.pending_save.get("maze_seed", 0)
-		)
-		maze_node.generation_version_override = int(
-			SaveStore.pending_save.get(
-				"maze_generation_version",
-				2
-			)
 		)
 
 
@@ -574,7 +566,6 @@ func save_game() -> bool:
 		"version": SaveStore.SAVE_VERSION,
 		"maze_size": [maze.grid_size().x, maze.grid_size().y],
 		"maze_seed": maze.generation_seed(),
-		"maze_generation_version": maze.generation_version(),
 		"player_position": [player.position.x, player.position.y],
 		"player_facing": player.facing_direction_for_save(),
 		"player_health": player.health,
@@ -676,10 +667,7 @@ func _restore_game(save_data: Dictionary) -> void:
 	if save_data.has("enemies"):
 		for index in save_data.enemies.size():
 			_create_enemy_from_save(save_data.enemies[index], index)
-		_create_generated_enemies(
-			maze.world_to_cell(player.position),
-			maxi(0, _target_enemy_count() - _living_enemy_count())
-		)
+		_create_generated_enemies(maze.world_to_cell(player.position))
 	else:
 		_create_generated_enemies(maze.world_to_cell(player.position))
 
@@ -696,39 +684,67 @@ func _create_generated_stations() -> void:
 
 
 func _create_generated_enemies(
-	player_cell: Vector2i,
-	enemy_count: int = -1
+	player_cell: Vector2i
 ) -> void:
-	if enemy_count < 0:
-		enemy_count = _target_enemy_count()
 	var enemy_rng := RandomNumberGenerator.new()
 	enemy_rng.seed = maze.generation_seed() ^ 0x5e71a9
 	var occupied_cells := _occupied_enemy_cells()
-	for index in enemy_count:
-		var cell := _find_enemy_spawn_cell(
-			enemy_rng,
-			player_cell,
-			occupied_cells
+	var target_count := _target_enemy_count()
+	var remaining := maxi(0, target_count - _living_enemy_count())
+	for level in range(1, ENEMY_LEVEL_COUNT + 1):
+		var missing_for_level := maxi(
+			0,
+			_target_enemy_count_for_level(level, target_count)
+					- _living_enemy_count_for_level(level)
 		)
-		if cell.x < 0:
-			push_warning("Could not find a free cell for an enemy")
+		for index in mini(missing_for_level, remaining):
+			var cell := _find_enemy_spawn_cell(
+				enemy_rng,
+				player_cell,
+				occupied_cells,
+				level
+			)
+			if cell.x < 0:
+				push_warning("Could not find a free cell for enemy level %d" % level)
+				return
+			occupied_cells[cell] = true
+			_create_enemy(cell, enemy_rng.randi(), -1, level)
+			remaining -= 1
+		if remaining <= 0:
 			return
-		occupied_cells[cell] = true
-		_create_enemy(cell, enemy_rng.randi())
 
 
 func _find_enemy_spawn_cell(
 	enemy_rng: RandomNumberGenerator,
 	player_cell: Vector2i,
-	occupied_cells: Dictionary
+	occupied_cells: Dictionary,
+	enemy_level: int,
+	restrict_to_level_zone: bool = true,
+	minimum_distance_override: float = -1.0
 ) -> Vector2i:
 	var grid_size := maze.grid_size()
-	var minimum_distance := minf(
-		MAX_ENEMY_START_DISTANCE,
-		maxf(2.0, minf(grid_size.x, grid_size.y) * ENEMY_START_DISTANCE_RATIO)
+	var zone_bounds := _enemy_zone_bounds(enemy_level)
+	var minimum_distance := (
+		minimum_distance_override
+		if minimum_distance_override >= 0.0
+		else minf(
+			MAX_ENEMY_START_DISTANCE,
+			maxf(
+				2.0,
+				minf(grid_size.x, grid_size.y) * ENEMY_START_DISTANCE_RATIO
+			)
+		)
 	)
 	for attempt in ENEMY_SPAWN_ATTEMPTS:
-		var cell := maze.get_random_walkable_cell(enemy_rng)
+		var cell := (
+			maze.get_random_walkable_cell_in_y_range(
+				enemy_rng,
+				zone_bounds.x,
+				zone_bounds.y
+			)
+			if restrict_to_level_zone
+			else maze.get_random_walkable_cell(enemy_rng)
+		)
 		if not _enemy_spawn_cell_is_valid(
 			cell,
 			player_cell,
@@ -755,7 +771,9 @@ func _enemy_spawn_cell_is_valid(
 
 func _occupied_enemy_cells() -> Dictionary:
 	var occupied_cells: Dictionary = {}
-	for enemy in _enemies:
+	for enemy: Enemy in _enemies:
+		if enemy.dead:
+			continue
 		occupied_cells[maze.world_to_cell(enemy.position)] = true
 	return occupied_cells
 
@@ -766,6 +784,78 @@ func _living_enemy_count() -> int:
 		if not enemy.dead:
 			count += 1
 	return count
+
+
+func _living_enemy_count_for_level(level: int) -> int:
+	var count := 0
+	for enemy: Enemy in _enemies:
+		if not enemy.dead and enemy.enemy_level == level:
+			count += 1
+	return count
+
+
+func _target_enemy_count_for_level(level: int, total_count: int) -> int:
+	var maximum_per_level := ceili(
+		float(ENEMY_COUNT) / float(ENEMY_LEVEL_COUNT)
+	)
+	var enemies_reserved_for_higher_levels := (
+		ENEMY_LEVEL_COUNT - clampi(level, 1, ENEMY_LEVEL_COUNT)
+	) * maximum_per_level
+	return clampi(
+		total_count - enemies_reserved_for_higher_levels,
+		0,
+		maximum_per_level
+	)
+
+
+func _enemy_zone_bounds(level: int) -> Vector2i:
+	var clamped_level := clampi(level, 1, ENEMY_LEVEL_COUNT)
+	var zone_from_top := ENEMY_LEVEL_COUNT - clamped_level
+	var minimum_y := floori(
+		float(zone_from_top * Maze.ROWS) / float(ENEMY_LEVEL_COUNT)
+	)
+	var maximum_y := floori(
+		float((zone_from_top + 1) * Maze.ROWS) / float(ENEMY_LEVEL_COUNT)
+	) - 1
+	return Vector2i(minimum_y, maximum_y)
+
+
+func _enemy_level_for_y(cell_y: int) -> int:
+	var zone_from_top := clampi(
+		floori(float(cell_y * ENEMY_LEVEL_COUNT) / float(Maze.ROWS)),
+		0,
+		ENEMY_LEVEL_COUNT - 1
+	)
+	return ENEMY_LEVEL_COUNT - zone_from_top
+
+
+func _enemy_level_progress(level: int) -> float:
+	return float(clampi(level, 1, ENEMY_LEVEL_COUNT) - 1) \
+			/ float(ENEMY_LEVEL_COUNT - 1)
+
+
+func _enemy_health_for_level(level: int) -> int:
+	return roundi(lerpf(
+		ENEMY_BASE_HEALTH,
+		ENEMY_MAX_HEALTH,
+		_enemy_level_progress(level)
+	))
+
+
+func _enemy_damage_min_for_level(level: int) -> int:
+	return roundi(lerpf(
+		ENEMY_BASE_DAMAGE_MIN,
+		ENEMY_MAX_DAMAGE_MIN,
+		_enemy_level_progress(level)
+	))
+
+
+func _enemy_damage_max_for_level(level: int) -> int:
+	return roundi(lerpf(
+		ENEMY_BASE_DAMAGE_MAX,
+		ENEMY_MAX_DAMAGE_MAX,
+		_enemy_level_progress(level)
+	))
 
 
 func _target_enemy_count() -> int:
@@ -794,35 +884,51 @@ func station_statistics() -> Dictionary:
 		"enemies_killed": _enemies_killed,
 		"living_enemies": _living_enemy_count(),
 		"mega_cores_returned": _mega_cores_returned,
-		"enemy_level_percent": _enemy_level_progress * 100.0,
-		"enemy_health": _enemy_health,
-		"enemy_damage_min": _enemy_damage_min,
-		"enemy_damage_max": _enemy_damage_max,
+		"enemy_level_summary": _enemy_level_summary(),
 	}
+
+
+func _enemy_level_summary() -> String:
+	var lines: Array[String] = []
+	for level in range(1, ENEMY_LEVEL_COUNT + 1):
+		lines.append("%d: %d здоровья, урон %d–%d" % [
+			level,
+			_enemy_health_for_level(level),
+			_enemy_damage_min_for_level(level),
+			_enemy_damage_max_for_level(level),
+		])
+	return "\n".join(lines)
 
 
 func _create_enemy_from_save(saved_data: Dictionary, index: int) -> void:
 	var saved_position: Array = saved_data.get("position", [])
 	var cell := Vector2i(-1, -1)
+	var enemy_level := int(saved_data.get("enemy_level", 0))
 	if saved_position.size() == 2:
 		cell = maze.world_to_cell(
 			Vector2(float(saved_position[0]), float(saved_position[1]))
 		)
 	else:
+		if enemy_level <= 0:
+			enemy_level = 1
 		cell = _find_enemy_spawn_cell(
 			_rng,
 			maze.world_to_cell(player.position),
-			_occupied_enemy_cells()
+			_occupied_enemy_cells(),
+			enemy_level
 		)
 	if cell.x < 0:
 		push_warning("Could not restore an enemy without a valid position")
 		return
 	var saved_enemy_id := int(saved_data.get("enemy_id", _next_enemy_id))
+	if enemy_level <= 0:
+		enemy_level = _enemy_level_for_y(cell.y)
 	_next_enemy_id = maxi(_next_enemy_id, saved_enemy_id + 1)
 	var enemy: Node = _create_enemy(
 		cell,
 		maze.generation_seed() + index,
-		saved_enemy_id
+		saved_enemy_id,
+		enemy_level
 	)
 	enemy.restore_state(saved_data)
 
@@ -830,7 +936,8 @@ func _create_enemy_from_save(saved_data: Dictionary, index: int) -> void:
 func _create_enemy(
 	cell: Vector2i,
 	random_seed: int,
-	assigned_enemy_id: int = -1
+	assigned_enemy_id: int = -1,
+	enemy_level: int = 1
 ) -> Node:
 	var enemy_id := assigned_enemy_id
 	if enemy_id < 0:
@@ -841,7 +948,15 @@ func _create_enemy(
 
 	var enemy: Node = ENEMY_SCENE.instantiate()
 	enemy.setup(self, maze, player, cell, random_seed, enemy_id)
-	enemy.apply_max_health(_enemy_health, false)
+	var zone_bounds := _enemy_zone_bounds(enemy_level)
+	enemy.configure_level(
+		enemy_level,
+		_enemy_health_for_level(enemy_level),
+		_enemy_damage_min_for_level(enemy_level),
+		_enemy_damage_max_for_level(enemy_level),
+		zone_bounds.x,
+		zone_bounds.y
+	)
 	enemies.add_child(enemy)
 	_enemies.append(enemy)
 	return enemy
@@ -1189,7 +1304,6 @@ func _refresh_safe_zone() -> void:
 		door_cells.append(door.cell)
 
 	maze.update_safe_zone(door_cells)
-	_update_enemy_scaling()
 	_assert_station_floor_is_safe()
 	call_deferred("_maintain_enemy_population")
 
@@ -1203,54 +1317,6 @@ func _assert_station_floor_is_safe() -> void:
 				maze.is_cell_safe(cell),
 				"Station floor cell %s must belong to a safe zone" % cell
 			)
-
-
-func _update_enemy_scaling() -> void:
-	var exit_cell := maze.exit_door_cell()
-	var station_center := maze.station_cell()
-	if exit_cell.x < 0 or station_center.x < 0:
-		return
-	var initial_nearest := Vector2i(
-		clampi(
-			exit_cell.x,
-			station_center.x - Maze.STATION_FLOOR_RADIUS,
-			station_center.x + Maze.STATION_FLOOR_RADIUS
-		),
-		station_center.y - Maze.STATION_FLOOR_RADIUS
-	)
-	var initial_distance := maxf(1.0, exit_cell.distance_to(initial_nearest))
-	var current_distance := initial_distance
-	var grid_size := maze.grid_size()
-	for y in grid_size.y:
-		for x in grid_size.x:
-			var cell := Vector2i(x, y)
-			if maze.is_cell_safe(cell):
-				current_distance = minf(
-					current_distance,
-					exit_cell.distance_to(cell)
-				)
-	_enemy_level_progress = clampf(
-		(initial_distance - current_distance) / maxf(1.0, initial_distance - 1.0),
-		0.0,
-		1.0
-	)
-	_enemy_health = roundi(lerpf(
-		ENEMY_BASE_HEALTH,
-		ENEMY_MAX_HEALTH,
-		_enemy_level_progress
-	))
-	_enemy_damage_min = roundi(lerpf(
-		ENEMY_BASE_DAMAGE_MIN,
-		ENEMY_MAX_DAMAGE_MIN,
-		_enemy_level_progress
-	))
-	_enemy_damage_max = roundi(lerpf(
-		ENEMY_BASE_DAMAGE_MAX,
-		ENEMY_MAX_DAMAGE_MAX,
-		_enemy_level_progress
-	))
-	for enemy: Enemy in _enemies:
-		enemy.apply_max_health(_enemy_health)
 
 
 func _interact_with_door() -> void:
@@ -1374,22 +1440,45 @@ func buy_door() -> bool:
 	return bought
 
 
-func upgrade_player_damage() -> bool:
-	var upgraded := player.upgrade_damage()
+func upgrade_player_damage(station_id: int) -> bool:
+	var upgraded := player.upgrade_damage(station_id)
+	if upgraded:
+		_update_enemy_level_labels()
 	_update_player_panel()
 	return upgraded
 
 
-func upgrade_player_health() -> bool:
-	var upgraded := player.upgrade_health()
+func upgrade_player_health(station_id: int) -> bool:
+	var upgraded := player.upgrade_health(station_id)
+	if upgraded:
+		_update_enemy_level_labels()
 	_update_player_panel()
 	return upgraded
 
 
-func upgrade_player_ammo() -> bool:
-	var upgraded := player.upgrade_ammo()
+func upgrade_player_ammo(station_id: int) -> bool:
+	var upgraded := player.upgrade_ammo(station_id)
+	if upgraded:
+		_update_enemy_level_labels()
 	_update_player_panel()
 	return upgraded
+
+
+func _update_enemy_level_labels() -> void:
+	for enemy: Enemy in _enemies:
+		enemy.update_level_label()
+
+
+func can_upgrade_player_damage(station_id: int) -> bool:
+	return player.can_upgrade_damage_at_station(station_id)
+
+
+func can_upgrade_player_health(station_id: int) -> bool:
+	return player.can_upgrade_health_at_station(station_id)
+
+
+func can_upgrade_player_ammo(station_id: int) -> bool:
+	return player.can_upgrade_ammo_at_station(station_id)
 
 
 func exchange_energy_cores() -> bool:
@@ -1422,16 +1511,34 @@ func _assign_new_mega_core() -> void:
 
 func _find_mega_core_cell() -> Vector2i:
 	var anchor_cell := _farthest_safe_zone_cell()
+	var nearby_cell := _find_valid_mega_core_cell(anchor_cell, true)
+	if nearby_cell.x >= 0:
+		return nearby_cell
+	return _find_valid_mega_core_cell(anchor_cell, false)
+
+
+func _find_valid_mega_core_cell(
+	anchor_cell: Vector2i,
+	require_anchor_distance: bool
+) -> Vector2i:
 	for attempt in 512:
 		var cell := maze.get_random_floor_cell(_rng)
-		if _mega_core_cell_is_valid(cell, anchor_cell):
+		if _mega_core_cell_is_valid(
+			cell,
+			anchor_cell,
+			require_anchor_distance
+		):
 			return cell
 
 	var grid_size := maze.grid_size()
 	for y in grid_size.y:
 		for x in grid_size.x:
 			var cell := Vector2i(x, y)
-			if _mega_core_cell_is_valid(cell, anchor_cell):
+			if _mega_core_cell_is_valid(
+				cell,
+				anchor_cell,
+				require_anchor_distance
+			):
 				return cell
 	return Vector2i(-1, -1)
 
@@ -1456,10 +1563,22 @@ func _farthest_safe_zone_cell() -> Vector2i:
 	return farthest_cell
 
 
-func _mega_core_cell_is_valid(cell: Vector2i, anchor_cell: Vector2i) -> bool:
+func _mega_core_cell_is_valid(
+	cell: Vector2i,
+	anchor_cell: Vector2i,
+	require_anchor_distance: bool
+) -> bool:
+	var maximum_enemy_level := mini(
+		ENEMY_LEVEL_COUNT,
+		player.current_level() + 1
+	)
 	return cell.x >= 0 \
-			and Vector2(cell - anchor_cell).length() \
-					<= MEGA_CORE_SAFE_ZONE_ANCHOR_RADIUS \
+			and (
+				not require_anchor_distance
+				or Vector2(cell - anchor_cell).length()
+						<= MEGA_CORE_SAFE_ZONE_ANCHOR_RADIUS
+			) \
+			and _enemy_level_for_y(cell.y) <= maximum_enemy_level \
 			and not maze.is_cell_safe(cell) \
 			and not _has_door_at(cell) \
 			and maze.is_cell_walkable(cell)
@@ -1476,7 +1595,7 @@ func spawn_enemy_bullet(
 		start_position + direction * BULLET_SPAWN_DISTANCE,
 		direction,
 		maze,
-		_rng.randi_range(_enemy_damage_min, _enemy_damage_max),
+		_rng.randi_range(shooter.damage_min, shooter.damage_max),
 		false
 	)
 	bullets.add_child(bullet)
@@ -1550,19 +1669,36 @@ func attackers_near_player(
 
 
 func _maintain_enemy_population() -> void:
-	var missing_enemies := _target_enemy_count() - _living_enemy_count()
-	if missing_enemies <= 0 or _defeated or _victorious:
+	var target_count := _target_enemy_count()
+	var remaining := target_count - _living_enemy_count()
+	if remaining <= 0 or _defeated or _victorious:
 		return
 
 	var player_cell := maze.world_to_cell(player.position)
 	var occupied_cells := _occupied_enemy_cells()
-	for index in missing_enemies:
-		var cell := _find_enemy_spawn_cell(_rng, player_cell, occupied_cells)
-		if cell.x < 0:
-			push_warning("Could not respawn an enemy")
+	for level in range(1, ENEMY_LEVEL_COUNT + 1):
+		var missing_for_level := maxi(
+			0,
+			_target_enemy_count_for_level(level, target_count)
+					- _living_enemy_count_for_level(level)
+		)
+		for index in mini(missing_for_level, remaining):
+			var cell := _find_enemy_spawn_cell(
+				_rng,
+				player_cell,
+				occupied_cells,
+				level,
+				false,
+				ENEMY_RESPAWN_MIN_DISTANCE
+			)
+			if cell.x < 0:
+				push_warning("Could not respawn enemy level %d" % level)
+				return
+			occupied_cells[cell] = true
+			_create_enemy(cell, _rng.randi(), -1, level)
+			remaining -= 1
+		if remaining <= 0:
 			return
-		occupied_cells[cell] = true
-		_create_enemy(cell, _rng.randi())
 
 
 func _alert_enemies_to_shot(

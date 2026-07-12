@@ -36,8 +36,8 @@ const PLACEMENT_SPREAD := 14
 const LEFT_PLACEMENT_X := 25
 const CENTER_PLACEMENT_X := int(COLUMNS / 2.0)
 const RIGHT_PLACEMENT_X := COLUMNS - 26
-const SECOND_STATION_MIN_RIGHT_X := 151
-const SECOND_STATION_MAX_LEFT_X := 49
+const LEVEL_TWO_UPGRADE_STATION_Y := 140
+const LEVEL_FOUR_UPGRADE_STATION_Y := 60
 const MIN_GRID_SIZE := STATION_ROOM_RADIUS * 2 + 5
 const PATH_DIRECTIONS: Array[Vector2i] = [
 	Vector2i.RIGHT,
@@ -60,7 +60,6 @@ var _view_direction := Vector2.ZERO
 var _collision_shapes: Array[CollisionShape2D] = []
 var _generation_seed := 0
 var generation_seed_override := -1
-var generation_version_override := 3
 var _door_specs: Array[Dictionary] = []
 var _room_specs: Array[Dictionary] = []
 var _station_specs: Array[Dictionary] = []
@@ -151,10 +150,6 @@ func generation_seed() -> int:
 	return _generation_seed
 
 
-func generation_version() -> int:
-	return generation_version_override
-
-
 func generated_door_specs() -> Array[Dictionary]:
 	return _door_specs.duplicate(true)
 
@@ -215,6 +210,30 @@ func get_random_walkable_cell(
 			return cell
 
 	for y in range(1, ROWS - 1):
+		for x in range(1, COLUMNS - 1):
+			var cell := Vector2i(x, y)
+			if is_cell_walkable(cell, avoid_station):
+				return cell
+	return Vector2i(-1, -1)
+
+
+func get_random_walkable_cell_in_y_range(
+	rng: RandomNumberGenerator,
+	minimum_y: int,
+	maximum_y: int,
+	avoid_station: bool = false
+) -> Vector2i:
+	var first_y := clampi(minimum_y, 1, ROWS - 2)
+	var last_y := clampi(maximum_y, first_y, ROWS - 2)
+	for attempt in FLOOR_CELL_SEARCH_ATTEMPTS:
+		var cell := Vector2i(
+			rng.randi_range(1, COLUMNS - 2),
+			rng.randi_range(first_y, last_y)
+		)
+		if is_cell_walkable(cell, avoid_station):
+			return cell
+
+	for y in range(first_y, last_y + 1):
 		for x in range(1, COLUMNS - 1):
 			var cell := Vector2i(x, y)
 			if is_cell_walkable(cell, avoid_station):
@@ -823,14 +842,7 @@ func _rasterize_layout(
 			_door_specs.append(door_spec)
 
 
-func _add_exit_door(rng: RandomNumberGenerator) -> void:
-	if generation_version_override < 3:
-		_add_exit_door_legacy(rng)
-		return
-	_add_exit_door_v3()
-
-
-func _add_exit_door_v3() -> void:
+func _add_exit_door(_rng: RandomNumberGenerator) -> void:
 	var first_floor_y := -1
 	for y in range(1, ROWS):
 		if not _is_wall(Vector2i(_planned_exit_x, y)):
@@ -848,28 +860,6 @@ func _add_exit_door_v3() -> void:
 		"exit_door": true,
 		"locked": false,
 	})
-
-
-func _add_exit_door_legacy(rng: RandomNumberGenerator) -> void:
-	for attempt in FLOOR_CELL_SEARCH_ATTEMPTS:
-		var x := rng.randi_range(1, COLUMNS - 2)
-		var first_floor_y := -1
-		for y in range(1, ROWS):
-			if not _is_wall(Vector2i(x, y)):
-				first_floor_y = y
-				break
-		if first_floor_y < 0:
-			continue
-		for y in range(0, first_floor_y + 1):
-			_cells[y][x] = 0
-		_door_specs.append({
-			"cell": Vector2i(x, 0),
-			"horizontal_passage": false,
-			"exit_door": true,
-			"locked": false,
-		})
-		return
-	push_warning("Could not place exit door")
 
 
 func _add_rooms(rng: RandomNumberGenerator) -> void:
@@ -1086,17 +1076,6 @@ func _carve_straight_corridor(from_cell: Vector2i, to_cell: Vector2i) -> void:
 
 
 func _add_stations(rng: RandomNumberGenerator) -> void:
-	if generation_version_override < 3:
-		_add_station(
-			_find_legacy_station_center(rng),
-			1,
-			Vector2i.DOWN
-		)
-		return
-	_add_stations_v3(rng)
-
-
-func _add_stations_v3(rng: RandomNumberGenerator) -> void:
 	var placement := rng.randi_range(0, 2)
 	var station_one_x := CENTER_PLACEMENT_X
 	if placement == 0:
@@ -1105,37 +1084,52 @@ func _add_stations_v3(rng: RandomNumberGenerator) -> void:
 		station_one_x = RIGHT_PLACEMENT_X
 	station_one_x += rng.randi_range(-PLACEMENT_SPREAD, PLACEMENT_SPREAD)
 
-	var exit_on_left := false
 	if placement == 1:
-		exit_on_left = rng.randi_range(0, 1) == 0
-		_planned_exit_x = LEFT_PLACEMENT_X if exit_on_left else RIGHT_PLACEMENT_X
+		_planned_exit_x = (
+			LEFT_PLACEMENT_X
+			if rng.randi_range(0, 1) == 0
+			else RIGHT_PLACEMENT_X
+		)
 	else:
 		_planned_exit_x = CENTER_PLACEMENT_X
 	_planned_exit_x += rng.randi_range(-PLACEMENT_SPREAD, PLACEMENT_SPREAD)
-
-	var station_two_on_right := placement == 0 or (placement == 1 and exit_on_left)
-	var station_two_x := (
-		rng.randi_range(SECOND_STATION_MIN_RIGHT_X, COLUMNS - STATION_ROOM_RADIUS - 2)
-		if station_two_on_right
-		else rng.randi_range(STATION_ROOM_RADIUS + 2, SECOND_STATION_MAX_LEFT_X)
-	)
-	var station_two_y := int(ROWS / 2.0) \
-			+ rng.randi_range(-PLACEMENT_SPREAD, PLACEMENT_SPREAD)
 
 	_add_station(
 		Vector2i(station_one_x, ROWS - STATION_ROOM_RADIUS - 1),
 		1,
 		Vector2i.DOWN
 	)
-	_add_station(Vector2i(station_two_x, station_two_y), 2, Vector2i.ZERO)
-
-
-func _find_legacy_station_center(rng: RandomNumberGenerator) -> Vector2i:
-	var horizontal_margin := STATION_ROOM_RADIUS + 2
-	return Vector2i(
-		rng.randi_range(horizontal_margin, COLUMNS - horizontal_margin - 1),
-		ROWS - STATION_ROOM_RADIUS - 1
+	var station_two_region := rng.randi_range(0, 2)
+	var remaining_regions: Array[int] = [0, 1, 2]
+	remaining_regions.erase(station_two_region)
+	var station_three_region := remaining_regions[
+		rng.randi_range(0, remaining_regions.size() - 1)
+	]
+	_add_station(
+		Vector2i(
+			_upgrade_station_x(station_two_region, rng),
+			LEVEL_TWO_UPGRADE_STATION_Y
+		),
+		2,
+		Vector2i.ZERO
 	)
+	_add_station(
+		Vector2i(
+			_upgrade_station_x(station_three_region, rng),
+			LEVEL_FOUR_UPGRADE_STATION_Y
+		),
+		3,
+		Vector2i.ZERO
+	)
+
+
+func _upgrade_station_x(region: int, rng: RandomNumberGenerator) -> int:
+	var base_x := CENTER_PLACEMENT_X
+	if region == 0:
+		base_x = LEFT_PLACEMENT_X
+	elif region == 2:
+		base_x = RIGHT_PLACEMENT_X
+	return base_x + rng.randi_range(-PLACEMENT_SPREAD, PLACEMENT_SPREAD)
 
 
 func _add_station(

@@ -39,6 +39,10 @@ const ANIMATION_FRAME_COUNT := 8
 const RUN_ANIMATION_FPS := 10.0
 const IDLE_ANIMATION_FPS := 5.0
 const IDLE_FRAME_OFFSET := 8
+const LOWER_LEVEL_COLOR := Color("58d68d")
+const EQUAL_LEVEL_COLOR := Color(0.86, 0.92, 0.98, 0.92)
+const ONE_LEVEL_HIGHER_COLOR := Color("d8c35a")
+const HIGHER_LEVEL_COLOR := Color("d66b6b")
 
 enum State {
 	PATROL,
@@ -50,6 +54,9 @@ enum State {
 
 var health := MAX_HEALTH
 var max_health := MAX_HEALTH
+var enemy_level := 1
+var damage_min := 8
+var damage_max := 12
 var dead := false
 var energy_core_collected := false
 var state := State.PATROL
@@ -68,6 +75,8 @@ var _search_path_retry_needed := false
 var _firing_position_repath_cooldown := 0.0
 var _last_path_build_deferred := false
 var _last_known_player_cell := Vector2i(-1, -1)
+var _patrol_minimum_y := 0
+var _patrol_maximum_y := Maze.ROWS - 1
 var _active_enemy_bullets := 0
 var _active := true
 var _normally_visible := false
@@ -82,9 +91,11 @@ var _rng := RandomNumberGenerator.new()
 @onready var collision_shape: CollisionShape2D = $CollisionShape2D
 @onready var enemy_sprite: Sprite2D = $Sprite2D
 @onready var fallen_sprite: Sprite2D = $FallenSprite
+@onready var level_label: Label = $LevelLabel
 
 
 func _ready() -> void:
+	update_level_label()
 	_update_sprite_facing()
 	_update_sprite_visibility()
 
@@ -120,9 +131,43 @@ func restore_state(saved_data: Dictionary) -> void:
 		_apply_dead_state()
 
 
+func configure_level(
+	level: int,
+	level_max_health: int,
+	level_damage_min: int,
+	level_damage_max: int,
+	patrol_minimum_y: int,
+	patrol_maximum_y: int
+) -> void:
+	enemy_level = level
+	damage_min = level_damage_min
+	damage_max = level_damage_max
+	_patrol_minimum_y = patrol_minimum_y
+	_patrol_maximum_y = patrol_maximum_y
+	if is_node_ready():
+		update_level_label()
+	apply_max_health(level_max_health, false)
+
+
+func update_level_label() -> void:
+	if level_label == null:
+		return
+	level_label.text = str(enemy_level)
+	var player_level := _player.current_level() if _player != null else 1
+	var color := EQUAL_LEVEL_COLOR
+	if enemy_level < player_level:
+		color = LOWER_LEVEL_COLOR
+	elif enemy_level == player_level + 1:
+		color = ONE_LEVEL_HIGHER_COLOR
+	elif enemy_level > player_level + 1:
+		color = HIGHER_LEVEL_COLOR
+	level_label.add_theme_color_override("font_color", color)
+
+
 func save_data() -> Dictionary:
 	return {
 		"enemy_id": enemy_id,
+		"enemy_level": enemy_level,
 		"position": [position.x, position.y],
 		"health": health,
 		"dead": dead,
@@ -267,6 +312,8 @@ func _apply_dead_state() -> void:
 	if fallen_sprite != null:
 		fallen_sprite.visible = true
 		_update_dead_sprite_modulate()
+	if level_label != null:
+		level_label.visible = false
 	queue_redraw()
 
 
@@ -693,6 +740,8 @@ func _update_sprite_visibility() -> void:
 		enemy_sprite.visible = not dead and not uses_ambush_marker()
 	if fallen_sprite != null:
 		fallen_sprite.visible = dead
+	if level_label != null:
+		level_label.visible = not dead and _normally_visible
 
 
 func _update_animation(delta: float) -> void:
@@ -806,7 +855,11 @@ func _choose_random_target() -> void:
 	for attempt in TARGET_ATTEMPTS:
 		if not _game.enemy_path_budget_available():
 			return
-		var target := _maze.get_random_walkable_cell(_rng)
+		var target := _maze.get_random_walkable_cell_in_y_range(
+			_rng,
+			_patrol_minimum_y,
+			_patrol_maximum_y
+		)
 		if target.x < 0:
 			return
 		if _maze.is_cell_safe(target):

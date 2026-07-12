@@ -62,7 +62,7 @@ func open(show_instructions: bool = false, station_id: int = 1) -> void:
 	for button in _station_one_buttons:
 		button.visible = station_id == 1
 	for button in _upgrade_buttons:
-		button.visible = station_id == 2
+		button.visible = station_id > 1
 	_update_buttons()
 	visible = true
 	get_tree().paused = true
@@ -77,7 +77,7 @@ func _show_menu() -> void:
 	menu.visible = true
 	instructions_screen.visible = false
 	information_screen.visible = false
-	if _station_id == 2:
+	if _station_id > 1:
 		for button in _upgrade_buttons:
 			if not button.disabled:
 				button.grab_focus()
@@ -115,9 +115,7 @@ func _show_information() -> void:
 		+ "Убито врагов: %d\n"
 		+ "Врагов на карте: %d\n"
 		+ "Возвращено мегаядер: %d\n\n"
-		+ "Уровень врагов: %.1f%%\n"
-		+ "Здоровье врагов: %d\n"
-		+ "Урон врагов: %d–%d"
+		+ "Уровни врагов:\n%s"
 	) % [
 		statistics.explored_cells,
 		_percentage(statistics.explored_cells, total_floor_cells),
@@ -126,10 +124,7 @@ func _show_information() -> void:
 		statistics.enemies_killed,
 		statistics.living_enemies,
 		statistics.mega_cores_returned,
-		statistics.enemy_level_percent,
-		statistics.enemy_health,
-		statistics.enemy_damage_min,
-		statistics.enemy_damage_max,
+		statistics.enemy_level_summary,
 	]
 	menu.visible = false
 	instructions_screen.visible = false
@@ -194,19 +189,19 @@ func _on_information_pressed() -> void:
 
 
 func _on_damage_upgrade_pressed() -> void:
-	game.upgrade_player_damage()
+	game.upgrade_player_damage(_station_id)
 	_update_buttons()
 	_show_menu()
 
 
 func _on_health_upgrade_pressed() -> void:
-	game.upgrade_player_health()
+	game.upgrade_player_health(_station_id)
 	_update_buttons()
 	_show_menu()
 
 
 func _on_ammo_upgrade_pressed() -> void:
-	game.upgrade_player_ammo()
+	game.upgrade_player_ammo(_station_id)
 	_update_buttons()
 	_show_menu()
 
@@ -288,17 +283,23 @@ func _update_buttons() -> void:
 		else "Купить дверь за %d энергии" % Player.DOOR_COST
 	)
 
-	damage_upgrade_button.disabled = not game.player.can_upgrade_damage()
+	damage_upgrade_button.disabled = not game.can_upgrade_player_damage(
+		_station_id
+	)
 	damage_upgrade_button.text = _upgrade_button_text(
 		"Урон",
 		game.player.damage_upgrade_level
 	)
-	health_upgrade_button.disabled = not game.player.can_upgrade_health()
+	health_upgrade_button.disabled = not game.can_upgrade_player_health(
+		_station_id
+	)
 	health_upgrade_button.text = _upgrade_button_text(
 		"Здоровье",
 		game.player.health_upgrade_level
 	)
-	ammo_upgrade_button.disabled = not game.player.can_upgrade_ammo()
+	ammo_upgrade_button.disabled = not game.can_upgrade_player_ammo(
+		_station_id
+	)
 	ammo_upgrade_button.text = _upgrade_button_text(
 		"Боезапас",
 		game.player.ammo_upgrade_level
@@ -306,11 +307,17 @@ func _update_buttons() -> void:
 
 
 func _upgrade_button_text(label: String, level: int) -> String:
+	var station_minimum := (_station_id - 2) * Player.UPGRADES_PER_STATION
+	var station_maximum := station_minimum + Player.UPGRADES_PER_STATION
+	if level < station_minimum:
+		return "%s: нужна предыдущая станция" % label
+	if level >= station_maximum and level < Player.MAX_UPGRADE_LEVEL:
+		return "%s: на этой станции максимум" % label
 	if level >= Player.MAX_UPGRADE_LEVEL:
 		return "%s: максимум" % label
 	return "%s: уровень %d/%d за %d энергии" % [
 		label,
-		level + 1,
-		Player.MAX_UPGRADE_LEVEL,
+		level + 2,
+		Player.PLAYER_LEVEL_COUNT,
 		Player.UPGRADE_COST,
 	]
