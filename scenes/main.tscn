@@ -242,6 +242,14 @@ theme_override_colors/font_color = Color(0.9, 0.25, 0.27, 1)
 theme_override_font_sizes/font_size = 18
 text = "ОБНАРУЖЕН"
 
+[node name="EnemyInSafeZoneValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
+visible = false
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.25, 0.27, 1)
+theme_override_font_sizes/font_size = 18
+text = "Враг в безопасной зоне"
+autowrap_mode = 2
+
 [node name="HitFlash" type="Panel" parent="GameInterface"]
 modulate = Color(1, 1, 1, 0)
 layout_mode = 1
@@ -520,7 +528,7 @@ custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 22
-text = "Купить 10 патронов за 10 энергии"
+text = "Купить патроны"
 
 [node name="HealthButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid"]
 custom_minimum_size = Vector2(0, 52)

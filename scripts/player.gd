@@ -9,6 +9,7 @@ const MAX_HEALTH := 100
 const MAX_AMMO := 30
 const MAX_HEALTH_BUY := 20
 const MAX_AMMO_BUY := 10
+const AMMO_COST_PER_ROUND := 5
 const ENERGY_PER_CORE := 20
 const EXPLORED_CELLS_PER_EXCHANGE := 200
 const ENERGY_PER_EXPLORED_CELL_EXCHANGE := 10
@@ -127,7 +128,7 @@ func ammo_purchase_amount() -> int:
 
 
 func ammo_purchase_cost() -> int:
-	return ceili(float(ammo_purchase_amount()) * 10.0 / MAX_AMMO_BUY)
+	return ammo_purchase_amount() * AMMO_COST_PER_ROUND
 
 
 func can_buy_health() -> bool:

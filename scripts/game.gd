@@ -72,6 +72,7 @@ enum BuildActionType {
 @onready var mega_core_value: Label = $GameInterface/PlayerPanel/Margin/VBox/MegaCoreValue
 @onready var alert_value: Label = $GameInterface/PlayerPanel/Margin/VBox/AlertValue
 @onready var detected_value: Label = $GameInterface/PlayerPanel/Margin/VBox/DetectedValue
+@onready var enemy_in_safe_zone_value: Label = $GameInterface/PlayerPanel/Margin/VBox/EnemyInSafeZoneValue
 @onready var station_menu: Control = $StationOverlay/StationMenu
 @onready var defeat_menu: Control = $DefeatOverlay/DefeatMenu
 @onready var victory_menu: Control = $VictoryOverlay/VictoryMenu
@@ -441,12 +442,17 @@ func _update_pursuit_status(delta: float) -> void:
 
 	var has_alerted_enemies := false
 	var player_detected := false
+	var enemy_in_safe_zone := false
 	for enemy: Enemy in _enemies:
-		if enemy.dead or not enemy.is_alerted():
+		if enemy.dead:
+			continue
+		if maze.is_cell_safe(maze.world_to_cell(enemy.position)):
+			enemy_in_safe_zone = true
+		if not enemy.is_alerted():
 			continue
 		has_alerted_enemies = true
 		var destination := enemy.movement_destination_cell()
-		if destination.x < 0:
+		if player_detected or destination.x < 0:
 			continue
 		if maze.has_line_of_sight(
 			maze.cell_to_world(destination),
@@ -454,10 +460,10 @@ func _update_pursuit_status(delta: float) -> void:
 			Enemy.VISION_RANGE
 		):
 			player_detected = true
-			break
 
 	alert_value.visible = has_alerted_enemies
 	detected_value.visible = player_detected
+	enemy_in_safe_zone_value.visible = enemy_in_safe_zone
 
 
 func _update_coordinates() -> void:
