@@ -22,7 +22,7 @@ const MAP_MARKER_PATH_REFRESH_SECONDS := 5.0
 const BUILD_ACTION_DURATION := 2.0
 const MEGA_CORE_SAFE_ZONE_ANCHOR_RADIUS := 100.0
 const MAX_ALERTED_ENEMIES := 3
-const DANGER_FORECAST_INTERVAL := 3.0
+const PURSUIT_STATUS_INTERVAL := 3.0
 const ENEMY_PATHFIND_BUDGET_PER_PHYSICS_FRAME := 4
 const SLOW_FRAME_LOG_THRESHOLD := 0.08
 const PERFORMANCE_LOGGING_ENABLED := true
@@ -71,6 +71,7 @@ enum BuildActionType {
 @onready var explored_cells_value: Label = $GameInterface/PlayerPanel/Margin/VBox/ExploredCellsValue
 @onready var mega_core_value: Label = $GameInterface/PlayerPanel/Margin/VBox/MegaCoreValue
 @onready var alert_value: Label = $GameInterface/PlayerPanel/Margin/VBox/AlertValue
+@onready var detected_value: Label = $GameInterface/PlayerPanel/Margin/VBox/DetectedValue
 @onready var station_menu: Control = $StationOverlay/StationMenu
 @onready var defeat_menu: Control = $DefeatOverlay/DefeatMenu
 @onready var victory_menu: Control = $VictoryOverlay/VictoryMenu
@@ -105,7 +106,7 @@ var _build_action_cell := Vector2i(-1, -1)
 var _build_action_position := Vector2.ZERO
 var _build_action_direction := Vector2.RIGHT
 var _build_action_horizontal_passage := false
-var _danger_forecast_refresh_left := 0.0
+var _pursuit_status_refresh_left := 0.0
 var _ai_budget_physics_frame := -1
 var _ai_pathfind_used_this_frame := 0
 var _perf_pathfind_requests := 0
@@ -211,7 +212,7 @@ func _process(delta: float) -> void:
 			_interact_with_door()
 
 	_update_visibility()
-	_update_danger_forecast(delta)
+	_update_pursuit_status(delta)
 	_update_coordinates()
 	_clear_reached_map_marker()
 	_update_map_marker_path(delta)
@@ -432,31 +433,31 @@ func _update_visibility() -> void:
 	queue_redraw()
 
 
-func _update_danger_forecast(delta: float) -> void:
-	_danger_forecast_refresh_left -= delta
-	if _danger_forecast_refresh_left > 0.0:
+func _update_pursuit_status(delta: float) -> void:
+	_pursuit_status_refresh_left -= delta
+	if _pursuit_status_refresh_left > 0.0:
 		return
-	_danger_forecast_refresh_left = DANGER_FORECAST_INTERVAL
+	_pursuit_status_refresh_left = PURSUIT_STATUS_INTERVAL
 
-	var danger_cells: Dictionary = {}
 	var has_alerted_enemies := false
-	var processed_destinations: Dictionary = {}
+	var player_detected := false
 	for enemy: Enemy in _enemies:
 		if enemy.dead or not enemy.is_alerted():
 			continue
 		has_alerted_enemies = true
 		var destination := enemy.movement_destination_cell()
-		if destination.x < 0 or processed_destinations.has(destination):
+		if destination.x < 0:
 			continue
-		processed_destinations[destination] = true
-		for cell in maze.floor_cells_visible_from(
-			destination,
+		if maze.has_line_of_sight(
+			maze.cell_to_world(destination),
+			player.position,
 			Enemy.VISION_RANGE
 		):
-			danger_cells[cell] = true
+			player_detected = true
+			break
 
 	alert_value.visible = has_alerted_enemies
-	maze.set_danger_cells(danger_cells)
+	detected_value.visible = player_detected
 
 
 func _update_coordinates() -> void:

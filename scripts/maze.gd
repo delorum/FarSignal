@@ -20,7 +20,6 @@ const WALL_TILE_OFFSET := 8
 const WALL_TILE_COUNT := 8
 const EXPLORED_WALL_TILE_MODULATE := Color(0.3, 0.32, 0.36, 1.0)
 const SAFE_FLOOR_TILE_MODULATE := Color(0.58, 1.0, 0.7, 1.0)
-const DANGER_FLOOR_OVERLAY := Color(0.78, 0.08, 0.1, 0.42)
 const LOOP_DENSITY := 0.16
 const NARROW_CORRIDOR_RATIO := 0.35
 const ROOM_MIN_SIZE := 4
@@ -60,7 +59,6 @@ var _room_specs: Array[Dictionary] = []
 var _station_specs: Array[Dictionary] = []
 var _closed_door_cells: Dictionary = {}
 var _safe_cell_mask := PackedByteArray()
-var _danger_cells: Dictionary = {}
 
 
 func _ready() -> void:
@@ -114,37 +112,6 @@ func is_cell_explored(cell: Vector2i) -> bool:
 
 func is_cell_safe(cell: Vector2i) -> bool:
 	return _is_inside(cell) and _safe_cell_mask[_cell_index(cell)] == 1
-
-
-func floor_cells_visible_from(
-	viewer_cell: Vector2i,
-	max_distance_cells: float
-) -> Dictionary:
-	var result: Dictionary = {}
-	if not _is_inside(viewer_cell) or _is_wall(viewer_cell):
-		return result
-
-	var radius := ceili(max_distance_cells)
-	var max_distance_squared := max_distance_cells * max_distance_cells
-	var viewer_position := cell_to_world(viewer_cell)
-	for y in range(maxi(0, viewer_cell.y - radius), mini(ROWS, viewer_cell.y + radius + 1)):
-		for x in range(maxi(0, viewer_cell.x - radius), mini(COLUMNS, viewer_cell.x + radius + 1)):
-			var cell := Vector2i(x, y)
-			if _is_wall(cell) or _closed_door_cells.has(cell) \
-					or Vector2(cell - viewer_cell).length_squared() > max_distance_squared:
-				continue
-			if _has_clear_view_to_point(
-				viewer_position,
-				cell_to_world(cell),
-				cell
-			):
-				result[cell] = true
-	return result
-
-
-func set_danger_cells(cells: Dictionary) -> void:
-	_danger_cells = cells
-	queue_redraw()
 
 
 func explored_floor_cell_count() -> int:
@@ -1390,11 +1357,6 @@ func _draw() -> void:
 				false,
 				SAFE_FLOOR_TILE_MODULATE if safe else Color.WHITE
 			)
-			if _danger_cells.has(cell):
-				draw_rect(
-					Rect2(Vector2(cell) * CELL_SIZE, Vector2.ONE * CELL_SIZE),
-					DANGER_FLOOR_OVERLAY
-				)
 
 
 func _draw_environment_tile(
