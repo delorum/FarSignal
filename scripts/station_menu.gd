@@ -4,6 +4,7 @@ const LoreText = preload("res://scripts/lore_text.gd")
 
 @onready var game: Node = $"../.."
 @onready var menu: VBoxContainer = $Background/Center/Menu
+@onready var title: Label = $Background/Center/Menu/Title
 @onready var instructions_screen: Control = $Background/InstructionsPanel
 @onready var instructions_text: Label = $Background/InstructionsPanel/InstructionsScreen/InstructionsText
 @onready var information_screen: Control = $Background/InformationPanel
@@ -18,14 +19,35 @@ const LoreText = preload("res://scripts/lore_text.gd")
 @onready var door_button: Button = $Background/Center/Menu/ActionsGrid/DoorButton
 @onready var instructions_button: Button = $Background/Center/Menu/ActionsGrid/InstructionsButton
 @onready var information_button: Button = $Background/Center/Menu/ActionsGrid/InformationButton
+@onready var damage_upgrade_button: Button = $Background/Center/Menu/ActionsGrid/DamageUpgradeButton
+@onready var health_upgrade_button: Button = $Background/Center/Menu/ActionsGrid/HealthUpgradeButton
+@onready var ammo_upgrade_button: Button = $Background/Center/Menu/ActionsGrid/AmmoUpgradeButton
 @onready var exit_button: Button = $Background/Center/Menu/ActionsGrid/ExitButton
 @onready var instructions_back_button: Button = $Background/InstructionsPanel/InstructionsScreen/BackButton
 @onready var information_back_button: Button = $Background/InformationPanel/InformationScreen/BackButton
+
+var _station_id := 1
+var _station_one_buttons: Array[Button] = []
+var _upgrade_buttons: Array[Button] = []
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	instructions_text.text = LoreText.STATION_INSTRUCTIONS
+	_station_one_buttons = [
+		ammo_button,
+		health_button,
+		exchange_button,
+		exchange_cells_button,
+		return_mega_core_button,
+		door_button,
+		instructions_button,
+	]
+	_upgrade_buttons = [
+		damage_upgrade_button,
+		health_upgrade_button,
+		ammo_upgrade_button,
+	]
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -34,7 +56,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
-func open(show_instructions: bool = false) -> void:
+func open(show_instructions: bool = false, station_id: int = 1) -> void:
+	_station_id = station_id
+	title.text = "Станция %d" % station_id
+	for button in _station_one_buttons:
+		button.visible = station_id == 1
+	for button in _upgrade_buttons:
+		button.visible = station_id == 2
 	_update_buttons()
 	visible = true
 	get_tree().paused = true
@@ -49,7 +77,13 @@ func _show_menu() -> void:
 	menu.visible = true
 	instructions_screen.visible = false
 	information_screen.visible = false
-	if not exchange_button.disabled:
+	if _station_id == 2:
+		for button in _upgrade_buttons:
+			if not button.disabled:
+				button.grab_focus()
+				return
+		information_button.grab_focus()
+	elif not exchange_button.disabled:
 		exchange_button.grab_focus()
 	elif not return_mega_core_button.disabled:
 		return_mega_core_button.grab_focus()
@@ -80,7 +114,10 @@ func _show_information() -> void:
 		+ "Размер безопасной зоны: %d (%.1f%%)\n"
 		+ "Убито врагов: %d\n"
 		+ "Врагов на карте: %d\n"
-		+ "Возвращено мегаядер: %d"
+		+ "Возвращено мегаядер: %d\n\n"
+		+ "Уровень врагов: %.1f%%\n"
+		+ "Здоровье врагов: %d\n"
+		+ "Урон врагов: %d–%d"
 	) % [
 		statistics.explored_cells,
 		_percentage(statistics.explored_cells, total_floor_cells),
@@ -89,6 +126,10 @@ func _show_information() -> void:
 		statistics.enemies_killed,
 		statistics.living_enemies,
 		statistics.mega_cores_returned,
+		statistics.enemy_level_percent,
+		statistics.enemy_health,
+		statistics.enemy_damage_min,
+		statistics.enemy_damage_max,
 	]
 	menu.visible = false
 	instructions_screen.visible = false
@@ -152,6 +193,24 @@ func _on_information_pressed() -> void:
 	_show_information()
 
 
+func _on_damage_upgrade_pressed() -> void:
+	game.upgrade_player_damage()
+	_update_buttons()
+	_show_menu()
+
+
+func _on_health_upgrade_pressed() -> void:
+	game.upgrade_player_health()
+	_update_buttons()
+	_show_menu()
+
+
+func _on_ammo_upgrade_pressed() -> void:
+	game.upgrade_player_ammo()
+	_update_buttons()
+	_show_menu()
+
+
 func _on_instructions_back_pressed() -> void:
 	_show_menu()
 
@@ -166,9 +225,11 @@ func _on_exit_pressed() -> void:
 
 func _update_buttons() -> void:
 	energy_value.text = "Энергия: %d" % game.player.energy
-	player_status_value.text = "Здоровье: %d    Патроны: %d" % [
+	player_status_value.text = "Здоровье: %d/%d    Патроны: %d/%d" % [
 		game.player.health,
+		game.player.max_health,
 		game.player.ammo,
+		game.player.max_ammo,
 	]
 
 	var ammo_amount: int = game.player.ammo_purchase_amount()
@@ -226,3 +287,30 @@ func _update_buttons() -> void:
 		if not game.player.can_store_door()
 		else "Купить дверь за %d энергии" % Player.DOOR_COST
 	)
+
+	damage_upgrade_button.disabled = not game.player.can_upgrade_damage()
+	damage_upgrade_button.text = _upgrade_button_text(
+		"Урон",
+		game.player.damage_upgrade_level
+	)
+	health_upgrade_button.disabled = not game.player.can_upgrade_health()
+	health_upgrade_button.text = _upgrade_button_text(
+		"Здоровье",
+		game.player.health_upgrade_level
+	)
+	ammo_upgrade_button.disabled = not game.player.can_upgrade_ammo()
+	ammo_upgrade_button.text = _upgrade_button_text(
+		"Боезапас",
+		game.player.ammo_upgrade_level
+	)
+
+
+func _upgrade_button_text(label: String, level: int) -> String:
+	if level >= Player.MAX_UPGRADE_LEVEL:
+		return "%s: максимум" % label
+	return "%s: уровень %d/%d за %d энергии" % [
+		label,
+		level + 1,
+		Player.MAX_UPGRADE_LEVEL,
+		Player.UPGRADE_COST,
+	]

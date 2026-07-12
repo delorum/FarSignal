@@ -7,6 +7,14 @@ signal damaged
 
 const MAX_HEALTH := 100
 const MAX_AMMO := 30
+const MAX_UPGRADE_LEVEL := 5
+const UPGRADE_COST := 300
+const MAX_UPGRADED_HEALTH := 340
+const MAX_UPGRADED_AMMO := 200
+const BASE_DAMAGE_MIN := 27
+const BASE_DAMAGE_MAX := 36
+const MAX_UPGRADED_DAMAGE_MIN := 308
+const MAX_UPGRADED_DAMAGE_MAX := 338
 const MAX_HEALTH_BUY := 20
 const MAX_AMMO_BUY := 10
 const AMMO_COST_PER_ROUND := 5
@@ -31,6 +39,11 @@ const IDLE_FRAME_OFFSET := 8
 var controls_enabled := true
 var health := MAX_HEALTH
 var ammo := MAX_AMMO
+var max_health := MAX_HEALTH
+var max_ammo := MAX_AMMO
+var damage_upgrade_level := 0
+var health_upgrade_level := 0
+var ammo_upgrade_level := 0
 var energy_cores := 0
 var energy := 0
 var door_inventory := STARTING_DOORS
@@ -79,10 +92,25 @@ func restore_status(
 	saved_door_inventory: int = 0,
 	saved_explored_floor_cells: int = 0,
 	saved_mega_core_cell: Vector2i = Vector2i(-1, -1),
-	saved_has_mega_core: bool = false
+	saved_has_mega_core: bool = false,
+	saved_damage_upgrade_level: int = 0,
+	saved_health_upgrade_level: int = 0,
+	saved_ammo_upgrade_level: int = 0
 ) -> void:
-	health = clampi(saved_health, 0, MAX_HEALTH)
-	ammo = clampi(saved_ammo, 0, MAX_AMMO)
+	damage_upgrade_level = clampi(
+		saved_damage_upgrade_level,
+		0,
+		MAX_UPGRADE_LEVEL
+	)
+	health_upgrade_level = clampi(
+		saved_health_upgrade_level,
+		0,
+		MAX_UPGRADE_LEVEL
+	)
+	ammo_upgrade_level = clampi(saved_ammo_upgrade_level, 0, MAX_UPGRADE_LEVEL)
+	_update_maximums()
+	health = clampi(saved_health, 0, max_health)
+	ammo = clampi(saved_ammo, 0, max_ammo)
 	energy_cores = maxi(0, saved_energy_cores)
 	energy = maxi(0, saved_energy)
 	door_inventory = clampi(saved_door_inventory, 0, MAX_DOOR_INVENTORY)
@@ -100,19 +128,90 @@ func consume_ammo() -> bool:
 
 
 func refill_health() -> void:
-	health = MAX_HEALTH
+	health = max_health
 
 
 func refill_ammo() -> void:
-	ammo = MAX_AMMO
+	ammo = max_ammo
 
 
 func missing_health() -> int:
-	return MAX_HEALTH - health
+	return max_health - health
 
 
 func missing_ammo() -> int:
-	return MAX_AMMO - ammo
+	return max_ammo - ammo
+
+
+func damage_min() -> int:
+	return roundi(lerpf(
+		BASE_DAMAGE_MIN,
+		MAX_UPGRADED_DAMAGE_MIN,
+		float(damage_upgrade_level) / MAX_UPGRADE_LEVEL
+	))
+
+
+func damage_max() -> int:
+	return roundi(lerpf(
+		BASE_DAMAGE_MAX,
+		MAX_UPGRADED_DAMAGE_MAX,
+		float(damage_upgrade_level) / MAX_UPGRADE_LEVEL
+	))
+
+
+func can_upgrade_damage() -> bool:
+	return damage_upgrade_level < MAX_UPGRADE_LEVEL and energy >= UPGRADE_COST
+
+
+func can_upgrade_health() -> bool:
+	return health_upgrade_level < MAX_UPGRADE_LEVEL and energy >= UPGRADE_COST
+
+
+func can_upgrade_ammo() -> bool:
+	return ammo_upgrade_level < MAX_UPGRADE_LEVEL and energy >= UPGRADE_COST
+
+
+func upgrade_damage() -> bool:
+	if not can_upgrade_damage():
+		return false
+	energy -= UPGRADE_COST
+	damage_upgrade_level += 1
+	return true
+
+
+func upgrade_health() -> bool:
+	if not can_upgrade_health():
+		return false
+	var previous_max := max_health
+	energy -= UPGRADE_COST
+	health_upgrade_level += 1
+	_update_maximums()
+	health += max_health - previous_max
+	return true
+
+
+func upgrade_ammo() -> bool:
+	if not can_upgrade_ammo():
+		return false
+	var previous_max := max_ammo
+	energy -= UPGRADE_COST
+	ammo_upgrade_level += 1
+	_update_maximums()
+	ammo += max_ammo - previous_max
+	return true
+
+
+func _update_maximums() -> void:
+	max_health = roundi(lerpf(
+		MAX_HEALTH,
+		MAX_UPGRADED_HEALTH,
+		float(health_upgrade_level) / MAX_UPGRADE_LEVEL
+	))
+	max_ammo = roundi(lerpf(
+		MAX_AMMO,
+		MAX_UPGRADED_AMMO,
+		float(ammo_upgrade_level) / MAX_UPGRADE_LEVEL
+	))
 
 
 func health_purchase_amount() -> int:
@@ -167,7 +266,7 @@ func buy_health() -> bool:
 	if not can_buy_health():
 		return false
 	energy -= health_purchase_cost()
-	health = mini(MAX_HEALTH, health + health_purchase_amount())
+	health = mini(max_health, health + health_purchase_amount())
 	return true
 
 
@@ -175,7 +274,7 @@ func buy_ammo() -> bool:
 	if not can_buy_ammo():
 		return false
 	energy -= ammo_purchase_cost()
-	ammo = mini(MAX_AMMO, ammo + ammo_purchase_amount())
+	ammo = mini(max_ammo, ammo + ammo_purchase_amount())
 	return true
 
 

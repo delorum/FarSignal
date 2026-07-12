@@ -12,10 +12,12 @@ const ENEMY_COUNT := 40
 const MAX_ENEMY_START_DISTANCE := 15.0
 const ENEMY_START_DISTANCE_RATIO := 0.15
 const ENEMY_SPAWN_ATTEMPTS := 256
-const PLAYER_DAMAGE_MIN := 27
-const PLAYER_DAMAGE_MAX := 36
-const ENEMY_DAMAGE_MIN := 8
-const ENEMY_DAMAGE_MAX := 12
+const ENEMY_BASE_HEALTH := 100
+const ENEMY_MAX_HEALTH := 615
+const ENEMY_BASE_DAMAGE_MIN := 8
+const ENEMY_BASE_DAMAGE_MAX := 12
+const ENEMY_MAX_DAMAGE_MIN := 34
+const ENEMY_MAX_DAMAGE_MAX := 38
 const SHOT_REACTION_DELAY := 2.0
 const PLAYER_RECOIL_ENABLED := false
 const MAP_MARKER_PATH_REFRESH_SECONDS := 5.0
@@ -90,6 +92,10 @@ var _stations: Array[Node] = []
 var _enemies: Array[Node] = []
 var _enemies_killed := 0
 var _mega_cores_returned := 0
+var _enemy_level_progress := 0.0
+var _enemy_health := ENEMY_BASE_HEALTH
+var _enemy_damage_min := ENEMY_BASE_DAMAGE_MIN
+var _enemy_damage_max := ENEMY_BASE_DAMAGE_MAX
 var _next_enemy_id := 1
 var _defeated := false
 var _victorious := false
@@ -122,6 +128,12 @@ func _enter_tree() -> void:
 		var maze_node: Maze = get_node("Maze")
 		maze_node.generation_seed_override = int(
 			SaveStore.pending_save.get("maze_seed", 0)
+		)
+		maze_node.generation_version_override = int(
+			SaveStore.pending_save.get(
+				"maze_generation_version",
+				2
+			)
 		)
 
 
@@ -478,7 +490,8 @@ func _update_coordinates() -> void:
 func _update_player_panel() -> void:
 	if player.health != _displayed_health:
 		_displayed_health = player.health
-		health_value.text = "%d / %d" % [player.health, player.MAX_HEALTH]
+		health_value.text = "%d / %d" % [player.health, player.max_health]
+		health_bar.max_value = player.max_health
 		health_value.modulate = (
 			STATUS_CRITICAL_COLOR
 			if player.health <= CRITICAL_HEALTH_THRESHOLD
@@ -488,7 +501,8 @@ func _update_player_panel() -> void:
 
 	if player.ammo != _displayed_ammo:
 		_displayed_ammo = player.ammo
-		ammo_value.text = "%d / %d" % [player.ammo, player.MAX_AMMO]
+		ammo_value.text = "%d / %d" % [player.ammo, player.max_ammo]
+		ammo_bar.max_value = player.max_ammo
 		ammo_value.modulate = (
 			STATUS_CRITICAL_COLOR
 			if player.ammo <= CRITICAL_AMMO_THRESHOLD
@@ -560,6 +574,7 @@ func save_game() -> bool:
 		"version": SaveStore.SAVE_VERSION,
 		"maze_size": [maze.grid_size().x, maze.grid_size().y],
 		"maze_seed": maze.generation_seed(),
+		"maze_generation_version": maze.generation_version(),
 		"player_position": [player.position.x, player.position.y],
 		"player_facing": player.facing_direction_for_save(),
 		"player_health": player.health,
@@ -573,6 +588,9 @@ func save_game() -> bool:
 			player.mega_core_cell.y,
 		],
 		"player_has_mega_core": player.has_mega_core,
+		"player_damage_upgrade_level": player.damage_upgrade_level,
+		"player_health_upgrade_level": player.health_upgrade_level,
+		"player_ammo_upgrade_level": player.ammo_upgrade_level,
 		"map_marker_cell": [
 			_map_marker_cell.x,
 			_map_marker_cell.y,
@@ -613,14 +631,17 @@ func _restore_game(save_data: Dictionary) -> void:
 			int(saved_mega_core_cell_data[1])
 		)
 	player.restore_status(
-		int(save_data.get("player_health", player.MAX_HEALTH)),
-		int(save_data.get("player_ammo", player.MAX_AMMO)),
+		int(save_data.get("player_health", Player.MAX_HEALTH)),
+		int(save_data.get("player_ammo", Player.MAX_AMMO)),
 		int(save_data.get("player_energy_cores", 0)),
 		int(save_data.get("player_energy", 0)),
 		int(save_data.get("player_doors", 0)),
 		int(save_data.get("player_explored_floor_cells", 0)),
 		saved_mega_core_cell,
-		bool(save_data.get("player_has_mega_core", false))
+		bool(save_data.get("player_has_mega_core", false)),
+		int(save_data.get("player_damage_upgrade_level", 0)),
+		int(save_data.get("player_health_upgrade_level", 0)),
+		int(save_data.get("player_ammo_upgrade_level", 0))
 	)
 	var saved_map_marker_cell: Array = save_data.get("map_marker_cell", [])
 	if saved_map_marker_cell.size() == 2:
@@ -666,7 +687,10 @@ func _restore_game(save_data: Dictionary) -> void:
 func _create_generated_stations() -> void:
 	for station_spec in maze.generated_station_specs():
 		var station: Node = STATION_SCENE.instantiate()
-		station.setup(station_spec.cell)
+		station.setup(
+			station_spec.cell,
+			int(station_spec.get("station_id", 1))
+		)
 		stations.add_child(station)
 		_stations.append(station)
 
@@ -770,6 +794,10 @@ func station_statistics() -> Dictionary:
 		"enemies_killed": _enemies_killed,
 		"living_enemies": _living_enemy_count(),
 		"mega_cores_returned": _mega_cores_returned,
+		"enemy_level_percent": _enemy_level_progress * 100.0,
+		"enemy_health": _enemy_health,
+		"enemy_damage_min": _enemy_damage_min,
+		"enemy_damage_max": _enemy_damage_max,
 	}
 
 
@@ -813,6 +841,7 @@ func _create_enemy(
 
 	var enemy: Node = ENEMY_SCENE.instantiate()
 	enemy.setup(self, maze, player, cell, random_seed, enemy_id)
+	enemy.apply_max_health(_enemy_health, false)
 	enemies.add_child(enemy)
 	_enemies.append(enemy)
 	return enemy
@@ -1160,26 +1189,68 @@ func _refresh_safe_zone() -> void:
 		door_cells.append(door.cell)
 
 	maze.update_safe_zone(door_cells)
+	_update_enemy_scaling()
 	_assert_station_floor_is_safe()
 	call_deferred("_maintain_enemy_population")
 
 
 func _assert_station_floor_is_safe() -> void:
-	for station_spec in maze.generated_station_specs():
-		var center: Vector2i = station_spec.cell
-		for y in range(
-			-Maze.STATION_FLOOR_RADIUS,
-			Maze.STATION_FLOOR_RADIUS + 1
-		):
-			for x in range(
-				-Maze.STATION_FLOOR_RADIUS,
-				Maze.STATION_FLOOR_RADIUS + 1
-			):
-				var cell := center + Vector2i(x, y)
-				assert(
-					maze.is_cell_safe(cell),
-					"Station floor cell %s must belong to a safe zone" % cell
+	var center := maze.station_cell()
+	for y in range(-Maze.STATION_FLOOR_RADIUS, Maze.STATION_FLOOR_RADIUS + 1):
+		for x in range(-Maze.STATION_FLOOR_RADIUS, Maze.STATION_FLOOR_RADIUS + 1):
+			var cell := center + Vector2i(x, y)
+			assert(
+				maze.is_cell_safe(cell),
+				"Station floor cell %s must belong to a safe zone" % cell
+			)
+
+
+func _update_enemy_scaling() -> void:
+	var exit_cell := maze.exit_door_cell()
+	var station_center := maze.station_cell()
+	if exit_cell.x < 0 or station_center.x < 0:
+		return
+	var initial_nearest := Vector2i(
+		clampi(
+			exit_cell.x,
+			station_center.x - Maze.STATION_FLOOR_RADIUS,
+			station_center.x + Maze.STATION_FLOOR_RADIUS
+		),
+		station_center.y - Maze.STATION_FLOOR_RADIUS
+	)
+	var initial_distance := maxf(1.0, exit_cell.distance_to(initial_nearest))
+	var current_distance := initial_distance
+	var grid_size := maze.grid_size()
+	for y in grid_size.y:
+		for x in grid_size.x:
+			var cell := Vector2i(x, y)
+			if maze.is_cell_safe(cell):
+				current_distance = minf(
+					current_distance,
+					exit_cell.distance_to(cell)
 				)
+	_enemy_level_progress = clampf(
+		(initial_distance - current_distance) / maxf(1.0, initial_distance - 1.0),
+		0.0,
+		1.0
+	)
+	_enemy_health = roundi(lerpf(
+		ENEMY_BASE_HEALTH,
+		ENEMY_MAX_HEALTH,
+		_enemy_level_progress
+	))
+	_enemy_damage_min = roundi(lerpf(
+		ENEMY_BASE_DAMAGE_MIN,
+		ENEMY_MAX_DAMAGE_MIN,
+		_enemy_level_progress
+	))
+	_enemy_damage_max = roundi(lerpf(
+		ENEMY_BASE_DAMAGE_MAX,
+		ENEMY_MAX_DAMAGE_MAX,
+		_enemy_level_progress
+	))
+	for enemy: Enemy in _enemies:
+		enemy.apply_max_health(_enemy_health)
 
 
 func _interact_with_door() -> void:
@@ -1276,10 +1347,12 @@ func _interact_with_station() -> bool:
 	if closest_station == null:
 		return false
 
-	var show_instructions := not _station_instructions_seen
-	_station_instructions_seen = true
+	var show_instructions: bool = closest_station.station_id == 1 \
+			and not _station_instructions_seen
+	if closest_station.station_id == 1:
+		_station_instructions_seen = true
 	closest_station.discover()
-	station_menu.open(show_instructions)
+	station_menu.open(show_instructions, closest_station.station_id)
 	return true
 
 
@@ -1299,6 +1372,24 @@ func buy_door() -> bool:
 	var bought := player.buy_door()
 	_update_player_panel()
 	return bought
+
+
+func upgrade_player_damage() -> bool:
+	var upgraded := player.upgrade_damage()
+	_update_player_panel()
+	return upgraded
+
+
+func upgrade_player_health() -> bool:
+	var upgraded := player.upgrade_health()
+	_update_player_panel()
+	return upgraded
+
+
+func upgrade_player_ammo() -> bool:
+	var upgraded := player.upgrade_ammo()
+	_update_player_panel()
+	return upgraded
 
 
 func exchange_energy_cores() -> bool:
@@ -1385,7 +1476,7 @@ func spawn_enemy_bullet(
 		start_position + direction * BULLET_SPAWN_DISTANCE,
 		direction,
 		maze,
-		_rng.randi_range(ENEMY_DAMAGE_MIN, ENEMY_DAMAGE_MAX),
+		_rng.randi_range(_enemy_damage_min, _enemy_damage_max),
 		false
 	)
 	bullets.add_child(bullet)
@@ -1528,7 +1619,7 @@ func _shoot() -> void:
 		player.position + direction * BULLET_SPAWN_DISTANCE,
 		direction,
 		maze,
-		_rng.randi_range(PLAYER_DAMAGE_MIN, PLAYER_DAMAGE_MAX),
+		_rng.randi_range(player.damage_min(), player.damage_max()),
 		true
 	)
 	bullets.add_child(bullet)

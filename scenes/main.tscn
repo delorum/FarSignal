@@ -565,6 +565,30 @@ size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 22
 text = "Купить дверь"
 
+[node name="DamageUpgradeButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid"]
+visible = false
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "Улучшить урон"
+
+[node name="HealthUpgradeButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid"]
+visible = false
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "Улучшить здоровье"
+
+[node name="AmmoUpgradeButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid"]
+visible = false
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "Улучшить боезапас"
+
 [node name="InstructionsButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid"]
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
@@ -835,6 +859,9 @@ text = "Главное меню"
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/ExchangeCellsButton" to="StationOverlay/StationMenu" method="_on_exchange_cells_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/ReturnMegaCoreButton" to="StationOverlay/StationMenu" method="_on_return_mega_core_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/DoorButton" to="StationOverlay/StationMenu" method="_on_door_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/DamageUpgradeButton" to="StationOverlay/StationMenu" method="_on_damage_upgrade_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/HealthUpgradeButton" to="StationOverlay/StationMenu" method="_on_health_upgrade_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/AmmoUpgradeButton" to="StationOverlay/StationMenu" method="_on_ammo_upgrade_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/InstructionsButton" to="StationOverlay/StationMenu" method="_on_instructions_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/InformationButton" to="StationOverlay/StationMenu" method="_on_information_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/ExitButton" to="StationOverlay/StationMenu" method="_on_exit_pressed"]

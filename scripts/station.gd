@@ -7,6 +7,7 @@ const ANIMATION_FPS := 5.0
 const EXPLORED_MODULATE := Color(0.34, 0.38, 0.36, 1.0)
 
 var cell := Vector2i.ZERO
+var station_id := 1
 var discovered := false
 var _currently_visible := false
 var _explored := false
@@ -15,8 +16,9 @@ var _animation_time := 0.0
 @onready var station_sprite: Sprite2D = $Sprite2D
 
 
-func setup(station_cell: Vector2i) -> void:
+func setup(station_cell: Vector2i, assigned_station_id: int = 1) -> void:
 	cell = station_cell
+	station_id = assigned_station_id
 	position = (Vector2(cell) + Vector2.ONE * 0.5) * CELL_SIZE
 	visible = false
 

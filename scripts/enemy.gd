@@ -49,6 +49,7 @@ enum State {
 }
 
 var health := MAX_HEALTH
+var max_health := MAX_HEALTH
 var dead := false
 var energy_core_collected := false
 var state := State.PATROL
@@ -111,7 +112,7 @@ func restore_state(saved_data: Dictionary) -> void:
 	var saved_position: Array = saved_data.get("position", [])
 	if saved_position.size() == 2:
 		position = Vector2(float(saved_position[0]), float(saved_position[1]))
-	health = clampi(int(saved_data.get("health", MAX_HEALTH)), 0, MAX_HEALTH)
+	health = clampi(int(saved_data.get("health", max_health)), 0, max_health)
 	dead = bool(saved_data.get("dead", health <= 0))
 	energy_core_collected = bool(saved_data.get("energy_core_collected", false))
 	if dead:
@@ -223,6 +224,20 @@ func take_damage(amount: int) -> bool:
 	_game.enemy_killed(self)
 	queue_redraw()
 	return true
+
+
+func apply_max_health(value: int, preserve_health_ratio: bool = true) -> void:
+	var new_max := maxi(1, value)
+	if dead:
+		max_health = new_max
+		return
+	var health_ratio := float(health) / float(maxi(1, max_health))
+	max_health = new_max
+	health = (
+		clampi(roundi(health_ratio * max_health), 1, max_health)
+		if preserve_health_ratio
+		else max_health
+	)
 
 
 func show_damage_number(amount: int, direction: Vector2) -> void:
