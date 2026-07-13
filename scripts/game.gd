@@ -24,7 +24,8 @@ const SHOT_REACTION_DELAY := 2.0
 const PLAYER_RECOIL_ENABLED := false
 const MAP_MARKER_PATH_REFRESH_SECONDS := 5.0
 const BUILD_ACTION_DURATION := 2.0
-const MEGA_CORE_SAFE_ZONE_ANCHOR_RADIUS := 100.0
+const MEGA_CORE_MIN_SAFE_ZONE_DISTANCE := 30
+const MEGA_CORE_MAX_SAFE_ZONE_DISTANCE := 80
 const MAX_ALERTED_ENEMIES := 3
 const PURSUIT_STATUS_INTERVAL := 3.0
 const ENEMY_PATHFIND_BUDGET_PER_PHYSICS_FRAME := 4
@@ -1548,75 +1549,132 @@ func _assign_new_mega_core() -> void:
 
 
 func _find_mega_core_cell() -> Vector2i:
-	var anchor_cell := _farthest_safe_zone_cell()
-	var nearby_cell := _find_valid_mega_core_cell(anchor_cell, true)
-	if nearby_cell.x >= 0:
-		return nearby_cell
-	return _find_valid_mega_core_cell(anchor_cell, false)
+	var safe_zone_distances := _safe_zone_distance_squared_map()
+	return _find_valid_mega_core_cell(safe_zone_distances)
 
 
 func _find_valid_mega_core_cell(
-	anchor_cell: Vector2i,
-	require_anchor_distance: bool
+	safe_zone_distances: PackedFloat64Array
 ) -> Vector2i:
 	for attempt in 512:
 		var cell := maze.get_random_floor_cell(_rng)
-		if _mega_core_cell_is_valid(
-			cell,
-			anchor_cell,
-			require_anchor_distance
-		):
+		if _mega_core_cell_is_valid(cell, safe_zone_distances):
 			return cell
 
 	var grid_size := maze.grid_size()
 	for y in grid_size.y:
 		for x in grid_size.x:
 			var cell := Vector2i(x, y)
-			if _mega_core_cell_is_valid(
-				cell,
-				anchor_cell,
-				require_anchor_distance
-			):
+			if _mega_core_cell_is_valid(cell, safe_zone_distances):
 				return cell
 	return Vector2i(-1, -1)
 
 
-func _farthest_safe_zone_cell() -> Vector2i:
-	var origin := maze.station_start_cell()
-	if origin.x < 0:
-		origin = maze.world_to_cell(player.position)
-
-	var farthest_cell := origin
-	var farthest_distance := -1.0
+func _safe_zone_distance_squared_map() -> PackedFloat64Array:
 	var grid_size := maze.grid_size()
+	var intermediate := PackedFloat64Array()
+	intermediate.resize(grid_size.x * grid_size.y)
+	var line := PackedFloat64Array()
+	line.resize(grid_size.y)
+
+	for x in grid_size.x:
+		for y in grid_size.y:
+			line[y] = 0.0 if maze.is_cell_safe(Vector2i(x, y)) else INF
+		var transformed := _squared_distance_transform(line)
+		for y in grid_size.y:
+			intermediate[y * grid_size.x + x] = transformed[y]
+
+	var distances := PackedFloat64Array()
+	distances.resize(grid_size.x * grid_size.y)
+	line.resize(grid_size.x)
 	for y in grid_size.y:
 		for x in grid_size.x:
-			var cell := Vector2i(x, y)
-			if not maze.is_cell_safe(cell):
-				continue
-			var distance := Vector2(cell - origin).length()
-			if distance > farthest_distance:
-				farthest_distance = distance
-				farthest_cell = cell
-	return farthest_cell
+			line[x] = intermediate[y * grid_size.x + x]
+		var transformed := _squared_distance_transform(line)
+		for x in grid_size.x:
+			distances[y * grid_size.x + x] = transformed[x]
+	return distances
+
+
+func _squared_distance_transform(values: PackedFloat64Array) \
+		-> PackedFloat64Array:
+	var result := PackedFloat64Array()
+	result.resize(values.size())
+	result.fill(INF)
+	var sites := PackedInt32Array()
+	for index in values.size():
+		if not is_inf(values[index]):
+			sites.append(index)
+	if sites.is_empty():
+		return result
+
+	var vertices := PackedInt32Array()
+	vertices.resize(sites.size())
+	var boundaries := PackedFloat64Array()
+	boundaries.resize(sites.size() + 1)
+	var vertex_index := 0
+	vertices[0] = sites[0]
+	boundaries[0] = -INF
+	boundaries[1] = INF
+
+	for site_index in range(1, sites.size()):
+		var site := sites[site_index]
+		var intersection := _parabola_intersection(
+			values,
+			site,
+			vertices[vertex_index]
+		)
+		while vertex_index > 0 and intersection <= boundaries[vertex_index]:
+			vertex_index -= 1
+			intersection = _parabola_intersection(
+				values,
+				site,
+				vertices[vertex_index]
+			)
+		vertex_index += 1
+		vertices[vertex_index] = site
+		boundaries[vertex_index] = intersection
+		boundaries[vertex_index + 1] = INF
+
+	vertex_index = 0
+	for index in values.size():
+		while boundaries[vertex_index + 1] < float(index):
+			vertex_index += 1
+		var delta := index - vertices[vertex_index]
+		result[index] = (
+			float(delta * delta) + values[vertices[vertex_index]]
+		)
+	return result
+
+
+func _parabola_intersection(
+	values: PackedFloat64Array,
+	first_index: int,
+	second_index: int
+) -> float:
+	return (
+		values[first_index]
+		+ float(first_index * first_index)
+		- values[second_index]
+		- float(second_index * second_index)
+	) / float(2 * (first_index - second_index))
 
 
 func _mega_core_cell_is_valid(
 	cell: Vector2i,
-	anchor_cell: Vector2i,
-	require_anchor_distance: bool
+	safe_zone_distances: PackedFloat64Array
 ) -> bool:
-	var maximum_enemy_level := mini(
-		ENEMY_LEVEL_COUNT,
-		player.current_level() + 1
-	)
+	if cell.x < 0 or cell.y < 0:
+		return false
+	var grid_size := maze.grid_size()
+	var distance_squared := safe_zone_distances[
+		cell.y * grid_size.x + cell.x
+	]
 	return cell.x >= 0 \
-			and (
-				not require_anchor_distance
-				or Vector2(cell - anchor_cell).length()
-						<= MEGA_CORE_SAFE_ZONE_ANCHOR_RADIUS
-			) \
-			and _enemy_level_for_y(cell.y) <= maximum_enemy_level \
+			and distance_squared \
+					>= float(MEGA_CORE_MIN_SAFE_ZONE_DISTANCE ** 2) \
+			and distance_squared \
+					<= float(MEGA_CORE_MAX_SAFE_ZONE_DISTANCE ** 2) \
 			and not maze.is_cell_safe(cell) \
 			and not _has_door_at(cell) \
 			and maze.is_cell_walkable(cell)

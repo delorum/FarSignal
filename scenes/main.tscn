@@ -501,7 +501,7 @@ theme_override_constants/separation = 18
 layout_mode = 2
 theme_override_colors/font_color = Color(0.345, 0.839, 0.561, 1)
 theme_override_font_sizes/font_size = 40
-text = "Станция"
+text = "Станция 1"
 horizontal_alignment = 1
 
 [node name="EnergyValue" type="Label" parent="StationOverlay/StationMenu/Background/Center/Menu"]
@@ -641,14 +641,18 @@ theme_override_font_sizes/font_size = 40
 text = "Инструкции"
 horizontal_alignment = 0
 
-[node name="InstructionsText" type="Label" parent="StationOverlay/StationMenu/Background/InstructionsPanel/InstructionsScreen"]
+[node name="InstructionsScroll" type="ScrollContainer" parent="StationOverlay/StationMenu/Background/InstructionsPanel/InstructionsScreen"]
 layout_mode = 2
 size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="InstructionsText" type="Label" parent="StationOverlay/StationMenu/Background/InstructionsPanel/InstructionsScreen/InstructionsScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.82, 0.88, 0.94, 1)
 theme_override_font_sizes/font_size = 22
 text = "Инструкции станции"
 horizontal_alignment = 0
-vertical_alignment = 1
 autowrap_mode = 2
 
 [node name="BackButton" type="Button" parent="StationOverlay/StationMenu/Background/InstructionsPanel/InstructionsScreen"]

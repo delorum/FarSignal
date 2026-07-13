@@ -6,7 +6,8 @@ const LoreText = preload("res://scripts/lore_text.gd")
 @onready var menu: VBoxContainer = $Background/Center/Menu
 @onready var title: Label = $Background/Center/Menu/Title
 @onready var instructions_screen: Control = $Background/InstructionsPanel
-@onready var instructions_text: Label = $Background/InstructionsPanel/InstructionsScreen/InstructionsText
+@onready var instructions_scroll: ScrollContainer = $Background/InstructionsPanel/InstructionsScreen/InstructionsScroll
+@onready var instructions_text: Label = $Background/InstructionsPanel/InstructionsScreen/InstructionsScroll/InstructionsText
 @onready var information_screen: Control = $Background/InformationPanel
 @onready var information_text: Label = $Background/InformationPanel/InformationScreen/InformationText
 @onready var energy_value: Label = $Background/Center/Menu/EnergyValue
@@ -103,6 +104,7 @@ func _show_instructions() -> void:
 	menu.visible = false
 	instructions_screen.visible = true
 	information_screen.visible = false
+	instructions_scroll.scroll_vertical = 0
 	instructions_back_button.grab_focus()
 
 
