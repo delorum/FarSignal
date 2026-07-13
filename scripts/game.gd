@@ -557,6 +557,7 @@ func _pick_up_mega_core() -> void:
 	if maze.world_to_cell(player.position) != player.mega_core_cell:
 		return
 	if player.collect_mega_core():
+		AudioManager.play_mega_core_pickup()
 		_update_player_panel()
 		queue_redraw()
 

@@ -31,6 +31,7 @@ const CELL_SIZE := 48.0
 const RECOIL_DISTANCE := CELL_SIZE
 const NOISE_BUILDUP_DISTANCE := CELL_SIZE * 3.0
 const NOISE_DECAY_TIME := 1.0
+const FOOTSTEP_DISTANCE := CELL_SIZE * 1.35
 const ANIMATION_FRAME_COUNT := 8
 const RUN_ANIMATION_FPS := 10.0
 const IDLE_ANIMATION_FPS := 5.0
@@ -59,6 +60,7 @@ var noise_level := 0.0
 var _facing := Vector2.RIGHT
 var _animation_time := 0.0
 var _animation_running := false
+var _footstep_distance := 0.0
 
 
 func _ready() -> void:
@@ -450,7 +452,9 @@ func _physics_process(delta: float) -> void:
 		input_direction = Vector2.ZERO
 
 	velocity = input_direction * speed
+	var previous_position := position
 	move_and_slide()
+	_update_footsteps(position.distance_to(previous_position))
 
 	if is_moving():
 		noise_level = move_toward(
@@ -466,6 +470,19 @@ func _physics_process(delta: float) -> void:
 		)
 
 	_update_animation(delta)
+
+
+func _update_footsteps(distance_moved: float) -> void:
+	if distance_moved <= 0.01:
+		_footstep_distance = 0.0
+		return
+
+	_footstep_distance += distance_moved
+	if _footstep_distance < FOOTSTEP_DISTANCE:
+		return
+
+	_footstep_distance = fmod(_footstep_distance, FOOTSTEP_DISTANCE)
+	AudioManager.play_player_footstep()
 
 
 func _update_sprite_facing() -> void:

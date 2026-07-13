@@ -11,6 +11,8 @@ const PLAYER_SHOT_PATH := "res://assets/audio/sfx/player_shot.ogg"
 const ENEMY_SHOT_PATH := "res://assets/audio/sfx/enemy_shot.ogg"
 const DOOR_OPEN_PATH := "res://assets/audio/sfx/door_open.ogg"
 const DOOR_CLOSE_PATH := "res://assets/audio/sfx/door_close.ogg"
+const MEGA_CORE_PICKUP_PATH := "res://assets/audio/sfx/mega_core_pickup.ogg"
+const PLAYER_FOOTSTEP_PATH := "res://assets/audio/sfx/player_footstep.ogg"
 
 var music_enabled := true
 var sounds_enabled := true
@@ -28,6 +30,8 @@ var _door_place_stream: AudioStream
 var _door_remove_stream: AudioStream
 var _door_open_stream: AudioStream
 var _door_close_stream: AudioStream
+var _mega_core_pickup_stream: AudioStream
+var _player_footstep_stream: AudioStream
 
 
 func _ready() -> void:
@@ -48,6 +52,8 @@ func _ready() -> void:
 	_door_remove_stream = _create_door_stream(0.72, false)
 	_door_open_stream = load(DOOR_OPEN_PATH)
 	_door_close_stream = load(DOOR_CLOSE_PATH)
+	_mega_core_pickup_stream = load(MEGA_CORE_PICKUP_PATH)
+	_player_footstep_stream = load(PLAYER_FOOTSTEP_PATH)
 	_ambient_player.volume_db = MUSIC_VOLUME_DB
 	_combat_player.volume_db = SILENT_VOLUME_DB
 	_ambient_player.play()
@@ -125,6 +131,18 @@ func play_door_close() -> void:
 	_play_effect(_door_close_stream, -8.0)
 
 
+func play_mega_core_pickup() -> void:
+	_play_effect(_mega_core_pickup_stream, -6.0)
+
+
+func play_player_footstep() -> void:
+	_play_effect(
+		_player_footstep_stream,
+		_rng.randf_range(-14.0, -11.0),
+		_rng.randf_range(0.94, 1.06)
+	)
+
+
 func _create_player(player_name: String) -> AudioStreamPlayer:
 	var player := AudioStreamPlayer.new()
 	player.name = player_name
@@ -132,11 +150,16 @@ func _create_player(player_name: String) -> AudioStreamPlayer:
 	return player
 
 
-func _play_effect(stream: AudioStream, volume_db: float) -> void:
+func _play_effect(
+	stream: AudioStream,
+	volume_db: float,
+	pitch_scale: float = 1.0
+) -> void:
 	# A fresh player lets overlapping shots and door sounds finish independently.
 	var player := AudioStreamPlayer.new()
 	player.stream = stream
 	player.volume_db = volume_db
+	player.pitch_scale = pitch_scale
 	player.bus = SFX_BUS
 	player.finished.connect(player.queue_free)
 	add_child(player)
