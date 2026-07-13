@@ -35,6 +35,12 @@ jobs:
             cp -a "$template_source" "$template_target"
           fi
 
+      - name: Set build commit
+        shell: bash
+        run: |
+          short_sha="${GITHUB_SHA:0:7}"
+          sed -i "s|config/build_sha=\"\"|config/build_sha=\"$short_sha\"|" project.godot
+
       - name: Import project resources
         run: godot --headless --path . --import
 

@@ -1,5 +1,6 @@
 extends Control
 
+const BuildInfo = preload("res://scripts/build_info.gd")
 const GAME_SCENE := "res://scenes/main.tscn"
 const INTRO_SCENE := "res://scenes/intro.tscn"
 
@@ -10,11 +11,13 @@ const INTRO_SCENE := "res://scenes/intro.tscn"
 @onready var new_game_button: Button = $CenterContainer/MainMenu/NewGameButton
 @onready var exit_button: Button = $CenterContainer/MainMenu/ExitButton
 @onready var back_button: Button = $CenterContainer/ControlsScreen/BackButton
+@onready var version_label: Label = $VersionLabel
 
 
 func _ready() -> void:
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	AudioManager.set_combat_active(false)
+	version_label.text = BuildInfo.display_text()
 	continue_button.visible = SaveStore.has_loadable_save()
 	exit_button.visible = not OS.has_feature("web")
 	_focus_first_menu_button()

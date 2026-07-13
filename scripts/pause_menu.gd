@@ -1,5 +1,6 @@
 extends Control
 
+const BuildInfo = preload("res://scripts/build_info.gd")
 const LoreText = preload("res://scripts/lore_text.gd")
 const INTRO_SCENE := "res://scenes/intro.tscn"
 const MAIN_MENU_SCENE := "res://scenes/menu.tscn"
@@ -18,10 +19,12 @@ const MAIN_MENU_SCENE := "res://scenes/menu.tscn"
 @onready var defeat_menu: Control = $"../../DefeatOverlay/DefeatMenu"
 @onready var victory_menu: Control = $"../../VictoryOverlay/VictoryMenu"
 @onready var game: Node = $"../.."
+@onready var version_label: Label = $VersionLabel
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	version_label.text = BuildInfo.display_text()
 	objective_text.text = LoreText.OBJECTIVE_TEXT
 	if OS.has_feature("web"):
 		save_and_exit_button.text = "Сохранить и выйти в меню"

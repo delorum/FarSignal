@@ -117,6 +117,25 @@ text = "Назад"
 [node name="SettingsMenu" parent="CenterContainer" instance=ExtResource("2_settings")]
 layout_mode = 2
 
+[node name="VersionLabel" type="Label" parent="."]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -280.0
+offset_top = -48.0
+offset_right = -20.0
+offset_bottom = -20.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.45, 0.49, 0.54, 0.8)
+theme_override_font_sizes/font_size = 14
+text = "Версия 0.1.0"
+horizontal_alignment = 2
+
 [connection signal="pressed" from="CenterContainer/MainMenu/NewGameButton" to="." method="_on_new_game_pressed"]
 [connection signal="pressed" from="CenterContainer/MainMenu/ContinueButton" to="." method="_on_continue_pressed"]
 [connection signal="pressed" from="CenterContainer/MainMenu/ControlsButton" to="." method="_on_controls_pressed"]

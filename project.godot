@@ -11,6 +11,8 @@ config_version=5
 [application]
 
 config/name="Far Signal"
+config/version="0.1.0"
+config/build_sha=""
 run/main_scene="res://scenes/menu.tscn"
 config/features=PackedStringArray("4.7")
 
