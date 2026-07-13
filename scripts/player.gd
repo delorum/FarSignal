@@ -49,6 +49,8 @@ var ammo_upgrade_level := 0
 var energy_cores := 0
 var energy_core_energy := 0
 var energy := 0
+var energy_received_total := 0
+var energy_spent_total := 0
 var door_inventory := STARTING_DOORS
 var exploration_points := 0
 var mega_core_cell := Vector2i(-1, -1)
@@ -99,7 +101,9 @@ func restore_status(
 	saved_damage_upgrade_level: int = 0,
 	saved_health_upgrade_level: int = 0,
 	saved_ammo_upgrade_level: int = 0,
-	saved_energy_core_energy: int = 0
+	saved_energy_core_energy: int = 0,
+	saved_energy_received_total: int = 0,
+	saved_energy_spent_total: int = 0
 ) -> void:
 	damage_upgrade_level = clampi(
 		saved_damage_upgrade_level,
@@ -118,6 +122,8 @@ func restore_status(
 	energy_cores = maxi(0, saved_energy_cores)
 	energy_core_energy = maxi(0, saved_energy_core_energy)
 	energy = maxi(0, saved_energy)
+	energy_received_total = maxi(0, saved_energy_received_total)
+	energy_spent_total = maxi(0, saved_energy_spent_total)
 	door_inventory = clampi(saved_door_inventory, 0, MAX_DOOR_INVENTORY)
 	exploration_points = maxi(0, saved_exploration_points)
 	mega_core_cell = saved_mega_core_cell
@@ -189,7 +195,7 @@ func can_upgrade_ammo_at_station(station_id: int) -> bool:
 func upgrade_damage(station_id: int) -> bool:
 	if not can_upgrade_damage_at_station(station_id):
 		return false
-	energy -= UPGRADE_COST
+	_spend_energy(UPGRADE_COST)
 	damage_upgrade_level += 1
 	return true
 
@@ -198,7 +204,7 @@ func upgrade_health(station_id: int) -> bool:
 	if not can_upgrade_health_at_station(station_id):
 		return false
 	var previous_max := max_health
-	energy -= UPGRADE_COST
+	_spend_energy(UPGRADE_COST)
 	health_upgrade_level += 1
 	_update_maximums()
 	health += max_health - previous_max
@@ -209,7 +215,7 @@ func upgrade_ammo(station_id: int) -> bool:
 	if not can_upgrade_ammo_at_station(station_id):
 		return false
 	var previous_max := max_ammo
-	energy -= UPGRADE_COST
+	_spend_energy(UPGRADE_COST)
 	ammo_upgrade_level += 1
 	_update_maximums()
 	ammo += max_ammo - previous_max
@@ -290,7 +296,7 @@ func exploration_exchange_energy() -> int:
 func buy_health() -> bool:
 	if not can_buy_health():
 		return false
-	energy -= health_purchase_cost()
+	_spend_energy(health_purchase_cost())
 	health = mini(max_health, health + health_purchase_amount())
 	return true
 
@@ -298,7 +304,7 @@ func buy_health() -> bool:
 func buy_ammo() -> bool:
 	if not can_buy_ammo():
 		return false
-	energy -= ammo_purchase_cost()
+	_spend_energy(ammo_purchase_cost())
 	ammo = mini(max_ammo, ammo + ammo_purchase_amount())
 	return true
 
@@ -306,7 +312,7 @@ func buy_ammo() -> bool:
 func buy_door() -> bool:
 	if not can_buy_door():
 		return false
-	energy -= DOOR_COST
+	_spend_energy(DOOR_COST)
 	door_inventory += 1
 	return true
 
@@ -314,7 +320,7 @@ func buy_door() -> bool:
 func exchange_energy_cores() -> bool:
 	if energy_cores <= 0:
 		return false
-	energy += energy_core_energy
+	_gain_energy(energy_core_energy)
 	energy_cores = 0
 	energy_core_energy = 0
 	return true
@@ -328,7 +334,7 @@ func exchange_exploration_points() -> bool:
 	var exchanged_points := exploration_exchange_points()
 	if exchanged_points <= 0:
 		return false
-	energy += exploration_exchange_energy()
+	_gain_energy(exploration_exchange_energy())
 	exploration_points -= exchanged_points
 	return true
 
@@ -348,7 +354,7 @@ func collect_mega_core() -> bool:
 func return_mega_core() -> bool:
 	if not has_mega_core:
 		return false
-	energy += MEGA_CORE_RETURN_ENERGY
+	_gain_energy(MEGA_CORE_RETURN_ENERGY)
 	mega_core_cell = Vector2i(-1, -1)
 	has_mega_core = false
 	return true
@@ -368,6 +374,18 @@ func discover_floor_cell(zone_level: int) -> void:
 
 static func exploration_point_multiplier(zone_level: int, player_level: int) -> int:
 	return maxi(1, zone_level - player_level + 1)
+
+
+func _gain_energy(amount: int) -> void:
+	var gained := maxi(0, amount)
+	energy += gained
+	energy_received_total += gained
+
+
+func _spend_energy(amount: int) -> void:
+	var spent := maxi(0, amount)
+	energy -= spent
+	energy_spent_total += spent
 
 
 func take_damage(amount: int) -> bool:

@@ -6,6 +6,7 @@ const MAIN_MENU_SCENE := "res://scenes/menu.tscn"
 @onready var explored_value: Label = $Background/Center/Menu/ExploredValue
 @onready var safe_zone_value: Label = $Background/Center/Menu/SafeZoneValue
 @onready var mega_cores_value: Label = $Background/Center/Menu/MegaCoresValue
+@onready var energy_value: Label = $Background/Center/Menu/EnergyValue
 
 
 func _ready() -> void:
@@ -17,7 +18,10 @@ func open(
 	explored_cells: int,
 	safe_zone_size: int,
 	total_floor_cells: int,
-	mega_cores_returned: int
+	mega_cores_returned: int,
+	energy_received: int,
+	energy_spent: int,
+	energy_remaining: int
 ) -> void:
 	kills_value.text = "Убито врагов: %d" % enemies_killed
 	explored_value.text = "Исследовано клеток: %d (%.1f%%)" % [
@@ -29,6 +33,9 @@ func open(
 		_percentage(safe_zone_size, total_floor_cells),
 	]
 	mega_cores_value.text = "Возвращено мегаядер: %d" % mega_cores_returned
+	energy_value.text = (
+		"Получено энергии: %d\nПотрачено энергии: %d\nОсталось энергии: %d"
+	) % [energy_received, energy_spent, energy_remaining]
 	visible = true
 	get_tree().paused = true
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)

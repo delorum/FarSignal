@@ -15,6 +15,9 @@ const COLLISION_RADIUS := 6
 const COLLISION_DIAMETER := COLLISION_RADIUS * 2 + 1
 const FLOOR_CELL_SEARCH_ATTEMPTS := 256
 const DRAW_RADIUS := 16
+const ENEMY_LEVEL_COUNT := 5
+const LEVEL_BOUNDARY_COLOR := Color(1.0, 1.0, 1.0, 0.35)
+const LEVEL_BOUNDARY_WIDTH := 2.0
 const FLOOR_TILE_COUNT := 8
 const WALL_TILE_OFFSET := 8
 const WALL_TILE_COUNT := 8
@@ -1449,6 +1452,29 @@ func _draw() -> void:
 				false,
 				SAFE_FLOOR_TILE_MODULATE if safe else Color.WHITE
 			)
+
+	_draw_enemy_level_boundaries()
+
+
+func _draw_enemy_level_boundaries() -> void:
+	if _view_cell.x < 0 or _view_cell.y < 0:
+		return
+	var left_cell_x := maxi(0, _view_cell.x - DRAW_RADIUS)
+	var right_cell_x := mini(COLUMNS, _view_cell.x + DRAW_RADIUS + 1)
+	for boundary_index in range(1, ENEMY_LEVEL_COUNT):
+		var boundary_cell_y := floori(
+			float(boundary_index * ROWS) / float(ENEMY_LEVEL_COUNT)
+		)
+		if absi(boundary_cell_y - _view_cell.y) > DRAW_RADIUS:
+			continue
+		var line_y := float(boundary_cell_y) * CELL_SIZE
+		draw_line(
+			Vector2(float(left_cell_x) * CELL_SIZE, line_y),
+			Vector2(float(right_cell_x) * CELL_SIZE, line_y),
+			LEVEL_BOUNDARY_COLOR,
+			LEVEL_BOUNDARY_WIDTH,
+			true
+		)
 
 
 func _draw_environment_tile(

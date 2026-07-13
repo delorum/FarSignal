@@ -767,6 +767,12 @@ theme_override_font_sizes/font_size = 24
 text = "Возвращено мегаядер: 0"
 horizontal_alignment = 1
 
+[node name="EnergyValue" type="Label" parent="DefeatOverlay/DefeatMenu/Background/Center/Menu"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Получено энергии: 0\nПотрачено энергии: 0\nОсталось энергии: 0"
+horizontal_alignment = 1
+
 [node name="MainMenuButton" type="Button" parent="DefeatOverlay/DefeatMenu/Background/Center/Menu"]
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
@@ -842,6 +848,12 @@ horizontal_alignment = 1
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "Возвращено мегаядер: 0"
+horizontal_alignment = 1
+
+[node name="EnergyValue" type="Label" parent="VictoryOverlay/VictoryMenu/Background/Center/Menu"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Получено энергии: 0\nПотрачено энергии: 0\nОсталось энергии: 0"
 horizontal_alignment = 1
 
 [node name="MainMenuButton" type="Button" parent="VictoryOverlay/VictoryMenu/Background/Center/Menu"]

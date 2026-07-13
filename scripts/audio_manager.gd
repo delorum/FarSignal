@@ -185,6 +185,7 @@ func _load_settings() -> void:
 
 func _save_settings() -> void:
 	var config := ConfigFile.new()
+	config.load(SETTINGS_PATH)
 	config.set_value("audio", "music_enabled", music_enabled)
 	config.set_value("audio", "sounds_enabled", sounds_enabled)
 	config.set_value("audio", "music_volume", music_volume)

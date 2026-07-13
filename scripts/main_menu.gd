@@ -8,6 +8,7 @@ const INTRO_SCENE := "res://scenes/intro.tscn"
 @onready var settings_menu: Control = $CenterContainer/SettingsMenu
 @onready var continue_button: Button = $CenterContainer/MainMenu/ContinueButton
 @onready var new_game_button: Button = $CenterContainer/MainMenu/NewGameButton
+@onready var exit_button: Button = $CenterContainer/MainMenu/ExitButton
 @onready var back_button: Button = $CenterContainer/ControlsScreen/BackButton
 
 
@@ -15,6 +16,7 @@ func _ready() -> void:
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	AudioManager.set_combat_active(false)
 	continue_button.visible = SaveStore.has_loadable_save()
+	exit_button.visible = not OS.has_feature("web")
 	_focus_first_menu_button()
 
 
@@ -61,6 +63,8 @@ func _on_settings_back_requested() -> void:
 
 
 func _on_exit_pressed() -> void:
+	if OS.has_feature("web"):
+		return
 	get_tree().quit()
 
 

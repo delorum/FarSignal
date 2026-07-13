@@ -114,7 +114,10 @@ func _show_information() -> void:
 		+ "Размер безопасной зоны: %d (%.1f%%)\n"
 		+ "Убито врагов: %d\n"
 		+ "Врагов на карте: %d\n"
-		+ "Возвращено мегаядер: %d\n\n"
+		+ "Возвращено мегаядер: %d\n"
+		+ "Получено энергии: %d\n"
+		+ "Потрачено энергии: %d\n"
+		+ "Осталось энергии: %d\n\n"
 		+ "Уровни врагов:\n%s"
 	) % [
 		statistics.explored_cells,
@@ -124,6 +127,9 @@ func _show_information() -> void:
 		statistics.enemies_killed,
 		statistics.living_enemies,
 		statistics.mega_cores_returned,
+		statistics.energy_received,
+		statistics.energy_spent,
+		statistics.energy_remaining,
 		statistics.enemy_level_summary,
 	]
 	menu.visible = false

@@ -35,6 +35,12 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Аудио"
 
+[node name="DebugInfoEnabled" type="CheckButton" parent="SettingsScreen"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Отладочная информация"
+
 [node name="Spacer" type="Control" parent="SettingsScreen"]
 layout_mode = 2
 size_flags_vertical = 3
@@ -135,6 +141,7 @@ theme_override_font_sizes/font_size = 22
 text = "Назад"
 
 [connection signal="pressed" from="SettingsScreen/AudioButton" to="." method="_on_audio_pressed"]
+[connection signal="toggled" from="SettingsScreen/DebugInfoEnabled" to="." method="_on_debug_info_enabled_toggled"]
 [connection signal="pressed" from="SettingsScreen/BackButton" to="." method="_on_settings_back_pressed"]
 [connection signal="toggled" from="AudioScreen/MusicEnabled" to="." method="_on_music_enabled_toggled"]
 [connection signal="value_changed" from="AudioScreen/MusicVolumeRow/MusicVolume" to="." method="_on_music_volume_changed"]

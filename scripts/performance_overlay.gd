@@ -2,8 +2,11 @@ extends CanvasLayer
 
 const DISPLAY_UPDATE_SECONDS := 0.25
 const PEAK_WINDOW_SECONDS := 5.0
+const SETTINGS_PATH := "user://far_signal_settings.cfg"
 
 var _label: Label
+var debug_info_enabled := true
+var _measurement_signals_connected := false
 var _last_frame_ticks_usec := 0
 var _display_elapsed := 0.0
 var _peak_elapsed := 0.0
@@ -27,11 +30,16 @@ func _ready() -> void:
 	_label.add_theme_constant_override("outline_size", 4)
 	add_child(_label)
 
-	get_tree().physics_frame.connect(_on_logic_frame_started)
-	get_tree().process_frame.connect(_on_logic_frame_started)
-	RenderingServer.frame_pre_draw.connect(_on_frame_pre_draw)
-	_last_frame_ticks_usec = Time.get_ticks_usec()
-	_update_text()
+	_load_setting()
+	_apply_enabled_state()
+
+
+func set_debug_info_enabled(enabled: bool) -> void:
+	if debug_info_enabled == enabled:
+		return
+	debug_info_enabled = enabled
+	_apply_enabled_state()
+	_save_setting()
 
 
 func _process(delta: float) -> void:
@@ -87,3 +95,67 @@ func _update_text() -> void:
 		physics_time_ms,
 		draw_calls,
 	]
+
+
+func _apply_enabled_state() -> void:
+	_label.visible = debug_info_enabled
+	set_process(debug_info_enabled)
+	if debug_info_enabled:
+		_connect_measurement_signals()
+		_reset_measurements()
+		_update_text()
+	else:
+		_disconnect_measurement_signals()
+
+
+func _connect_measurement_signals() -> void:
+	if _measurement_signals_connected:
+		return
+	get_tree().physics_frame.connect(_on_logic_frame_started)
+	get_tree().process_frame.connect(_on_logic_frame_started)
+	RenderingServer.frame_pre_draw.connect(_on_frame_pre_draw)
+	_measurement_signals_connected = true
+
+
+func _disconnect_measurement_signals() -> void:
+	if not _measurement_signals_connected:
+		return
+	get_tree().physics_frame.disconnect(_on_logic_frame_started)
+	get_tree().process_frame.disconnect(_on_logic_frame_started)
+	RenderingServer.frame_pre_draw.disconnect(_on_frame_pre_draw)
+	_measurement_signals_connected = false
+
+
+func _reset_measurements() -> void:
+	_last_frame_ticks_usec = Time.get_ticks_usec()
+	_display_elapsed = 0.0
+	_peak_elapsed = 0.0
+	_frame_time_ms = 0.0
+	_peak_frame_time_ms = 0.0
+	_logic_start_ticks_usec = 0
+	_logic_time_ms = 0.0
+	_peak_logic_time_ms = 0.0
+
+
+func _load_setting() -> void:
+	var config := ConfigFile.new()
+	if config.load(SETTINGS_PATH) != OK:
+		return
+	debug_info_enabled = bool(config.get_value(
+		"debug",
+		"performance_overlay_enabled",
+		true
+	))
+
+
+func _save_setting() -> void:
+	var config := ConfigFile.new()
+	config.load(SETTINGS_PATH)
+	config.set_value(
+		"debug",
+		"performance_overlay_enabled",
+		debug_info_enabled
+	)
+	var error := config.save(SETTINGS_PATH)
+	if error != OK:
+		push_error("Could not save debug settings: %s" % error_string(error))

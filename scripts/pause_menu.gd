@@ -2,12 +2,14 @@ extends Control
 
 const LoreText = preload("res://scripts/lore_text.gd")
 const INTRO_SCENE := "res://scenes/intro.tscn"
+const MAIN_MENU_SCENE := "res://scenes/menu.tscn"
 
 @onready var pause_menu: VBoxContainer = $CenterContainer/PauseMenu
 @onready var controls_screen: VBoxContainer = $CenterContainer/ControlsScreen
 @onready var objective_screen: VBoxContainer = $CenterContainer/ObjectiveScreen
 @onready var settings_menu: Control = $CenterContainer/SettingsMenu
 @onready var continue_button: Button = $CenterContainer/PauseMenu/ContinueButton
+@onready var save_and_exit_button: Button = $CenterContainer/PauseMenu/SaveAndExitButton
 @onready var controls_back_button: Button = $CenterContainer/ControlsScreen/BackButton
 @onready var objective_back_button: Button = $CenterContainer/ObjectiveScreen/BackButton
 @onready var objective_text: Label = $CenterContainer/ObjectiveScreen/ObjectiveText
@@ -21,6 +23,8 @@ const INTRO_SCENE := "res://scenes/intro.tscn"
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	objective_text.text = LoreText.OBJECTIVE_TEXT
+	if OS.has_feature("web"):
+		save_and_exit_button.text = "Сохранить и выйти в меню"
 
 
 func _exit_tree() -> void:
@@ -81,7 +85,12 @@ func _on_settings_back_requested() -> void:
 
 
 func _on_save_and_exit_pressed() -> void:
-	if game.save_game():
+	if not game.save_game():
+		return
+	if OS.has_feature("web"):
+		get_tree().paused = false
+		get_tree().change_scene_to_file(MAIN_MENU_SCENE)
+	else:
 		get_tree().quit()
 
 

@@ -589,6 +589,8 @@ func save_game() -> bool:
 		"player_energy_cores": player.energy_cores,
 		"player_energy_core_energy": player.energy_core_energy,
 		"player_energy": player.energy,
+		"player_energy_received_total": player.energy_received_total,
+		"player_energy_spent_total": player.energy_spent_total,
 		"player_doors": player.door_inventory,
 		"player_exploration_points": player.exploration_points,
 		"player_mega_core_cell": [
@@ -659,7 +661,9 @@ func _restore_game(save_data: Dictionary) -> void:
 		int(save_data.get("player_damage_upgrade_level", 0)),
 		int(save_data.get("player_health_upgrade_level", 0)),
 		int(save_data.get("player_ammo_upgrade_level", 0)),
-		int(save_data.get("player_energy_core_energy", 0))
+		int(save_data.get("player_energy_core_energy", 0)),
+		int(save_data.get("player_energy_received_total", 0)),
+		int(save_data.get("player_energy_spent_total", 0))
 	)
 	var saved_map_marker_cell: Array = save_data.get("map_marker_cell", [])
 	if saved_map_marker_cell.size() == 2:
@@ -915,6 +919,9 @@ func station_statistics() -> Dictionary:
 		"enemies_killed": _enemies_killed,
 		"living_enemies": _living_enemy_count(),
 		"mega_cores_returned": _mega_cores_returned,
+		"energy_received": player.energy_received_total,
+		"energy_spent": player.energy_spent_total,
+		"energy_remaining": player.energy,
 		"enemy_level_summary": _enemy_level_summary(),
 	}
 
@@ -1759,7 +1766,10 @@ func _show_defeat() -> void:
 		maze.explored_floor_cell_count(),
 		maze.safe_floor_cell_count(),
 		maze.floor_cell_count(),
-		_mega_cores_returned
+		_mega_cores_returned,
+		player.energy_received_total,
+		player.energy_spent_total,
+		player.energy
 	)
 
 
@@ -1771,7 +1781,10 @@ func _show_victory() -> void:
 		maze.explored_floor_cell_count(),
 		maze.safe_floor_cell_count(),
 		maze.floor_cell_count(),
-		_mega_cores_returned
+		_mega_cores_returned,
+		player.energy_received_total,
+		player.energy_spent_total,
+		player.energy
 	)
 
 

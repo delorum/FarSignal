@@ -5,6 +5,7 @@ signal back_requested
 @onready var settings_screen: VBoxContainer = $SettingsScreen
 @onready var audio_screen: VBoxContainer = $AudioScreen
 @onready var audio_button: Button = $SettingsScreen/AudioButton
+@onready var debug_info_enabled: CheckButton = $SettingsScreen/DebugInfoEnabled
 @onready var music_enabled: CheckButton = $AudioScreen/MusicEnabled
 @onready var sounds_enabled: CheckButton = $AudioScreen/SoundsEnabled
 @onready var music_volume: HSlider = $AudioScreen/MusicVolumeRow/MusicVolume
@@ -17,6 +18,7 @@ var _syncing := false
 
 func open() -> void:
 	visible = true
+	_sync_debug_control()
 	_show_settings_screen()
 
 
@@ -40,6 +42,11 @@ func _on_settings_back_pressed() -> void:
 
 func _on_audio_back_pressed() -> void:
 	_show_settings_screen()
+
+
+func _on_debug_info_enabled_toggled(enabled: bool) -> void:
+	if not _syncing:
+		PerformanceOverlay.set_debug_info_enabled(enabled)
 
 
 func _on_music_enabled_toggled(enabled: bool) -> void:
@@ -78,4 +85,10 @@ func _sync_controls() -> void:
 	sounds_volume.value = AudioManager.sounds_volume
 	music_volume_value.text = "%d%%" % roundi(AudioManager.music_volume)
 	sounds_volume_value.text = "%d%%" % roundi(AudioManager.sounds_volume)
+	_syncing = false
+
+
+func _sync_debug_control() -> void:
+	_syncing = true
+	debug_info_enabled.button_pressed = PerformanceOverlay.debug_info_enabled
 	_syncing = false
