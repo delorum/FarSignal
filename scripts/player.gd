@@ -20,9 +20,9 @@ const MAX_UPGRADED_DAMAGE_MAX := 338
 const MAX_HEALTH_BUY := 20
 const MAX_AMMO_BUY := 10
 const AMMO_COST_PER_ROUND := 1
-const ENERGY_PER_CORE := 20
-const EXPLORED_CELLS_PER_EXCHANGE := 200
-const ENERGY_PER_EXPLORED_CELL_EXCHANGE := 10
+const LOWER_LEVEL_CORE_ENERGY := 10
+const EQUAL_LEVEL_CORE_ENERGY := 20
+const EXPLORATION_POINTS_PER_ENERGY := 20
 const MEGA_CORE_RETURN_ENERGY := 100
 const DOOR_COST := 50
 const STARTING_DOORS := 0
@@ -47,9 +47,10 @@ var damage_upgrade_level := 0
 var health_upgrade_level := 0
 var ammo_upgrade_level := 0
 var energy_cores := 0
+var energy_core_energy := 0
 var energy := 0
 var door_inventory := STARTING_DOORS
-var explored_floor_cells := 0
+var exploration_points := 0
 var mega_core_cell := Vector2i(-1, -1)
 var has_mega_core := false
 var noise_level := 0.0
@@ -92,12 +93,13 @@ func restore_status(
 	saved_energy_cores: int = 0,
 	saved_energy: int = 0,
 	saved_door_inventory: int = 0,
-	saved_explored_floor_cells: int = 0,
+	saved_exploration_points: int = 0,
 	saved_mega_core_cell: Vector2i = Vector2i(-1, -1),
 	saved_has_mega_core: bool = false,
 	saved_damage_upgrade_level: int = 0,
 	saved_health_upgrade_level: int = 0,
-	saved_ammo_upgrade_level: int = 0
+	saved_ammo_upgrade_level: int = 0,
+	saved_energy_core_energy: int = 0
 ) -> void:
 	damage_upgrade_level = clampi(
 		saved_damage_upgrade_level,
@@ -114,9 +116,10 @@ func restore_status(
 	health = clampi(saved_health, 0, max_health)
 	ammo = clampi(saved_ammo, 0, max_ammo)
 	energy_cores = maxi(0, saved_energy_cores)
+	energy_core_energy = maxi(0, saved_energy_core_energy)
 	energy = maxi(0, saved_energy)
 	door_inventory = clampi(saved_door_inventory, 0, MAX_DOOR_INVENTORY)
-	explored_floor_cells = maxi(0, saved_explored_floor_cells)
+	exploration_points = maxi(0, saved_exploration_points)
 	mega_core_cell = saved_mega_core_cell
 	has_mega_core = saved_has_mega_core
 
@@ -163,6 +166,12 @@ func damage_max() -> int:
 
 func current_level() -> int:
 	return mini(damage_upgrade_level, health_upgrade_level) + 1
+
+
+static func energy_core_reward(enemy_level: int, player_level: int) -> int:
+	if enemy_level < player_level:
+		return LOWER_LEVEL_CORE_ENERGY
+	return EQUAL_LEVEL_CORE_ENERGY * (enemy_level - player_level + 1)
 
 
 func can_upgrade_damage_at_station(station_id: int) -> bool:
@@ -268,18 +277,14 @@ func can_store_door() -> bool:
 	return door_inventory < MAX_DOOR_INVENTORY
 
 
-func explored_cell_exchange_count() -> int:
+func exploration_exchange_points() -> int:
+	return exploration_exchange_energy() * EXPLORATION_POINTS_PER_ENERGY
+
+
+func exploration_exchange_energy() -> int:
 	return floori(
-		float(explored_floor_cells) / float(EXPLORED_CELLS_PER_EXCHANGE)
+		float(exploration_points) / float(EXPLORATION_POINTS_PER_ENERGY)
 	)
-
-
-func explored_cell_exchange_cells() -> int:
-	return explored_cell_exchange_count() * EXPLORED_CELLS_PER_EXCHANGE
-
-
-func explored_cell_exchange_energy() -> int:
-	return explored_cell_exchange_count() * ENERGY_PER_EXPLORED_CELL_EXCHANGE
 
 
 func buy_health() -> bool:
@@ -309,17 +314,22 @@ func buy_door() -> bool:
 func exchange_energy_cores() -> bool:
 	if energy_cores <= 0:
 		return false
-	energy += energy_cores * ENERGY_PER_CORE
+	energy += energy_core_energy
 	energy_cores = 0
+	energy_core_energy = 0
 	return true
 
 
-func exchange_explored_floor_cells() -> bool:
-	var exchanged_cells := explored_cell_exchange_cells()
-	if exchanged_cells <= 0:
+func energy_core_exchange_energy() -> int:
+	return energy_core_energy
+
+
+func exchange_exploration_points() -> bool:
+	var exchanged_points := exploration_exchange_points()
+	if exchanged_points <= 0:
 		return false
-	energy += explored_cell_exchange_energy()
-	explored_floor_cells -= exchanged_cells
+	energy += exploration_exchange_energy()
+	exploration_points -= exchanged_points
 	return true
 
 
@@ -344,12 +354,20 @@ func return_mega_core() -> bool:
 	return true
 
 
-func collect_energy_core() -> void:
+func collect_energy_core(core_energy: int) -> void:
 	energy_cores += 1
+	energy_core_energy += maxi(0, core_energy)
 
 
-func discover_floor_cells(count: int) -> void:
-	explored_floor_cells += maxi(0, count)
+func discover_floor_cell(zone_level: int) -> void:
+	exploration_points += exploration_point_multiplier(
+		zone_level,
+		current_level()
+	)
+
+
+static func exploration_point_multiplier(zone_level: int, player_level: int) -> int:
+	return maxi(1, zone_level - player_level + 1)
 
 
 func take_damage(amount: int) -> bool:

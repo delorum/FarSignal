@@ -19,6 +19,7 @@ config/features=PackedStringArray("4.7")
 DisplaySetup="*res://scripts/display_setup.gd"
 SaveStore="*res://scripts/save_store.gd"
 AudioManager="*res://scripts/audio_manager.gd"
+PerformanceOverlay="*res://scripts/performance_overlay.gd"
 
 [display]
 

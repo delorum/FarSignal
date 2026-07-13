@@ -1,12 +1,15 @@
 extends Node
 
 const SAVE_FILE_NAME := "far_signal_save.json"
-const SAVE_VERSION := 4
+const SAVE_VERSION := 6
 
 var pending_save: Dictionary = {}
 
 
 func save_file_path() -> String:
+	if OS.has_feature("web"):
+		return "user://".path_join(SAVE_FILE_NAME)
+
 	var game_directory := OS.get_executable_path().get_base_dir()
 	if OS.has_feature("editor"):
 		game_directory = ProjectSettings.globalize_path("res://")

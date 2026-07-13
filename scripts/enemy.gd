@@ -59,6 +59,7 @@ var damage_min := 8
 var damage_max := 12
 var dead := false
 var energy_core_collected := false
+var energy_core_energy_value := Player.EQUAL_LEVEL_CORE_ENERGY
 var state := State.PATROL
 var enemy_id := 0
 var _facing := Vector2.LEFT
@@ -126,6 +127,10 @@ func restore_state(saved_data: Dictionary) -> void:
 	health = clampi(int(saved_data.get("health", max_health)), 0, max_health)
 	dead = bool(saved_data.get("dead", health <= 0))
 	energy_core_collected = bool(saved_data.get("energy_core_collected", false))
+	energy_core_energy_value = int(saved_data.get(
+		"energy_core_energy_value",
+		Player.EQUAL_LEVEL_CORE_ENERGY
+	))
 	if dead:
 		health = 0
 		_apply_dead_state()
@@ -172,6 +177,7 @@ func save_data() -> Dictionary:
 		"health": health,
 		"dead": dead,
 		"energy_core_collected": energy_core_collected,
+		"energy_core_energy_value": energy_core_energy_value,
 	}
 
 
@@ -262,6 +268,10 @@ func take_damage(amount: int) -> bool:
 
 	dead = true
 	energy_core_collected = false
+	energy_core_energy_value = Player.energy_core_reward(
+		enemy_level,
+		_player.current_level()
+	)
 	_active = false
 	velocity = Vector2.ZERO
 	_apply_dead_state()
@@ -291,6 +301,10 @@ func show_damage_number(amount: int, direction: Vector2) -> void:
 
 func has_energy_core() -> bool:
 	return dead and not energy_core_collected
+
+
+func energy_core_value() -> int:
+	return energy_core_energy_value
 
 
 func collect_energy_core() -> bool:

@@ -163,7 +163,7 @@ func _on_exchange_pressed() -> void:
 
 
 func _on_exchange_cells_pressed() -> void:
-	game.exchange_explored_floor_cells()
+	game.exchange_exploration_points()
 	_update_buttons()
 	_show_menu()
 
@@ -253,18 +253,18 @@ func _update_buttons() -> void:
 		"Нет энергоядер"
 		if game.player.energy_cores <= 0
 		else "Сдать энергоядра: +%d энергии" % (
-			game.player.energy_cores * Player.ENERGY_PER_CORE
+			game.player.energy_core_exchange_energy()
 		)
 	)
 
-	var exchanged_cells: int = game.player.explored_cell_exchange_cells()
-	var exchange_energy: int = game.player.explored_cell_exchange_energy()
-	exchange_cells_button.disabled = exchanged_cells <= 0
+	var exchanged_points: int = game.player.exploration_exchange_points()
+	var exchange_energy: int = game.player.exploration_exchange_energy()
+	exchange_cells_button.disabled = exchanged_points <= 0
 	exchange_cells_button.text = (
-		"Нужно %d клеток для обмена" % Player.EXPLORED_CELLS_PER_EXCHANGE
-		if exchanged_cells <= 0
-		else "Сдать %d клеток: +%d энергии" % [
-			exchanged_cells,
+		"Нужно %d очков исследования" % Player.EXPLORATION_POINTS_PER_ENERGY
+		if exchanged_points <= 0
+		else "Сдать %d очков: +%d энергии" % [
+			exchanged_points,
 			exchange_energy,
 		]
 	)

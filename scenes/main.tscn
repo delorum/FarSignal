@@ -197,6 +197,12 @@ max_value = 30.0
 value = 30.0
 show_percentage = false
 
+[node name="DamageValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
+theme_override_font_sizes/font_size = 18
+text = "Урон: 27-36"
+
 [node name="EnergyCoresValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
@@ -219,7 +225,7 @@ text = "Двери: 0"
 layout_mode = 2
 theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
 theme_override_font_sizes/font_size = 18
-text = "Клетки: 0"
+text = "Очки исследования: 0"
 
 [node name="MegaCoreValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
 layout_mode = 2

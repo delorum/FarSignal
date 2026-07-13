@@ -69,6 +69,7 @@ enum BuildActionType {
 @onready var health_bar: ProgressBar = $GameInterface/PlayerPanel/Margin/VBox/HealthBar
 @onready var ammo_value: Label = $GameInterface/PlayerPanel/Margin/VBox/AmmoValue
 @onready var ammo_bar: ProgressBar = $GameInterface/PlayerPanel/Margin/VBox/AmmoBar
+@onready var damage_value: Label = $GameInterface/PlayerPanel/Margin/VBox/DamageValue
 @onready var energy_cores_value: Label = $GameInterface/PlayerPanel/Margin/VBox/EnergyCoresValue
 @onready var energy_value: Label = $GameInterface/PlayerPanel/Margin/VBox/EnergyValue
 @onready var doors_value: Label = $GameInterface/PlayerPanel/Margin/VBox/DoorsValue
@@ -84,10 +85,12 @@ enum BuildActionType {
 var _displayed_player_cell := Vector2i(-1, -1)
 var _displayed_health := -1
 var _displayed_ammo := -1
+var _displayed_damage_min := -1
+var _displayed_damage_max := -1
 var _displayed_energy_cores := -1
 var _displayed_energy := -1
 var _displayed_door_inventory := -1
-var _displayed_explored_floor_cells := -1
+var _displayed_exploration_points := -1
 var _displayed_mega_core_text := ""
 var _doors: Array[Node] = []
 var _stations: Array[Node] = []
@@ -146,8 +149,8 @@ func _ready() -> void:
 		player.position = maze.cell_to_world(player_cell)
 		var start_facing := maze.station_start_facing()
 		player.restore_facing_direction([start_facing.x, start_facing.y])
-		for station in _stations:
-			station.discover()
+		if not _stations.is_empty():
+			_stations[0].discover()
 		_create_generated_doors()
 		_refresh_safe_zone()
 		_assign_new_mega_core()
@@ -414,22 +417,25 @@ func _refresh_map_marker_path() -> void:
 
 
 func _update_visibility() -> void:
-	var newly_explored_floor_cells := maze.update_visibility(
+	var newly_explored_floor_cells: Array[Vector2i] = maze.update_visibility(
 		player.position,
 		player.facing_direction()
 	)
-	if newly_explored_floor_cells > 0:
-		player.discover_floor_cells(newly_explored_floor_cells)
+	for cell in newly_explored_floor_cells:
+		player.discover_floor_cell(_enemy_level_for_y(cell.y))
 	for door in _doors:
 		door.update_visibility(
 			maze.is_cell_visible(door.cell),
 			maze.is_cell_explored(door.cell)
 		)
 	for station in _stations:
+		var station_visible := maze.is_cell_visible(station.cell)
 		station.update_visibility(
-			maze.is_cell_visible(station.cell),
+			station_visible,
 			maze.is_cell_explored(station.cell)
 		)
+		if station_visible:
+			station.discover()
 	for enemy in _enemies:
 		enemy.update_visibility(
 			maze.is_cell_visible(maze.world_to_cell(enemy.position)),
@@ -480,6 +486,16 @@ func _update_coordinates() -> void:
 
 
 func _update_player_panel() -> void:
+	var current_damage_min := player.damage_min()
+	var current_damage_max := player.damage_max()
+	if current_damage_min != _displayed_damage_min \
+			or current_damage_max != _displayed_damage_max:
+		_displayed_damage_min = current_damage_min
+		_displayed_damage_max = current_damage_max
+		damage_value.text = "Урон: %d-%d" % [
+			current_damage_min,
+			current_damage_max,
+		]
 	if player.health != _displayed_health:
 		_displayed_health = player.health
 		health_value.text = "%d / %d" % [player.health, player.max_health]
@@ -510,10 +526,10 @@ func _update_player_panel() -> void:
 	if player.door_inventory != _displayed_door_inventory:
 		_displayed_door_inventory = player.door_inventory
 		doors_value.text = "Двери: %d" % player.door_inventory
-	if player.explored_floor_cells != _displayed_explored_floor_cells:
-		_displayed_explored_floor_cells = player.explored_floor_cells
+	if player.exploration_points != _displayed_exploration_points:
+		_displayed_exploration_points = player.exploration_points
 		explored_cells_value.text = (
-			"Клетки: %d" % player.explored_floor_cells
+			"Очки исследования: %d" % player.exploration_points
 		)
 	var mega_core_text := _mega_core_status_text()
 	if mega_core_text != _displayed_mega_core_text:
@@ -530,7 +546,7 @@ func _pick_up_energy_cores() -> void:
 		if enemy.position.distance_to(player.position) > ENERGY_CORE_PICKUP_DISTANCE:
 			continue
 		if enemy.collect_energy_core():
-			player.collect_energy_core()
+			player.collect_energy_core(enemy.energy_core_value())
 			_update_player_panel()
 
 
@@ -571,9 +587,10 @@ func save_game() -> bool:
 		"player_health": player.health,
 		"player_ammo": player.ammo,
 		"player_energy_cores": player.energy_cores,
+		"player_energy_core_energy": player.energy_core_energy,
 		"player_energy": player.energy,
 		"player_doors": player.door_inventory,
-		"player_explored_floor_cells": player.explored_floor_cells,
+		"player_exploration_points": player.exploration_points,
 		"player_mega_core_cell": [
 			player.mega_core_cell.x,
 			player.mega_core_cell.y,
@@ -592,6 +609,7 @@ func save_game() -> bool:
 		"station_discovered": (
 			not _stations.is_empty() and _stations[0].discovered
 		),
+		"discovered_station_ids": _discovered_station_ids_for_save(),
 		"station_instructions_seen": _station_instructions_seen,
 		"enemies": _enemies.map(func(enemy: Node): return enemy.save_data()),
 		"enemies_killed": _enemies_killed,
@@ -602,6 +620,14 @@ func save_game() -> bool:
 
 func save_file_path() -> String:
 	return SaveStore.save_file_path()
+
+
+func _discovered_station_ids_for_save() -> Array[int]:
+	var station_ids: Array[int] = []
+	for station in _stations:
+		if station.discovered:
+			station_ids.append(station.station_id)
+	return station_ids
 
 
 func _restore_game(save_data: Dictionary) -> void:
@@ -627,12 +653,13 @@ func _restore_game(save_data: Dictionary) -> void:
 		int(save_data.get("player_energy_cores", 0)),
 		int(save_data.get("player_energy", 0)),
 		int(save_data.get("player_doors", 0)),
-		int(save_data.get("player_explored_floor_cells", 0)),
+		int(save_data.get("player_exploration_points", 0)),
 		saved_mega_core_cell,
 		bool(save_data.get("player_has_mega_core", false)),
 		int(save_data.get("player_damage_upgrade_level", 0)),
 		int(save_data.get("player_health_upgrade_level", 0)),
-		int(save_data.get("player_ammo_upgrade_level", 0))
+		int(save_data.get("player_ammo_upgrade_level", 0)),
+		int(save_data.get("player_energy_core_energy", 0))
 	)
 	var saved_map_marker_cell: Array = save_data.get("map_marker_cell", [])
 	if saved_map_marker_cell.size() == 2:
@@ -641,10 +668,14 @@ func _restore_game(save_data: Dictionary) -> void:
 			int(saved_map_marker_cell[1])
 		)
 	maze.restore_explored_cells(save_data.explored_cells)
-	if not _stations.is_empty():
-		_stations[0].discovered = bool(
-			save_data.get("station_discovered", false)
-		)
+	var discovered_station_ids: Array = save_data.get(
+		"discovered_station_ids",
+		[]
+	)
+	for station in _stations:
+		station.discovered = discovered_station_ids.has(station.station_id) \
+				or station.station_id == 1 \
+				and bool(save_data.get("station_discovered", false))
 	_station_instructions_seen = bool(
 		save_data.get("station_instructions_seen", false)
 	)
@@ -1487,8 +1518,8 @@ func exchange_energy_cores() -> bool:
 	return exchanged
 
 
-func exchange_explored_floor_cells() -> bool:
-	var exchanged := player.exchange_explored_floor_cells()
+func exchange_exploration_points() -> bool:
+	var exchanged := player.exchange_exploration_points()
 	_update_player_panel()
 	return exchanged
 
