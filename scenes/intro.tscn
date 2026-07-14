@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/intro.gd" id="1_intro"]
+[ext_resource type="Texture2D" path="res://assets/art/far_signal_key_art.png" id="2_key_art"]
 
 [node name="Intro" type="Control"]
 layout_mode = 3
@@ -11,6 +12,18 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_intro")
 
+[node name="KeyArt" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("2_key_art")
+expand_mode = 1
+stretch_mode = 6
+
 [node name="Background" type="ColorRect" parent="."]
 layout_mode = 1
 anchors_preset = 15
@@ -19,7 +32,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-color = Color(0.027, 0.055, 0.098, 1)
+color = Color(0.008, 0.012, 0.016, 0.58)
 
 [node name="MarginContainer" type="MarginContainer" parent="."]
 layout_mode = 1

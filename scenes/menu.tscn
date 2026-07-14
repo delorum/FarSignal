@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scripts/main_menu.gd" id="1_menu"]
 [ext_resource type="PackedScene" path="res://scenes/settings_menu.tscn" id="2_settings"]
+[ext_resource type="Texture2D" path="res://assets/art/far_signal_key_art.png" id="3_key_art"]
 
 [node name="MainMenu" type="Control"]
 layout_mode = 3
@@ -12,6 +13,18 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_menu")
 
+[node name="KeyArt" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("3_key_art")
+expand_mode = 1
+stretch_mode = 6
+
 [node name="Background" type="ColorRect" parent="."]
 layout_mode = 1
 anchors_preset = 15
@@ -20,11 +33,12 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-color = Color(0.027, 0.055, 0.098, 1)
+color = Color(0.008, 0.012, 0.016, 0.24)
 
 [node name="CenterContainer" type="CenterContainer" parent="."]
 layout_mode = 1
 anchors_preset = 15
+anchor_left = 0.55
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2

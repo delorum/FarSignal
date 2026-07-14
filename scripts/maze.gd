@@ -1095,7 +1095,16 @@ func _add_stations(rng: RandomNumberGenerator) -> void:
 			else RIGHT_PLACEMENT_X
 		)
 	else:
-		_planned_exit_x = CENTER_PLACEMENT_X
+		var opposite_x := (
+			RIGHT_PLACEMENT_X
+			if placement == 0
+			else LEFT_PLACEMENT_X
+		)
+		_planned_exit_x = (
+			CENTER_PLACEMENT_X
+			if rng.randi_range(0, 1) == 0
+			else opposite_x
+		)
 	_planned_exit_x += rng.randi_range(-PLACEMENT_SPREAD, PLACEMENT_SPREAD)
 
 	_add_station(
@@ -1103,12 +1112,11 @@ func _add_stations(rng: RandomNumberGenerator) -> void:
 		1,
 		Vector2i.DOWN
 	)
-	var station_two_region := rng.randi_range(0, 2)
-	var remaining_regions: Array[int] = [0, 1, 2]
-	remaining_regions.erase(station_two_region)
-	var station_three_region := remaining_regions[
-		rng.randi_range(0, remaining_regions.size() - 1)
-	]
+	var station_two_region := _random_other_placement_region(placement, rng)
+	var station_three_region := _random_other_placement_region(
+		station_two_region,
+		rng
+	)
 	_add_station(
 		Vector2i(
 			_upgrade_station_x(station_two_region, rng),
@@ -1125,6 +1133,15 @@ func _add_stations(rng: RandomNumberGenerator) -> void:
 		3,
 		Vector2i.ZERO
 	)
+
+
+func _random_other_placement_region(
+	region: int,
+	rng: RandomNumberGenerator
+) -> int:
+	var other_regions: Array[int] = [0, 1, 2]
+	other_regions.erase(region)
+	return other_regions[rng.randi_range(0, other_regions.size() - 1)]
 
 
 func _upgrade_station_x(region: int, rng: RandomNumberGenerator) -> int:

@@ -3,7 +3,11 @@ extends Control
 const BuildInfo = preload("res://scripts/build_info.gd")
 const GAME_SCENE := "res://scenes/main.tscn"
 const INTRO_SCENE := "res://scenes/intro.tscn"
+const ART_HOLD_SECONDS := 2.0
+const MENU_FADE_SECONDS := 1.0
 
+@onready var background: ColorRect = $Background
+@onready var center_container: CenterContainer = $CenterContainer
 @onready var main_menu: VBoxContainer = $CenterContainer/MainMenu
 @onready var controls_screen: VBoxContainer = $CenterContainer/ControlsScreen
 @onready var settings_menu: Control = $CenterContainer/SettingsMenu
@@ -21,6 +25,37 @@ func _ready() -> void:
 	version_label.text = BuildInfo.display_text()
 	continue_button.visible = SaveStore.has_loadable_save()
 	exit_button.visible = not OS.has_feature("web")
+	background.modulate.a = 0.0
+	center_container.hide()
+	version_label.hide()
+	await get_tree().create_timer(ART_HOLD_SECONDS).timeout
+	_reveal_menu()
+
+
+func _reveal_menu() -> void:
+	center_container.modulate.a = 0.0
+	version_label.modulate.a = 0.0
+	center_container.show()
+	version_label.show()
+	var tween := create_tween().set_parallel(true)
+	tween.tween_property(
+		background,
+		"modulate:a",
+		1.0,
+		MENU_FADE_SECONDS
+	)
+	tween.tween_property(
+		center_container,
+		"modulate:a",
+		1.0,
+		MENU_FADE_SECONDS
+	)
+	tween.tween_property(
+		version_label,
+		"modulate:a",
+		1.0,
+		MENU_FADE_SECONDS
+	)
 	_focus_first_menu_button()
 
 

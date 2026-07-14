@@ -26,8 +26,6 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	version_label.text = BuildInfo.display_text()
 	objective_text.text = LoreText.OBJECTIVE_TEXT
-	if OS.has_feature("web"):
-		save_and_exit_button.text = "Сохранить и выйти в меню"
 
 
 func _exit_tree() -> void:
@@ -88,7 +86,7 @@ func _on_settings_back_requested() -> void:
 
 
 func _on_save_and_exit_pressed() -> void:
-	if not game.save_game():
+	if game.can_save_game() and not game.save_game():
 		return
 	if OS.has_feature("web"):
 		get_tree().paused = false
@@ -125,5 +123,10 @@ func _show_pause_menu() -> void:
 	controls_screen.hide()
 	objective_screen.hide()
 	settings_menu.hide()
+	save_and_exit_button.text = (
+		"Сохранить и выйти"
+		if game.can_save_game()
+		else "Выйти без сохранения"
+	)
 	pause_menu.show()
 	continue_button.grab_focus()

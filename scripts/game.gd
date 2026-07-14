@@ -361,6 +361,10 @@ func clear_map_marker() -> void:
 	queue_redraw()
 
 
+func can_save_game() -> bool:
+	return maze.is_cell_safe(maze.world_to_cell(player.position))
+
+
 func try_fast_travel_to_safe_cell(cell: Vector2i) -> bool:
 	if not maze.is_cell_safe(maze.world_to_cell(player.position)) \
 			or not maze.is_cell_safe(cell) \
