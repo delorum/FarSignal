@@ -94,6 +94,7 @@ func _on_save_and_exit_pressed() -> void:
 		get_tree().paused = false
 		get_tree().change_scene_to_file(MAIN_MENU_SCENE)
 	else:
+		await AudioManager.wait_for_menu_confirmation()
 		get_tree().quit()
 
 
@@ -104,12 +105,14 @@ func _on_back_pressed() -> void:
 func _open_pause_menu() -> void:
 	visible = true
 	get_tree().paused = true
+	AudioManager.set_menu_music_active(true)
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	_show_pause_menu()
 
 
 func _resume_game() -> void:
 	visible = false
+	AudioManager.set_menu_music_active(false)
 	get_tree().paused = map_view.visible
 	Input.set_mouse_mode(
 		Input.MOUSE_MODE_VISIBLE

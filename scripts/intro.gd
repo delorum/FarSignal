@@ -11,6 +11,7 @@ var _input_enabled := false
 func _ready() -> void:
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	AudioManager.set_combat_active(false)
+	AudioManager.set_menu_music_active(false)
 	objective_text.text = LoreText.OBJECTIVE_TEXT
 	await get_tree().process_frame
 	_input_enabled = true

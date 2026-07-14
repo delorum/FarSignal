@@ -23,7 +23,9 @@ const AMMO_COST_PER_ROUND := 1
 const LOWER_LEVEL_CORE_ENERGY := 10
 const EQUAL_LEVEL_CORE_ENERGY := 20
 const EXPLORATION_POINTS_PER_ENERGY := 20
-const MEGA_CORE_RETURN_ENERGY := 100
+const LOWER_LEVEL_MEGA_CORE_ENERGY := 50
+const EQUAL_LEVEL_MEGA_CORE_ENERGY := 100
+const MEGA_CORE_LEVEL_BONUS_ENERGY := 50
 const DOOR_COST := 50
 const STARTING_DOORS := 0
 const MAX_DOOR_INVENTORY := 5
@@ -56,6 +58,7 @@ var door_inventory := STARTING_DOORS
 var exploration_points := 0
 var mega_core_cell := Vector2i(-1, -1)
 var has_mega_core := false
+var mega_core_energy_value := EQUAL_LEVEL_MEGA_CORE_ENERGY
 var noise_level := 0.0
 var _facing := Vector2.RIGHT
 var _animation_time := 0.0
@@ -105,7 +108,8 @@ func restore_status(
 	saved_ammo_upgrade_level: int = 0,
 	saved_energy_core_energy: int = 0,
 	saved_energy_received_total: int = 0,
-	saved_energy_spent_total: int = 0
+	saved_energy_spent_total: int = 0,
+	saved_mega_core_energy_value: int = EQUAL_LEVEL_MEGA_CORE_ENERGY
 ) -> void:
 	damage_upgrade_level = clampi(
 		saved_damage_upgrade_level,
@@ -130,6 +134,7 @@ func restore_status(
 	exploration_points = maxi(0, saved_exploration_points)
 	mega_core_cell = saved_mega_core_cell
 	has_mega_core = saved_has_mega_core
+	mega_core_energy_value = maxi(0, saved_mega_core_energy_value)
 
 
 func consume_ammo() -> bool:
@@ -341,9 +346,10 @@ func exchange_exploration_points() -> bool:
 	return true
 
 
-func assign_mega_core(cell: Vector2i) -> void:
+func assign_mega_core(cell: Vector2i, core_energy_value: int) -> void:
 	mega_core_cell = cell
 	has_mega_core = false
+	mega_core_energy_value = maxi(0, core_energy_value)
 
 
 func collect_mega_core() -> bool:
@@ -356,10 +362,19 @@ func collect_mega_core() -> bool:
 func return_mega_core() -> bool:
 	if not has_mega_core:
 		return false
-	_gain_energy(MEGA_CORE_RETURN_ENERGY)
+	_gain_energy(mega_core_energy_value)
 	mega_core_cell = Vector2i(-1, -1)
 	has_mega_core = false
+	mega_core_energy_value = EQUAL_LEVEL_MEGA_CORE_ENERGY
 	return true
+
+
+static func mega_core_reward(zone_level: int, player_level: int) -> int:
+	if zone_level < player_level:
+		return LOWER_LEVEL_MEGA_CORE_ENERGY
+	return EQUAL_LEVEL_MEGA_CORE_ENERGY + (
+		zone_level - player_level
+	) * MEGA_CORE_LEVEL_BONUS_ENERGY
 
 
 func collect_energy_core(core_energy: int) -> void:

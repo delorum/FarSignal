@@ -1,7 +1,7 @@
 extends Node
 
 const SAVE_FILE_NAME := "far_signal_save.json"
-const SAVE_VERSION := 7
+const SAVE_VERSION := 8
 
 var pending_save: Dictionary = {}
 

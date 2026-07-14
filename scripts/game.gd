@@ -28,6 +28,7 @@ const MEGA_CORE_MIN_SAFE_ZONE_DISTANCE := 30
 const MEGA_CORE_MAX_SAFE_ZONE_DISTANCE := 80
 const MAX_ALERTED_ENEMIES := 3
 const PURSUIT_STATUS_INTERVAL := 3.0
+const COMBAT_MUSIC_HOLD_SECONDS := 10.0
 const ENEMY_PATHFIND_BUDGET_PER_PHYSICS_FRAME := 4
 const SLOW_FRAME_LOG_THRESHOLD := 0.08
 const PERFORMANCE_LOGGING_ENABLED := true
@@ -65,7 +66,6 @@ enum BuildActionType {
 @onready var camera: Camera2D = $Player/Camera2D
 @onready var player_panel: Panel = $GameInterface/PlayerPanel
 @onready var hit_flash: Panel = $GameInterface/HitFlash
-@onready var coordinates_label: Label = $GameInterface/PlayerPanel/Coordinates
 @onready var health_value: Label = $GameInterface/PlayerPanel/Margin/VBox/HealthValue
 @onready var health_bar: ProgressBar = $GameInterface/PlayerPanel/Margin/VBox/HealthBar
 @onready var ammo_value: Label = $GameInterface/PlayerPanel/Margin/VBox/AmmoValue
@@ -83,7 +83,6 @@ enum BuildActionType {
 @onready var defeat_menu: Control = $DefeatOverlay/DefeatMenu
 @onready var victory_menu: Control = $VictoryOverlay/VictoryMenu
 
-var _displayed_player_cell := Vector2i(-1, -1)
 var _displayed_health := -1
 var _displayed_ammo := -1
 var _displayed_damage_min := -1
@@ -105,6 +104,7 @@ var _station_instructions_seen := false
 var _rng := RandomNumberGenerator.new()
 var _hit_flash_tween: Tween
 var _combat_music_active := false
+var _combat_music_hold_left := 0.0
 var _game_time_seconds := 0.0
 var _map_marker_cell := Vector2i(-1, -1)
 var _map_marker_path: Array[Vector2i] = []
@@ -136,6 +136,7 @@ func _enter_tree() -> void:
 func _ready() -> void:
 	Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
 	AudioManager.set_combat_active(false)
+	AudioManager.set_menu_music_active(false)
 	_rng.randomize()
 	enemy_target_markers.setup(maze, enemies)
 	mega_core_marker.setup(maze, player, self)
@@ -162,7 +163,6 @@ func _ready() -> void:
 		SaveStore.delete_save()
 
 	_update_visibility()
-	_update_coordinates()
 	_update_player_panel()
 
 
@@ -222,22 +222,30 @@ func _process(delta: float) -> void:
 
 	_update_visibility()
 	_update_pursuit_status(delta)
-	_update_coordinates()
 	_clear_reached_map_marker()
 	_update_map_marker_path(delta)
 	_pick_up_energy_cores()
 	_pick_up_mega_core()
 	_update_player_panel()
-	_update_music_state()
+	_update_music_state(delta)
 	_log_slow_frame_if_needed(delta)
 
 
-func _update_music_state() -> void:
-	var combat_active := false
+func _update_music_state(delta: float) -> void:
+	var has_alerted_enemy := false
 	for enemy: Enemy in _enemies:
-		if not enemy.dead and enemy.is_attack_state():
-			combat_active = true
+		if not enemy.dead and enemy.is_alerted():
+			has_alerted_enemy = true
 			break
+
+	if has_alerted_enemy:
+		_combat_music_hold_left = COMBAT_MUSIC_HOLD_SECONDS
+	else:
+		_combat_music_hold_left = maxf(
+			0.0,
+			_combat_music_hold_left - delta
+		)
+	var combat_active := has_alerted_enemy or _combat_music_hold_left > 0.0
 	if combat_active != _combat_music_active:
 		_combat_music_active = combat_active
 		AudioManager.set_combat_active(combat_active)
@@ -361,7 +369,6 @@ func try_fast_travel_to_safe_cell(cell: Vector2i) -> bool:
 
 	player.position = maze.cell_to_world(cell)
 	_update_visibility()
-	_update_coordinates()
 	_refresh_map_marker_path()
 	_update_player_panel()
 	return true
@@ -477,15 +484,6 @@ func _update_pursuit_status(delta: float) -> void:
 	enemy_in_safe_zone_value.visible = enemy_in_safe_zone
 
 
-func _update_coordinates() -> void:
-	var player_cell: Vector2i = maze.world_to_cell(player.position)
-	if player_cell == _displayed_player_cell:
-		return
-
-	_displayed_player_cell = player_cell
-	coordinates_label.text = "X: %d  Y: %d" % [player_cell.x, player_cell.y]
-
-
 func _update_player_panel() -> void:
 	var current_damage_min := player.damage_min()
 	var current_damage_max := player.damage_max()
@@ -548,6 +546,7 @@ func _pick_up_energy_cores() -> void:
 			continue
 		if enemy.collect_energy_core():
 			player.collect_energy_core(enemy.energy_core_value())
+			AudioManager.play_mega_core_pickup()
 			_update_player_panel()
 
 
@@ -564,19 +563,12 @@ func _pick_up_mega_core() -> void:
 
 func _mega_core_status_text() -> String:
 	if player.has_mega_core:
-		if not _stations.is_empty():
-			var station_cell: Vector2i = _stations[0].cell
-			return "Мегаядро: вернуть\nX: %d, Y: %d" % [
-				station_cell.x,
-				station_cell.y,
-			]
-		return "Мегаядро: Вернуть"
+		return "Мегаядро: вернуть"
 	if player.mega_core_cell.x >= 0:
-		return "Мегаядро: искать\nX: %d, Y: %d" % [
-			player.mega_core_cell.x,
-			player.mega_core_cell.y,
-		]
-	return "Мегаядро: нет координат"
+		return "Мегаядро: зона %d" % _enemy_level_for_y(
+			player.mega_core_cell.y
+		)
+	return "Мегаядро: не найдено"
 
 
 func save_game() -> bool:
@@ -600,6 +592,7 @@ func save_game() -> bool:
 			player.mega_core_cell.y,
 		],
 		"player_has_mega_core": player.has_mega_core,
+		"player_mega_core_energy_value": player.mega_core_energy_value,
 		"player_damage_upgrade_level": player.damage_upgrade_level,
 		"player_health_upgrade_level": player.health_upgrade_level,
 		"player_ammo_upgrade_level": player.ammo_upgrade_level,
@@ -665,7 +658,11 @@ func _restore_game(save_data: Dictionary) -> void:
 		int(save_data.get("player_ammo_upgrade_level", 0)),
 		int(save_data.get("player_energy_core_energy", 0)),
 		int(save_data.get("player_energy_received_total", 0)),
-		int(save_data.get("player_energy_spent_total", 0))
+		int(save_data.get("player_energy_spent_total", 0)),
+		int(save_data.get(
+			"player_mega_core_energy_value",
+			Player.EQUAL_LEVEL_MEGA_CORE_ENERGY
+		))
 	)
 	var saved_map_marker_cell: Array = save_data.get("map_marker_cell", [])
 	if saved_map_marker_cell.size() == 2:
@@ -1130,7 +1127,7 @@ func _start_door_action_at(target_cell: Vector2i) -> void:
 	var existing_door := _door_at(target_cell)
 	if existing_door != null:
 		if not player.can_store_door():
-			spawn_floating_text(
+			show_door_error(
 				existing_door.position + Vector2(0.0, -Door.CELL_SIZE * 0.35),
 				INVENTORY_LIMIT_LABEL,
 				Vector2.UP
@@ -1299,7 +1296,7 @@ func _door_at(cell: Vector2i) -> Door:
 
 func _can_remove_door(door: Door) -> bool:
 	if _is_start_station_locked_door(door) or _is_exit_door(door):
-		spawn_floating_text(
+		show_door_error(
 			door.position + Vector2(0.0, -Door.CELL_SIZE * 0.35),
 			DOOR_REMOVE_FORBIDDEN_LABEL,
 			Vector2.UP
@@ -1312,7 +1309,7 @@ func _can_remove_door(door: Door) -> bool:
 	if _door_sides_have_matching_safe_zone(door):
 		return true
 
-	spawn_floating_text(
+	show_door_error(
 		door.position + Vector2(0.0, -Door.CELL_SIZE * 0.35),
 		SAFE_ZONE_BOUNDARY_DOOR_LABEL,
 		Vector2.UP
@@ -1388,7 +1385,7 @@ func _interact_with_door() -> void:
 		return
 
 	if closest_door.locked and _is_start_station_locked_door(closest_door):
-		spawn_floating_text(
+		show_door_error(
 			closest_door.position + Vector2(0.0, -Door.CELL_SIZE * 0.35),
 			LOCKED_DOOR_LABEL,
 			Vector2.UP
@@ -1408,7 +1405,7 @@ func _interact_with_door() -> void:
 
 func _interact_with_exit_door(door: Door) -> void:
 	if not maze.is_cell_safe(door.cell + Vector2i.DOWN):
-		spawn_floating_text(
+		show_door_error(
 			door.position + Vector2(0.0, Door.CELL_SIZE * 0.35),
 			EXIT_DOOR_LOCKED_LABEL,
 			Vector2.DOWN
@@ -1545,7 +1542,11 @@ func return_mega_core() -> bool:
 func _assign_new_mega_core() -> void:
 	var cell := _find_mega_core_cell()
 	if cell.x >= 0:
-		player.assign_mega_core(cell)
+		var core_energy_value := Player.mega_core_reward(
+			_enemy_level_for_y(cell.y),
+			player.current_level()
+		)
+		player.assign_mega_core(cell, core_energy_value)
 		queue_redraw()
 
 
@@ -1746,6 +1747,15 @@ func spawn_floating_text(
 	damage_numbers.add_child(floating_text)
 
 
+func show_door_error(
+	start_position: Vector2,
+	text: String,
+	direction: Vector2
+) -> void:
+	AudioManager.play_door_error()
+	spawn_floating_text(start_position, text, direction)
+
+
 func enemy_killed(_enemy: Node) -> void:
 	_enemies_killed += 1
 	call_deferred("_maintain_enemy_population")
@@ -1820,6 +1830,7 @@ func _alert_enemies_to_shot(
 func _show_defeat() -> void:
 	_defeated = true
 	player.controls_enabled = false
+	AudioManager.play_defeat_music()
 	defeat_menu.open(
 		_enemies_killed,
 		maze.explored_floor_cell_count(),
@@ -1835,6 +1846,7 @@ func _show_defeat() -> void:
 func _show_victory() -> void:
 	_victorious = true
 	player.controls_enabled = false
+	AudioManager.play_victory_music()
 	victory_menu.open(
 		_enemies_killed,
 		maze.explored_floor_cell_count(),

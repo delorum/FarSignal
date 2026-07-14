@@ -120,26 +120,11 @@ grow_horizontal = 0
 grow_vertical = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 
-[node name="Coordinates" type="Label" parent="GameInterface/PlayerPanel"]
-z_index = 1
-layout_mode = 1
-anchors_preset = 10
-anchor_right = 1.0
-offset_left = 24.0
-offset_top = 16.0
-offset_right = -24.0
-offset_bottom = 44.0
-grow_horizontal = 2
-theme_override_colors/font_color = Color(0.63, 0.7, 0.78, 1)
-theme_override_font_sizes/font_size = 18
-text = "X: 0  Y: 0"
-
 [node name="Margin" type="MarginContainer" parent="GameInterface/PlayerPanel"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_top = 48.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/margin_left = 24

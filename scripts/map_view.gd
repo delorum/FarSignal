@@ -145,13 +145,16 @@ func _set_marker_at_mouse() -> void:
 		return
 
 	if game.try_fast_travel_to_safe_cell(cell):
+		AudioManager.play_menu_confirmation()
 		_update_map_content()
 		return
 
 	if game.has_map_marker() and game.map_marker_cell() == cell:
 		game.clear_map_marker()
+		AudioManager.play_map_marker_remove()
 	else:
 		game.set_map_marker_cell(cell)
+		AudioManager.play_menu_confirmation()
 	map_content.queue_redraw()
 
 

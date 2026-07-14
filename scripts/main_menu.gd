@@ -17,6 +17,7 @@ const INTRO_SCENE := "res://scenes/intro.tscn"
 func _ready() -> void:
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	AudioManager.set_combat_active(false)
+	AudioManager.set_menu_music_active(true)
 	version_label.text = BuildInfo.display_text()
 	continue_button.visible = SaveStore.has_loadable_save()
 	exit_button.visible = not OS.has_feature("web")
@@ -68,6 +69,7 @@ func _on_settings_back_requested() -> void:
 func _on_exit_pressed() -> void:
 	if OS.has_feature("web"):
 		return
+	await AudioManager.wait_for_menu_confirmation()
 	get_tree().quit()
 
 

@@ -1183,7 +1183,8 @@ func _connect_station_door(
 	direction: Vector2i
 ) -> void:
 	var cell := door_cell + direction
-	while _is_inside(cell):
+	while cell.x > 0 and cell.x < COLUMNS - 1 \
+			and cell.y > 0 and cell.y < ROWS - 1:
 		if not _is_wall(cell):
 			return
 		_cells[cell.y][cell.x] = 0

@@ -58,6 +58,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func open(show_instructions: bool = false, station_id: int = 1) -> void:
+	AudioManager.play_station_open()
 	_station_id = station_id
 	title.text = "Станция %d" % station_id
 	for button in _station_one_buttons:
@@ -223,6 +224,7 @@ func _on_information_back_pressed() -> void:
 
 
 func _on_exit_pressed() -> void:
+	AudioManager.play_station_close()
 	close()
 
 
@@ -279,7 +281,7 @@ func _update_buttons() -> void:
 
 	return_mega_core_button.disabled = not game.player.has_mega_core
 	return_mega_core_button.text = (
-		"Вернуть мегаядро: +%d энергии" % Player.MEGA_CORE_RETURN_ENERGY
+		"Вернуть мегаядро: +%d энергии" % game.player.mega_core_energy_value
 		if game.player.has_mega_core
 		else "Мегаядро не найдено"
 	)
