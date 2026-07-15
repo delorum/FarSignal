@@ -51,6 +51,7 @@ border_width_bottom = 10
 border_color = Color(0.85, 0.08, 0.1, 0.9)
 
 [node name="Game" type="Node2D" unique_id=1970410369]
+auto_translate_mode = 2
 script = ExtResource("1_game")
 
 [node name="Maze" type="StaticBody2D" parent="." unique_id=2053429230]
@@ -398,7 +399,7 @@ mouse_filter = 2
 layout_mode = 2
 theme_override_colors/font_color = Color(0.82, 0.88, 0.94, 1)
 theme_override_font_sizes/font_size = 20
-text = "WASD или стрелки — движение\nМышь — направление взгляда\nЛевая кнопка мыши — одиночный выстрел\nПравая кнопка мыши — поставить или убрать дверь на соседней клетке\nE — открыть или закрыть дверь, взаимодействовать со станцией\nTab — открыть или закрыть карту\nПравая кнопка мыши на карте — указать или убрать точку маршрута\nEsc — пауза или вернуться назад"
+text = "WASD или стрелки — движение\nМышь — направление взгляда\nЛевая кнопка мыши — выстрел\nПравая кнопка мыши — поставить или убрать дверь на соседней клетке\nE — открыть или закрыть дверь, взаимодействовать со станцией\nTab — открыть или закрыть карту\nПравая кнопка мыши на карте — указать или убрать точку маршрута\nEsc — пауза или вернуться назад"
 horizontal_alignment = 1
 line_spacing = 8
 
@@ -423,7 +424,7 @@ theme_override_constants/separation = 16
 layout_mode = 2
 theme_override_colors/font_color = Color(0.345, 0.839, 0.961, 1)
 theme_override_font_sizes/font_size = 38
-text = "Источник сигнала"
+text = "Цель"
 horizontal_alignment = 1
 
 [node name="ObjectiveText" type="Label" parent="PauseOverlay/PauseMenu/CenterContainer/ObjectiveScreen"]
@@ -431,7 +432,7 @@ custom_minimum_size = Vector2(0, 310)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.82, 0.88, 0.94, 1)
 theme_override_font_sizes/font_size = 19
-text = "Objective"
+text = "Цель"
 horizontal_alignment = 1
 vertical_alignment = 1
 autowrap_mode = 2

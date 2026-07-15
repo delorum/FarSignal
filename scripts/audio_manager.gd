@@ -205,10 +205,14 @@ func _process(delta: float) -> void:
 	if _menu_music_active or _station_music_active or _ending_music_active:
 		return
 	if _combat_active:
+		if not _combat_players[_active_combat_player].playing:
+			_start_next_combat_track()
 		_combat_track_time_left -= delta
 		if _combat_track_time_left <= EXPLORATION_CROSSFADE_DURATION:
 			_start_next_combat_track()
 	else:
+		if not _exploration_players[_active_exploration_player].playing:
+			_start_next_exploration_track()
 		_exploration_track_time_left -= delta
 		if _exploration_track_time_left <= EXPLORATION_CROSSFADE_DURATION:
 			_start_next_exploration_track()
@@ -245,6 +249,7 @@ func set_combat_active(active: bool) -> void:
 	if active:
 		_start_combat_encounter_track()
 	_update_player_pause_states()
+	_ensure_active_gameplay_track()
 	_update_music_mix()
 
 
@@ -258,6 +263,7 @@ func set_menu_music_active(active: bool) -> void:
 		return
 	_menu_music_active = active
 	_update_player_pause_states()
+	_ensure_active_gameplay_track()
 	_update_music_mix()
 
 
@@ -266,6 +272,7 @@ func set_station_music_active(active: bool) -> void:
 		return
 	_station_music_active = active
 	_update_player_pause_states()
+	_ensure_active_gameplay_track()
 	_update_music_mix()
 
 
@@ -470,6 +477,16 @@ func _update_player_pause_states() -> void:
 	)
 	for player: AudioStreamPlayer in _combat_players:
 		player.stream_paused = combat_paused
+
+
+func _ensure_active_gameplay_track() -> void:
+	if _menu_music_active or _station_music_active or _ending_music_active:
+		return
+	if _combat_active:
+		if not _combat_players[_active_combat_player].playing:
+			_start_next_combat_track()
+	elif not _exploration_players[_active_exploration_player].playing:
+		_start_next_exploration_track()
 
 
 func play_player_shot() -> void:

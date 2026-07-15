@@ -34,7 +34,8 @@ var _upgrade_buttons: Array[Button] = []
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	instructions_text.text = LoreText.STATION_INSTRUCTIONS
+	instructions_text.text = LoreText.station_instructions()
+	Localization.language_changed.connect(_on_language_changed)
 	_station_one_buttons = [
 		ammo_button,
 		health_button,
@@ -61,7 +62,7 @@ func open(show_instructions: bool = false, station_id: int = 1) -> void:
 	AudioManager.play_station_open()
 	AudioManager.set_station_music_active(true)
 	_station_id = station_id
-	title.text = "Станция %d" % station_id
+	title.text = tr("Станция %d") % station_id
 	for button in _station_one_buttons:
 		button.visible = station_id == 1
 	for button in _upgrade_buttons:
@@ -114,15 +115,15 @@ func _show_information() -> void:
 	var statistics: Dictionary = game.station_statistics()
 	var total_floor_cells: int = statistics.total_floor_cells
 	information_text.text = (
-		"Исследовано клеток: %d (%.1f%%)\n"
-		+ "Размер безопасной зоны: %d (%.1f%%)\n"
-		+ "Убито врагов: %d\n"
-		+ "Врагов на карте: %d\n"
-		+ "Возвращено мегаядер: %d\n"
-		+ "Получено энергии: %d\n"
-		+ "Потрачено энергии: %d\n"
-		+ "Осталось энергии: %d\n\n"
-		+ "Уровни врагов:\n%s"
+		tr("Исследовано клеток: %d (%.1f%%)\n")
+		+ tr("Размер безопасной зоны: %d (%.1f%%)\n")
+		+ tr("Убито врагов: %d\n")
+		+ tr("Врагов на карте: %d\n")
+		+ tr("Возвращено мегаядер: %d\n")
+		+ tr("Получено энергии: %d\n")
+		+ tr("Потрачено энергии: %d\n")
+		+ tr("Осталось энергии: %d\n\n")
+		+ tr("Уровни врагов:\n%s")
 	) % [
 		statistics.explored_cells,
 		_percentage(statistics.explored_cells, total_floor_cells),
@@ -231,8 +232,8 @@ func _on_exit_pressed() -> void:
 
 
 func _update_buttons() -> void:
-	energy_value.text = "Энергия: %d" % game.player.energy
-	player_status_value.text = "Здоровье: %d/%d    Патроны: %d/%d" % [
+	energy_value.text = tr("Энергия: %d") % game.player.energy
+	player_status_value.text = tr("Здоровье: %d/%d    Патроны: %d/%d") % [
 		game.player.health,
 		game.player.max_health,
 		game.player.ammo,
@@ -243,18 +244,18 @@ func _update_buttons() -> void:
 	var ammo_cost: int = game.player.ammo_purchase_cost()
 	ammo_button.disabled = ammo_amount <= 0 or game.player.energy < ammo_cost
 	ammo_button.text = (
-		"Полный боезапас"
+		tr("Полный боезапас")
 		if ammo_amount <= 0
-		else "Купить %d патронов за %d энергии" % [ammo_amount, ammo_cost]
+		else tr("Купить %d патронов за %d энергии") % [ammo_amount, ammo_cost]
 	)
 
 	var health_amount: int = game.player.health_purchase_amount()
 	var health_cost: int = game.player.health_purchase_cost()
 	health_button.disabled = health_amount <= 0 or game.player.energy < health_cost
 	health_button.text = (
-		"Полное здоровье"
+		tr("Полное здоровье")
 		if health_amount <= 0
-		else "Восстановить %d здоровья за %d энергии" % [
+		else tr("Восстановить %d здоровья за %d энергии") % [
 			health_amount,
 			health_cost,
 		]
@@ -262,9 +263,9 @@ func _update_buttons() -> void:
 
 	exchange_button.disabled = game.player.energy_cores <= 0
 	exchange_button.text = (
-		"Нет энергоядер"
+		tr("Нет энергоядер")
 		if game.player.energy_cores <= 0
-		else "Сдать энергоядра: +%d энергии" % (
+		else tr("Сдать энергоядра: +%d энергии") % (
 			game.player.energy_core_exchange_energy()
 		)
 	)
@@ -273,9 +274,9 @@ func _update_buttons() -> void:
 	var exchange_energy: int = game.player.exploration_exchange_energy()
 	exchange_cells_button.disabled = exchanged_points <= 0
 	exchange_cells_button.text = (
-		"Нужно %d очков исследования" % Player.EXPLORATION_POINTS_PER_ENERGY
+		tr("Нужно %d очков исследования") % Player.EXPLORATION_POINTS_PER_ENERGY
 		if exchanged_points <= 0
-		else "Сдать %d очков: +%d энергии" % [
+		else tr("Сдать %d очков: +%d энергии") % [
 			exchanged_points,
 			exchange_energy,
 		]
@@ -283,37 +284,37 @@ func _update_buttons() -> void:
 
 	return_mega_core_button.disabled = not game.player.has_mega_core
 	return_mega_core_button.text = (
-		"Вернуть мегаядро: +%d энергии" % game.player.mega_core_energy_value
+		tr("Вернуть мегаядро: +%d энергии") % game.player.mega_core_energy_value
 		if game.player.has_mega_core
-		else "Мегаядро не найдено"
+		else tr("Мегаядро не найдено")
 	)
 
 	door_button.disabled = not game.player.can_buy_door()
 	door_button.text = (
-		"Двери: максимум"
+		tr("Двери: максимум")
 		if not game.player.can_store_door()
-		else "Купить дверь за %d энергии" % Player.DOOR_COST
+		else tr("Купить дверь за %d энергии") % Player.DOOR_COST
 	)
 
 	damage_upgrade_button.disabled = not game.can_upgrade_player_damage(
 		_station_id
 	)
 	damage_upgrade_button.text = _upgrade_button_text(
-		"Урон",
+		tr("Урон"),
 		game.player.damage_upgrade_level
 	)
 	health_upgrade_button.disabled = not game.can_upgrade_player_health(
 		_station_id
 	)
 	health_upgrade_button.text = _upgrade_button_text(
-		"Здоровье",
+		tr("Здоровье"),
 		game.player.health_upgrade_level
 	)
 	ammo_upgrade_button.disabled = not game.can_upgrade_player_ammo(
 		_station_id
 	)
 	ammo_upgrade_button.text = _upgrade_button_text(
-		"Боезапас",
+		tr("Боезапас"),
 		game.player.ammo_upgrade_level
 	)
 
@@ -322,14 +323,22 @@ func _upgrade_button_text(label: String, level: int) -> String:
 	var station_minimum := (_station_id - 2) * Player.UPGRADES_PER_STATION
 	var station_maximum := station_minimum + Player.UPGRADES_PER_STATION
 	if level < station_minimum:
-		return "%s: нужна предыдущая станция" % label
+		return tr("%s: нужна предыдущая станция") % label
 	if level >= station_maximum and level < Player.MAX_UPGRADE_LEVEL:
-		return "%s: на этой станции максимум" % label
+		return tr("%s: на этой станции максимум") % label
 	if level >= Player.MAX_UPGRADE_LEVEL:
-		return "%s: максимум" % label
-	return "%s: уровень %d/%d за %d энергии" % [
+		return tr("%s: максимум") % label
+	return tr("%s: уровень %d/%d за %d энергии") % [
 		label,
 		level + 2,
 		Player.PLAYER_LEVEL_COUNT,
 		Player.UPGRADE_COST,
 	]
+
+
+func _on_language_changed() -> void:
+	title.text = tr("Станция %d") % _station_id
+	instructions_text.text = LoreText.station_instructions()
+	_update_buttons()
+	if information_screen.visible:
+		_show_information()

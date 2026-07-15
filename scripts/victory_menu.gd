@@ -23,18 +23,18 @@ func open(
 	energy_spent: int,
 	energy_remaining: int
 ) -> void:
-	kills_value.text = "Убито врагов: %d" % enemies_killed
-	explored_value.text = "Исследовано клеток: %d (%.1f%%)" % [
+	kills_value.text = tr("Убито врагов: %d") % enemies_killed
+	explored_value.text = tr("Исследовано клеток: %d (%.1f%%)") % [
 		explored_cells,
 		_percentage(explored_cells, total_floor_cells),
 	]
-	safe_zone_value.text = "Размер безопасной зоны: %d (%.1f%%)" % [
+	safe_zone_value.text = tr("Размер безопасной зоны: %d (%.1f%%)") % [
 		safe_zone_size,
 		_percentage(safe_zone_size, total_floor_cells),
 	]
-	mega_cores_value.text = "Возвращено мегаядер: %d" % mega_cores_returned
+	mega_cores_value.text = tr("Возвращено мегаядер: %d") % mega_cores_returned
 	energy_value.text = (
-		"Получено энергии: %d\nПотрачено энергии: %d\nОсталось энергии: %d"
+		tr("Получено энергии: %d\nПотрачено энергии: %d\nОсталось энергии: %d")
 	) % [energy_received, energy_spent, energy_remaining]
 	visible = true
 	get_tree().paused = true

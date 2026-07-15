@@ -83,9 +83,9 @@ func _update_text() -> void:
 		Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME
 	))
 	_label.text = (
-		"FPS: %d\nКадр: %.1f мс\nПик (5 с): %.1f мс\n"
-		+ "Логика: %.1f мс (пик %.1f)\n"
-		+ "Физика: %.1f мс\nОтрисовка: %d выз."
+		tr("FPS: %d\nКадр: %.1f мс\nПик (5 с): %.1f мс\n")
+		+ tr("Логика: %.1f мс (пик %.1f)\n")
+		+ tr("Физика: %.1f мс\nОтрисовка: %d выз.")
 	) % [
 		Engine.get_frames_per_second(),
 		_frame_time_ms,

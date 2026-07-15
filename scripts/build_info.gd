@@ -10,8 +10,8 @@ static func display_text() -> String:
 	if build_sha.is_empty() and not OS.has_feature("web"):
 		build_sha = _local_git_sha()
 	if build_sha.is_empty():
-		return "Версия %s" % version
-	return "Версия %s · %s" % [version, build_sha]
+		return TranslationServer.translate("Версия %s") % version
+	return TranslationServer.translate("Версия %s · %s") % [version, build_sha]
 
 
 static func _local_git_sha() -> String:

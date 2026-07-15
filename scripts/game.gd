@@ -146,6 +146,7 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(_update_adaptive_layout)
 	player.damaged.connect(_show_hit_flash)
 	player.damaged.connect(_cancel_build_action_from_damage)
+	Localization.language_changed.connect(_on_language_changed)
 	_update_adaptive_layout()
 	var save_data := SaveStore.consume_pending_save()
 	if save_data.is_empty():
@@ -498,7 +499,7 @@ func _update_player_panel() -> void:
 			or current_damage_max != _displayed_damage_max:
 		_displayed_damage_min = current_damage_min
 		_displayed_damage_max = current_damage_max
-		damage_value.text = "Урон: %d-%d" % [
+		damage_value.text = tr("Урон: %d-%d") % [
 			current_damage_min,
 			current_damage_max,
 		]
@@ -525,17 +526,17 @@ func _update_player_panel() -> void:
 		ammo_bar.value = player.ammo
 	if player.energy_cores != _displayed_energy_cores:
 		_displayed_energy_cores = player.energy_cores
-		energy_cores_value.text = "Энергоядра: %d" % player.energy_cores
+		energy_cores_value.text = tr("Энергоядра: %d") % player.energy_cores
 	if player.energy != _displayed_energy:
 		_displayed_energy = player.energy
-		energy_value.text = "Энергия: %d" % player.energy
+		energy_value.text = tr("Энергия: %d") % player.energy
 	if player.door_inventory != _displayed_door_inventory:
 		_displayed_door_inventory = player.door_inventory
-		doors_value.text = "Двери: %d" % player.door_inventory
+		doors_value.text = tr("Двери: %d") % player.door_inventory
 	if player.exploration_points != _displayed_exploration_points:
 		_displayed_exploration_points = player.exploration_points
 		explored_cells_value.text = (
-			"Очки исследования: %d" % player.exploration_points
+			tr("Очки исследования: %d") % player.exploration_points
 		)
 	var mega_core_text := _mega_core_status_text()
 	if mega_core_text != _displayed_mega_core_text:
@@ -570,12 +571,12 @@ func _pick_up_mega_core() -> void:
 
 func _mega_core_status_text() -> String:
 	if player.has_mega_core:
-		return "Вернуть мегаядро на станцию 1"
+		return tr("Вернуть мегаядро на станцию 1")
 	if player.mega_core_cell.x >= 0:
-		return "Найти мегаядро в зоне %d" % _enemy_level_for_y(
+		return tr("Найти мегаядро в зоне %d") % _enemy_level_for_y(
 			player.mega_core_cell.y
 		)
-	return "Мегаядро: не найдено"
+	return tr("Мегаядро: не найдено")
 
 
 func save_game() -> bool:
@@ -935,7 +936,7 @@ func station_statistics() -> Dictionary:
 func _enemy_level_summary() -> String:
 	var lines: Array[String] = []
 	for level in range(1, ENEMY_LEVEL_COUNT + 1):
-		lines.append("%d: %d здоровья, урон %d–%d" % [
+		lines.append(tr("%d: %d здоровья, урон %d–%d") % [
 			level,
 			_enemy_health_for_level(level),
 			_enemy_damage_min_for_level(level),
@@ -1298,9 +1299,9 @@ func _play_due_build_action_hits() -> void:
 
 func _build_action_label(action_type: BuildActionType) -> String:
 	return (
-		"демонтаж"
+		tr("демонтаж")
 		if action_type == BuildActionType.REMOVE_DOOR
-		else "установка"
+		else tr("установка")
 	)
 
 
@@ -1769,7 +1770,18 @@ func show_door_error(
 	direction: Vector2
 ) -> void:
 	AudioManager.play_door_error()
-	spawn_floating_text(start_position, text, direction)
+	spawn_floating_text(start_position, tr(text), direction)
+
+
+func _on_language_changed() -> void:
+	_displayed_damage_min = -1
+	_displayed_damage_max = -1
+	_displayed_energy_cores = -1
+	_displayed_energy = -1
+	_displayed_door_inventory = -1
+	_displayed_exploration_points = -1
+	_displayed_mega_core_text = ""
+	_update_player_panel()
 
 
 func enemy_killed(_enemy: Node) -> void:

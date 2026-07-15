@@ -27,7 +27,8 @@ const UNSAVED_EXIT_HOVER_COLOR := Color(1.0, 0.38, 0.38)
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	version_label.text = BuildInfo.display_text()
-	objective_text.text = LoreText.OBJECTIVE_TEXT
+	objective_text.text = LoreText.objective_text()
+	Localization.language_changed.connect(_on_language_changed)
 
 
 func _exit_tree() -> void:
@@ -127,9 +128,9 @@ func _show_pause_menu() -> void:
 	settings_menu.hide()
 	var can_save: bool = game.can_save_game()
 	save_and_exit_button.text = (
-		"Сохранить и выйти"
+		tr("Сохранить и выйти")
 		if can_save
-		else "Выйти без сохранения"
+		else tr("Удалить игру и выйти")
 	)
 	_set_unsaved_exit_warning(not can_save)
 	pause_menu.show()
@@ -156,3 +157,10 @@ func _set_unsaved_exit_warning(enabled: bool) -> void:
 			if color_name != "font_color"
 			else UNSAVED_EXIT_COLOR
 		)
+
+
+func _on_language_changed() -> void:
+	version_label.text = BuildInfo.display_text()
+	objective_text.text = LoreText.objective_text()
+	if pause_menu.visible:
+		_show_pause_menu()

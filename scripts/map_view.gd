@@ -172,7 +172,7 @@ func _draw() -> void:
 	draw_string(
 		ThemeDB.fallback_font,
 		Vector2(MAP_MARGIN, 48.0),
-		"MAP    WASD / arrows - scroll    Tab / Esc - close",
+		tr("КАРТА    WASD / стрелки - прокрутка    Tab / Esc - закрыть"),
 		HORIZONTAL_ALIGNMENT_LEFT,
 		-1.0,
 		20,

@@ -2,6 +2,8 @@
 
 ![Far Signal key art](assets/art/far_signal_key_art.png)
 
+[Версия на русском](readme_rus.md)
+
 [Play Far Signal in the browser](https://delorum.github.io/FarSignal/)
 
 Far Signal is a top-down 2D exploration and survival game built with Godot
@@ -70,8 +72,9 @@ is already inside the safe zone performs instant travel.
 ## Saving
 
 The game can be saved only while the player is inside the safe zone. Outside
-it, the pause menu offers only `Выйти без сохранения`; leaving discards the
-current expedition progress.
+it, the pause menu offers only `Delete Game and Exit`. This deletes the entire
+current game: it cannot be continued, and the next game must start from the
+beginning.
 
 Desktop builds store `far_signal_save.json` next to the executable. Editor
 runs store it in the project directory. Web builds use Godot's `user://`

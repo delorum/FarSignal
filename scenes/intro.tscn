@@ -4,6 +4,7 @@
 [ext_resource type="Texture2D" path="res://assets/art/far_signal_key_art.png" id="2_key_art"]
 
 [node name="Intro" type="Control"]
+auto_translate_mode = 2
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -55,7 +56,7 @@ layout_mode = 2
 size_flags_vertical = 3
 theme_override_colors/font_color = Color(0.82, 0.88, 0.94, 1)
 theme_override_font_sizes/font_size = 21
-text = "Objective"
+text = "Цель"
 horizontal_alignment = 1
 vertical_alignment = 1
 autowrap_mode = 2

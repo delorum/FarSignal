@@ -3,6 +3,7 @@
 [ext_resource type="Script" path="res://scripts/settings_menu.gd" id="1_settings"]
 
 [node name="SettingsMenu" type="Control"]
+auto_translate_mode = 2
 visible = false
 custom_minimum_size = Vector2(460, 420)
 layout_mode = 3
@@ -28,6 +29,23 @@ horizontal_alignment = 1
 [node name="TitleSeparator" type="Control" parent="SettingsScreen"]
 custom_minimum_size = Vector2(0, 24)
 layout_mode = 2
+
+[node name="LanguageRow" type="HBoxContainer" parent="SettingsScreen"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="LanguageLabel" type="Label" parent="SettingsScreen/LanguageRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 20
+text = "Язык"
+vertical_alignment = 1
+
+[node name="LanguageSelector" type="OptionButton" parent="SettingsScreen/LanguageRow"]
+custom_minimum_size = Vector2(180, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
 
 [node name="AudioButton" type="Button" parent="SettingsScreen"]
 custom_minimum_size = Vector2(0, 52)
@@ -142,6 +160,7 @@ text = "Назад"
 
 [connection signal="pressed" from="SettingsScreen/AudioButton" to="." method="_on_audio_pressed"]
 [connection signal="toggled" from="SettingsScreen/DebugInfoEnabled" to="." method="_on_debug_info_enabled_toggled"]
+[connection signal="item_selected" from="SettingsScreen/LanguageRow/LanguageSelector" to="." method="_on_language_selected"]
 [connection signal="pressed" from="SettingsScreen/BackButton" to="." method="_on_settings_back_pressed"]
 [connection signal="toggled" from="AudioScreen/MusicEnabled" to="." method="_on_music_enabled_toggled"]
 [connection signal="value_changed" from="AudioScreen/MusicVolumeRow/MusicVolume" to="." method="_on_music_volume_changed"]

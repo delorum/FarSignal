@@ -22,6 +22,7 @@ func _ready() -> void:
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	AudioManager.set_combat_active(false)
 	AudioManager.set_menu_music_active(true)
+	Localization.language_changed.connect(_on_language_changed)
 	version_label.text = BuildInfo.display_text()
 	continue_button.visible = SaveStore.has_loadable_save()
 	exit_button.visible = not OS.has_feature("web")
@@ -30,6 +31,10 @@ func _ready() -> void:
 	version_label.hide()
 	await get_tree().create_timer(ART_HOLD_SECONDS).timeout
 	_reveal_menu()
+
+
+func _on_language_changed() -> void:
+	version_label.text = BuildInfo.display_text()
 
 
 func _reveal_menu() -> void:

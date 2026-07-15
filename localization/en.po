@@ -1,0 +1,349 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Far Signal 0.4.0\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Далекий сигнал"
+msgstr "Far Signal"
+
+msgid "Продолжить"
+msgstr "Continue"
+
+msgid "Новая игра"
+msgstr "New Game"
+
+msgid "Управление"
+msgstr "Controls"
+
+msgid "Настройки"
+msgstr "Settings"
+
+msgid "Выход"
+msgstr "Exit"
+
+msgid "Назад"
+msgstr "Back"
+
+msgid "Пауза"
+msgstr "Paused"
+
+msgid "Цель игры"
+msgstr "Objective"
+
+msgid "Цель"
+msgstr "Objective"
+
+msgid "Нажмите любую клавишу"
+msgstr "Press any key"
+
+msgid "Сохранить и выйти"
+msgstr "Save and Exit"
+
+msgid "Удалить игру и выйти"
+msgstr "Delete Game and Exit"
+
+msgid "Главное меню"
+msgstr "Main Menu"
+
+msgid "Язык"
+msgstr "Language"
+
+msgid "Аудио"
+msgstr "Audio"
+
+msgid "Отладочная информация"
+msgstr "Debug Information"
+
+msgid "Музыка включена"
+msgstr "Music Enabled"
+
+msgid "Громкость музыки"
+msgstr "Music Volume"
+
+msgid "Звуки включены"
+msgstr "Sound Enabled"
+
+msgid "Громкость звуков"
+msgstr "Sound Volume"
+
+msgid "WASD или стрелки — движение\nМышь — направление взгляда\nЛевая кнопка мыши — выстрел\nПравая кнопка мыши — поставить или убрать дверь на соседней клетке\nE — открыть или закрыть дверь, взаимодействовать со станцией\nTab — открыть или закрыть карту\nПравая кнопка мыши на карте — указать или убрать точку маршрута\nEsc — пауза или вернуться назад"
+msgstr "WASD or arrow keys — move\nMouse — aim\nLeft mouse button — fire\nRight mouse button — install or remove a door in an adjacent cell\nE — open or close a door, interact with a station\nTab — open or close the map\nRight mouse button on the map — set or remove a route marker\nEsc — pause or go back"
+
+msgid "Мы принимаем слабый сигнал с верхней стены - там есть выход.\n\nНайди его и проложи безопасный маршрут.\n\nСтанция расскажет подробности."
+msgstr "We are receiving a weak signal from the upper wall. There is an exit there.\n\nFind it and establish a safe route.\n\nThe station will provide further instructions."
+
+msgid "1. Убивай охотников, забирай энергоядра и сдавай их на Станции 1.\n\n2. Исследуй клетки карты и сдавай накопленные очки исследования.\n\n3. Ищи мегаядра по координатам и возвращай их на Станцию 1.\n\n4. За ядра и исследование ты получаешь энергию. Чем опаснее враг или зона относительно твоего уровня, тем выше награда.\n\n5. На Станции 1 покупай здоровье, патроны и двери.\n\n6. Ставь двери, расширяя безопасную зону до выхода на верхней стене.\n\n7. Чем больше безопасная зона, тем меньше врагов остается на карте.\n\n8. На карте правой кнопкой мыши можно мгновенно перемещаться между проходимыми клетками безопасной зоны.\n\n9. Чем выше по карте, тем сильнее враги. Найди Станции 2 и 3: там за энергию можно улучшать урон, здоровье и боезапас."
+msgstr "1. Kill hunters, collect their energy cores, and deliver them to Station 1.\n\n2. Explore map cells and exchange the accumulated exploration points.\n\n3. Locate megacores and return them to Station 1.\n\n4. Cores and exploration earn energy. The more dangerous an enemy or zone is relative to your level, the greater the reward.\n\n5. Buy health, ammunition, and doors at Station 1.\n\n6. Install doors to extend the safe zone toward the exit in the upper wall.\n\n7. The larger the safe zone becomes, the fewer enemies remain on the map.\n\n8. On the map, use the right mouse button to travel instantly between walkable cells inside the safe zone.\n\n9. Enemies become stronger toward the top of the map. Find Stations 2 and 3 to upgrade damage, health, and ammunition capacity with energy."
+
+msgid "ЗДОРОВЬЕ"
+msgstr "HEALTH"
+
+msgid "ПАТРОНЫ"
+msgstr "AMMO"
+
+msgid "ТРЕВОГА"
+msgstr "ALERT"
+
+msgid "ОБНАРУЖЕН"
+msgstr "DETECTED"
+
+msgid "Враг в безопасной зоне"
+msgstr "Enemy inside safe zone"
+
+msgid "Урон: %d-%d"
+msgstr "Damage: %d-%d"
+
+msgid "Энергоядра: %d"
+msgstr "Energy cores: %d"
+
+msgid "Энергия: %d"
+msgstr "Energy: %d"
+
+msgid "Двери: %d"
+msgstr "Doors: %d"
+
+msgid "Очки исследования: %d"
+msgstr "Exploration points: %d"
+
+msgid "Вернуть мегаядро на станцию 1"
+msgstr "Return the megacore to Station 1"
+
+msgid "Найти мегаядро в зоне %d"
+msgstr "Find a megacore in zone %d"
+
+msgid "Мегаядро: не найдено"
+msgstr "Megacore: not located"
+
+msgid "закрыто"
+msgstr "locked"
+
+msgid "Нужна безопасная зона"
+msgstr "Safe zone required"
+
+msgid "Граница безопасной зоны"
+msgstr "Safe-zone boundary"
+
+msgid "нельзя удалить"
+msgstr "cannot remove"
+
+msgid "лимит"
+msgstr "limit reached"
+
+msgid "установка"
+msgstr "installing"
+
+msgid "демонтаж"
+msgstr "removing"
+
+msgid "КАРТА    WASD / стрелки - прокрутка    Tab / Esc - закрыть"
+msgstr "MAP    WASD / arrows - scroll    Tab / Esc - close"
+
+msgid "Станция %d"
+msgstr "Station %d"
+
+msgid "Станция 1"
+msgstr "Station 1"
+
+msgid "Здоровье: %d/%d    Патроны: %d/%d"
+msgstr "Health: %d/%d    Ammo: %d/%d"
+
+msgid "Полный боезапас"
+msgstr "Ammunition full"
+
+msgid "Купить %d патронов за %d энергии"
+msgstr "Buy %d rounds for %d energy"
+
+msgid "Полное здоровье"
+msgstr "Health full"
+
+msgid "Восстановить %d здоровья за %d энергии"
+msgstr "Restore %d health for %d energy"
+
+msgid "Нет энергоядер"
+msgstr "No energy cores"
+
+msgid "Сдать энергоядра: +%d энергии"
+msgstr "Exchange energy cores: +%d energy"
+
+msgid "Нужно %d очков исследования"
+msgstr "%d exploration points required"
+
+msgid "Сдать %d очков: +%d энергии"
+msgstr "Exchange %d points: +%d energy"
+
+msgid "Вернуть мегаядро: +%d энергии"
+msgstr "Return megacore: +%d energy"
+
+msgid "Мегаядро не найдено"
+msgstr "Megacore not located"
+
+msgid "Двери: максимум"
+msgstr "Doors: maximum"
+
+msgid "Купить дверь за %d энергии"
+msgstr "Buy a door for %d energy"
+
+msgid "Урон"
+msgstr "Damage"
+
+msgid "Здоровье"
+msgstr "Health"
+
+msgid "Боезапас"
+msgstr "Ammo capacity"
+
+msgid "%s: нужна предыдущая станция"
+msgstr "%s: previous station required"
+
+msgid "%s: на этой станции максимум"
+msgstr "%s: station limit reached"
+
+msgid "%s: максимум"
+msgstr "%s: maximum"
+
+msgid "%s: уровень %d/%d за %d энергии"
+msgstr "%s: level %d/%d for %d energy"
+
+msgid "Купить патроны"
+msgstr "Buy ammunition"
+
+msgid "Восстановить 20 здоровья за 10 энергии"
+msgstr "Restore 20 health for 10 energy"
+
+msgid "Сдать энергоядра"
+msgstr "Exchange energy cores"
+
+msgid "Сдать клетки"
+msgstr "Exchange exploration"
+
+msgid "Купить дверь"
+msgstr "Buy a door"
+
+msgid "Улучшить урон"
+msgstr "Upgrade damage"
+
+msgid "Улучшить здоровье"
+msgstr "Upgrade health"
+
+msgid "Улучшить боезапас"
+msgstr "Upgrade ammo capacity"
+
+msgid "Инструкции"
+msgstr "Instructions"
+
+msgid "Инструкции станции"
+msgstr "Station instructions"
+
+msgid "Информация"
+msgstr "Information"
+
+msgid "Статистика"
+msgstr "Statistics"
+
+msgid "Исследовано клеток: %d (%.1f%%)\n"
+msgstr "Cells explored: %d (%.1f%%)\n"
+
+msgid "Размер безопасной зоны: %d (%.1f%%)\n"
+msgstr "Safe-zone size: %d (%.1f%%)\n"
+
+msgid "Убито врагов: %d\n"
+msgstr "Enemies killed: %d\n"
+
+msgid "Врагов на карте: %d\n"
+msgstr "Enemies on map: %d\n"
+
+msgid "Возвращено мегаядер: %d\n"
+msgstr "Megacores returned: %d\n"
+
+msgid "Получено энергии: %d\n"
+msgstr "Energy received: %d\n"
+
+msgid "Потрачено энергии: %d\n"
+msgstr "Energy spent: %d\n"
+
+msgid "Осталось энергии: %d\n\n"
+msgstr "Energy remaining: %d\n\n"
+
+msgid "Уровни врагов:\n%s"
+msgstr "Enemy levels:\n%s"
+
+msgid "%d: %d здоровья, урон %d–%d"
+msgstr "%d: %d health, damage %d–%d"
+
+msgid "Поражение"
+msgstr "Defeat"
+
+msgid "Победа"
+msgstr "Victory"
+
+msgid "Убито врагов: %d"
+msgstr "Enemies killed: %d"
+
+msgid "Исследовано клеток: %d (%.1f%%)"
+msgstr "Cells explored: %d (%.1f%%)"
+
+msgid "Размер безопасной зоны: %d (%.1f%%)"
+msgstr "Safe-zone size: %d (%.1f%%)"
+
+msgid "Возвращено мегаядер: %d"
+msgstr "Megacores returned: %d"
+
+msgid "Получено энергии: %d\nПотрачено энергии: %d\nОсталось энергии: %d"
+msgstr "Energy received: %d\nEnergy spent: %d\nEnergy remaining: %d"
+
+msgid "Версия %s"
+msgstr "Version %s"
+
+msgid "Версия %s · %s"
+msgstr "Version %s · %s"
+
+msgid "FPS: %d\nКадр: %.1f мс\nПик (5 с): %.1f мс\n"
+msgstr "FPS: %d\nFrame: %.1f ms\nPeak (5 s): %.1f ms\n"
+
+msgid "Логика: %.1f мс (пик %.1f)\n"
+msgstr "Logic: %.1f ms (peak %.1f)\n"
+
+msgid "Физика: %.1f мс\nОтрисовка: %d выз."
+msgstr "Physics: %.1f ms\nDraw calls: %d"
+
+msgid "Версия 0.1.0"
+msgstr "Version 0.1.0"
+
+msgid "Урон: 27-36"
+msgstr "Damage: 27-36"
+
+msgid "Энергоядра: 0"
+msgstr "Energy cores: 0"
+
+msgid "Энергия: 0"
+msgstr "Energy: 0"
+
+msgid "Двери: 0"
+msgstr "Doors: 0"
+
+msgid "Очки исследования: 0"
+msgstr "Exploration points: 0"
+
+msgid "Мегаядро: нет координат"
+msgstr "Megacore: no coordinates"
+
+msgid "Здоровье: 100    Патроны: 30"
+msgstr "Health: 100    Ammo: 30"
+
+msgid "Убито врагов: 0"
+msgstr "Enemies killed: 0"
+
+msgid "Исследовано клеток: 0 (0.0%)"
+msgstr "Cells explored: 0 (0.0%)"
+
+msgid "Размер безопасной зоны: 0 (0.0%)"
+msgstr "Safe-zone size: 0 (0.0%)"
+
+msgid "Возвращено мегаядер: 0"
+msgstr "Megacores returned: 0"
+
+msgid "Получено энергии: 0\nПотрачено энергии: 0\nОсталось энергии: 0"
+msgstr "Energy received: 0\nEnergy spent: 0\nEnergy remaining: 0"
