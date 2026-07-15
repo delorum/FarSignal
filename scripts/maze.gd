@@ -39,8 +39,8 @@ const PLACEMENT_SPREAD := 14
 const LEFT_PLACEMENT_X := 25
 const CENTER_PLACEMENT_X := int(COLUMNS / 2.0)
 const RIGHT_PLACEMENT_X := COLUMNS - 26
-const LEVEL_TWO_UPGRADE_STATION_Y := 140
-const LEVEL_FOUR_UPGRADE_STATION_Y := 60
+const LEVEL_TWO_UPGRADE_STATION_LEVEL := 2
+const LEVEL_FOUR_UPGRADE_STATION_LEVEL := 4
 const MIN_GRID_SIZE := STATION_ROOM_RADIUS * 2 + 5
 const PATH_DIRECTIONS: Array[Vector2i] = [
 	Vector2i.RIGHT,
@@ -1100,9 +1100,11 @@ func _add_stations(rng: RandomNumberGenerator) -> void:
 			if placement == 0
 			else LEFT_PLACEMENT_X
 		)
+		var exit_variant_rng := RandomNumberGenerator.new()
+		exit_variant_rng.seed = _generation_seed ^ 0x4f31a2
 		_planned_exit_x = (
 			CENTER_PLACEMENT_X
-			if rng.randi_range(0, 1) == 0
+			if exit_variant_rng.randi_range(0, 1) == 0
 			else opposite_x
 		)
 	_planned_exit_x += rng.randi_range(-PLACEMENT_SPREAD, PLACEMENT_SPREAD)
@@ -1120,7 +1122,10 @@ func _add_stations(rng: RandomNumberGenerator) -> void:
 	_add_station(
 		Vector2i(
 			_upgrade_station_x(station_two_region, rng),
-			LEVEL_TWO_UPGRADE_STATION_Y
+			_random_upgrade_station_y(
+				LEVEL_TWO_UPGRADE_STATION_LEVEL,
+				rng
+			)
 		),
 		2,
 		Vector2i.ZERO
@@ -1128,7 +1133,10 @@ func _add_stations(rng: RandomNumberGenerator) -> void:
 	_add_station(
 		Vector2i(
 			_upgrade_station_x(station_three_region, rng),
-			LEVEL_FOUR_UPGRADE_STATION_Y
+			_random_upgrade_station_y(
+				LEVEL_FOUR_UPGRADE_STATION_LEVEL,
+				rng
+			)
 		),
 		3,
 		Vector2i.ZERO
@@ -1151,6 +1159,23 @@ func _upgrade_station_x(region: int, rng: RandomNumberGenerator) -> int:
 	elif region == 2:
 		base_x = RIGHT_PLACEMENT_X
 	return base_x + rng.randi_range(-PLACEMENT_SPREAD, PLACEMENT_SPREAD)
+
+
+func _random_upgrade_station_y(
+	level: int,
+	rng: RandomNumberGenerator
+) -> int:
+	var zone_from_top := ENEMY_LEVEL_COUNT - level
+	var zone_minimum_y := floori(
+		float(zone_from_top * ROWS) / float(ENEMY_LEVEL_COUNT)
+	)
+	var zone_maximum_y := floori(
+		float((zone_from_top + 1) * ROWS) / float(ENEMY_LEVEL_COUNT)
+	) - 1
+	return rng.randi_range(
+		zone_minimum_y + STATION_ROOM_RADIUS,
+		zone_maximum_y - STATION_ROOM_RADIUS
+	)
 
 
 func _add_station(

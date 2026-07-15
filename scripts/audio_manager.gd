@@ -6,11 +6,18 @@ const EXPLORATION_CROSSFADE_DURATION := 4.0
 const UI_MENU_CONFIRM_DURATION := 0.3
 const MUSIC_VOLUME_DB := -8.0
 const MENU_MUSIC_VOLUME_DB := -3.0
+const STATION_AMBIENCE_VOLUME_DB := -18.0
+const STATION_WAITING_VOLUME_DB := -20.0
+const USE_STATION_WAITING_LAYER := false
 const SILENT_VOLUME_DB := -60.0
 const SETTINGS_PATH := "user://far_signal_settings.cfg"
 const MUSIC_BUS := "Music"
 const SFX_BUS := "SFX"
 const MENU_MUSIC_PATH := "res://assets/audio/music_menu_soft_loop.ogg"
+const STATION_AMBIENCE_PATH := (
+	"res://assets/audio/music_station_controlroom.ogg"
+)
+const STATION_WAITING_PATH := "res://assets/audio/music_station_waiting.ogg"
 const VICTORY_MUSIC_PATH := "res://assets/audio/music_victory_corpo_coffee.ogg"
 const DEFEAT_MUSIC_PATH := "res://assets/audio/music_defeat_corpo_nostalgia.ogg"
 const EXPLORATION_MUSIC_PATHS := [
@@ -29,10 +36,16 @@ const ENEMY_SHOT_PATH := "res://assets/audio/sfx/enemy_shot.ogg"
 const DOOR_OPEN_PATH := "res://assets/audio/sfx/door_open.ogg"
 const DOOR_CLOSE_PATH := "res://assets/audio/sfx/door_close.ogg"
 const DOOR_ERROR_PATH := "res://assets/audio/sfx/door_error.ogg"
+const DOOR_WORK_GENERIC_PATH := "res://assets/audio/sfx/door_work_impact.ogg"
+const DOOR_WORK_MINING_PATH := "res://assets/audio/sfx/door_work_mining.ogg"
+const DOOR_WORK_PLATE_PATH := "res://assets/audio/sfx/door_work_plate_heavy.ogg"
+const DOOR_WORK_IMPACT_PATH := DOOR_WORK_PLATE_PATH
+const USE_KENNEY_DOOR_WORK_IMPACT := true
 const MEGA_CORE_PICKUP_PATH := "res://assets/audio/sfx/mega_core_pickup.ogg"
 const UI_CURSOR_PATH := "res://assets/audio/sfx/ui_cursor.ogg"
 const UI_CONFIRMATION_PATH := "res://assets/audio/sfx/ui_confirmation.ogg"
 const UI_MENU_CONFIRM_PATH := "res://assets/audio/sfx/ui_menu_confirm.ogg"
+const MAP_MARKER_PLACE_PATH := "res://assets/audio/sfx/map_marker_place.ogg"
 const MAP_MARKER_REMOVE_PATH := "res://assets/audio/sfx/map_marker_remove.ogg"
 const USE_KENNEY_STATION_SOUNDS := false
 const STATION_OPEN_PATH := (
@@ -72,11 +85,14 @@ var _active_combat_player := 0
 var _last_combat_track := -1
 var _combat_track_time_left := 0.0
 var _menu_music_player: AudioStreamPlayer
+var _station_music_player: AudioStreamPlayer
+var _station_waiting_player: AudioStreamPlayer
 var _ending_music_player: AudioStreamPlayer
 var _victory_music_stream: AudioStreamOggVorbis
 var _defeat_music_stream: AudioStreamOggVorbis
 var _combat_active := false
 var _menu_music_active := false
+var _station_music_active := false
 var _ending_music_active := false
 var _music_tween: Tween
 var _rng := RandomNumberGenerator.new()
@@ -84,6 +100,7 @@ var _player_shot_stream: AudioStream
 var _enemy_shot_stream: AudioStream
 var _door_place_stream: AudioStream
 var _door_remove_stream: AudioStream
+var _door_work_impact_stream: AudioStream
 var _door_open_stream: AudioStream
 var _door_close_stream: AudioStream
 var _door_error_stream: AudioStream
@@ -91,6 +108,7 @@ var _mega_core_pickup_stream: AudioStream
 var _ui_cursor_stream: AudioStream
 var _ui_confirmation_stream: AudioStream
 var _ui_menu_confirm_stream: AudioStream
+var _map_marker_place_stream: AudioStream
 var _map_marker_remove_stream: AudioStream
 var _station_open_stream: AudioStream
 var _station_close_stream: AudioStream
@@ -113,12 +131,16 @@ func _ready() -> void:
 		_create_player("CombatMusicB"),
 	]
 	_menu_music_player = _create_player("MenuMusic")
+	_station_music_player = _create_player("StationAmbience")
+	_station_waiting_player = _create_player("StationWaiting")
 	_ending_music_player = _create_player("EndingMusic")
 	for player: AudioStreamPlayer in _exploration_players:
 		player.bus = MUSIC_BUS
 	for player: AudioStreamPlayer in _combat_players:
 		player.bus = MUSIC_BUS
 	_menu_music_player.bus = MUSIC_BUS
+	_station_music_player.bus = MUSIC_BUS
+	_station_waiting_player.bus = MUSIC_BUS
 	_ending_music_player.bus = MUSIC_BUS
 	for path: String in EXPLORATION_MUSIC_PATHS:
 		var stream: AudioStreamOggVorbis = load(path)
@@ -131,6 +153,16 @@ func _ready() -> void:
 	var menu_music_stream: AudioStreamOggVorbis = load(MENU_MUSIC_PATH)
 	menu_music_stream.loop = true
 	_menu_music_player.stream = menu_music_stream
+	var station_music_stream: AudioStreamOggVorbis = load(
+		STATION_AMBIENCE_PATH
+	)
+	station_music_stream.loop = true
+	_station_music_player.stream = station_music_stream
+	var station_waiting_stream: AudioStreamOggVorbis = load(
+		STATION_WAITING_PATH
+	)
+	station_waiting_stream.loop = true
+	_station_waiting_player.stream = station_waiting_stream
 	_victory_music_stream = load(VICTORY_MUSIC_PATH)
 	_victory_music_stream.loop = true
 	_defeat_music_stream = load(DEFEAT_MUSIC_PATH)
@@ -139,6 +171,7 @@ func _ready() -> void:
 	_enemy_shot_stream = load(ENEMY_SHOT_PATH)
 	_door_place_stream = _create_door_stream(1.0, true)
 	_door_remove_stream = _create_door_stream(0.72, false)
+	_door_work_impact_stream = load(DOOR_WORK_IMPACT_PATH)
 	_door_open_stream = load(DOOR_OPEN_PATH)
 	_door_close_stream = load(DOOR_CLOSE_PATH)
 	_door_error_stream = load(DOOR_ERROR_PATH)
@@ -146,6 +179,7 @@ func _ready() -> void:
 	_ui_cursor_stream = load(UI_CURSOR_PATH)
 	_ui_confirmation_stream = load(UI_CONFIRMATION_PATH)
 	_ui_menu_confirm_stream = load(UI_MENU_CONFIRM_PATH)
+	_map_marker_place_stream = load(MAP_MARKER_PLACE_PATH)
 	_map_marker_remove_stream = load(MAP_MARKER_REMOVE_PATH)
 	_station_open_stream = load(STATION_OPEN_PATH)
 	_station_close_stream = load(STATION_CLOSE_PATH)
@@ -158,13 +192,17 @@ func _ready() -> void:
 		player.volume_db = SILENT_VOLUME_DB
 	_menu_music_player.volume_db = SILENT_VOLUME_DB
 	_menu_music_player.play()
+	_station_music_player.volume_db = SILENT_VOLUME_DB
+	_station_music_player.play()
+	_station_waiting_player.volume_db = SILENT_VOLUME_DB
+	_station_waiting_player.play()
 	_ending_music_player.volume_db = SILENT_VOLUME_DB
 	_update_player_pause_states()
 	_apply_bus_settings()
 
 
 func _process(delta: float) -> void:
-	if _menu_music_active or _ending_music_active:
+	if _menu_music_active or _station_music_active or _ending_music_active:
 		return
 	if _combat_active:
 		_combat_track_time_left -= delta
@@ -214,9 +252,19 @@ func set_menu_music_active(active: bool) -> void:
 	if active and _ending_music_active:
 		_ending_music_active = false
 		_ending_music_player.stop()
+	if active:
+		_station_music_active = false
 	if _menu_music_active == active:
 		return
 	_menu_music_active = active
+	_update_player_pause_states()
+	_update_music_mix()
+
+
+func set_station_music_active(active: bool) -> void:
+	if _station_music_active == active:
+		return
+	_station_music_active = active
 	_update_player_pause_states()
 	_update_music_mix()
 
@@ -232,6 +280,7 @@ func play_defeat_music() -> void:
 func _play_ending_music(stream: AudioStreamOggVorbis) -> void:
 	_combat_active = false
 	_menu_music_active = false
+	_station_music_active = false
 	_ending_music_active = true
 	_ending_music_player.stream = stream
 	_ending_music_player.volume_db = SILENT_VOLUME_DB
@@ -253,6 +302,7 @@ func _update_music_mix() -> void:
 			if index == _active_exploration_player \
 				and not _menu_music_active \
 				and not _combat_active \
+				and not _station_music_active \
 				and not _ending_music_active
 			else SILENT_VOLUME_DB,
 			MUSIC_FADE_DURATION
@@ -265,6 +315,7 @@ func _update_music_mix() -> void:
 			if index == _active_combat_player \
 				and not _menu_music_active \
 				and _combat_active \
+				and not _station_music_active \
 				and not _ending_music_active
 			else SILENT_VOLUME_DB,
 			MUSIC_FADE_DURATION
@@ -273,6 +324,22 @@ func _update_music_mix() -> void:
 		_menu_music_player,
 		"volume_db",
 		MENU_MUSIC_VOLUME_DB if _menu_music_active else SILENT_VOLUME_DB,
+		MUSIC_FADE_DURATION
+	)
+	_music_tween.tween_property(
+		_station_music_player,
+		"volume_db",
+		STATION_AMBIENCE_VOLUME_DB
+		if _station_music_active
+		else SILENT_VOLUME_DB,
+		MUSIC_FADE_DURATION
+	)
+	_music_tween.tween_property(
+		_station_waiting_player,
+		"volume_db",
+		STATION_WAITING_VOLUME_DB
+		if _station_music_active and USE_STATION_WAITING_LAYER
+		else SILENT_VOLUME_DB,
 		MUSIC_FADE_DURATION
 	)
 	_music_tween.tween_property(
@@ -388,12 +455,18 @@ func _next_combat_track_index() -> int:
 
 func _update_player_pause_states() -> void:
 	var exploration_paused := (
-		_menu_music_active or _combat_active or _ending_music_active
+		_menu_music_active \
+		or _combat_active \
+		or _station_music_active \
+		or _ending_music_active
 	)
 	for player: AudioStreamPlayer in _exploration_players:
 		player.stream_paused = exploration_paused
 	var combat_paused := (
-		_menu_music_active or not _combat_active or _ending_music_active
+		_menu_music_active \
+		or not _combat_active \
+		or _station_music_active \
+		or _ending_music_active
 	)
 	for player: AudioStreamPlayer in _combat_players:
 		player.stream_paused = combat_paused
@@ -413,6 +486,15 @@ func play_door_place() -> void:
 
 func play_door_remove() -> void:
 	_play_effect(_door_remove_stream, -9.0)
+
+
+func play_door_work_hit() -> void:
+	_play_effect(
+		_door_work_impact_stream
+		if USE_KENNEY_DOOR_WORK_IMPACT
+		else _door_place_stream,
+		-10.0
+	)
 
 
 func play_door_open() -> void:
@@ -451,6 +533,10 @@ func play_station_close() -> void:
 
 func play_menu_confirmation() -> void:
 	_play_effect(_ui_menu_confirm_stream, -12.0)
+
+
+func play_map_marker_place() -> void:
+	_play_effect(_map_marker_place_stream, -12.0)
 
 
 func play_map_marker_remove() -> void:

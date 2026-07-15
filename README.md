@@ -1,77 +1,90 @@
 # Far Signal
 
-Minimal top-down 2D maze prototype for Godot 4.
+![Far Signal key art](assets/art/far_signal_key_art.png)
 
-Exported builds start in borderless fullscreen mode. The gameplay viewport,
-camera offset, and right HUD panel adapt to the screen resolution. Debug runs
-also use fullscreen when the editor is configured to launch the game in a
-separate window. Embedded runs remain limited to the editor's Game panel.
+[Play Far Signal in the browser](https://delorum.github.io/FarSignal/)
 
-## Run
+Far Signal is a top-down 2D exploration and survival game built with Godot
+4.7. The player enters a large procedural maze from its lower edge, explores
+unknown corridors, fights armed enemies, retrieves megacores, and gradually
+extends a safe zone toward the final door at the top of the map.
 
-1. Open this directory in Godot 4.
-2. Run the project with `F6`/`F5`.
+The game is designed around a compact set of connected systems rather than a
+large number of items or abilities: exploration produces resources, combat
+opens access to enemy cores, stations convert those resources into supplies
+and upgrades, and doors permanently change the structure of the playable
+space.
 
-The project starts at the main menu. Select `Новая игра` to generate and enter
-the maze. A short story screen introduces the expedition before a new game.
+## Gameplay
 
-Controls:
+- Explore a connected `199 x 199` maze with corridors, loops, and rooms.
+- Reveal floor cells to earn level-scaled exploration points.
+- Fight enemies that react to sight, footsteps, and gunfire, search for lost
+  targets, flank, and fire at moving targets with predictive aim.
+- Collect energy cores from defeated enemies and exchange them for energy.
+- Follow station assignments to find and return megacores for larger rewards.
+- Spend energy on health, ammunition, doors, and permanent upgrades.
+- Install doors to divide the maze and expand the green safe zone.
+- Reach and activate the final door after connecting it to the safe zone.
 
-- `WASD` or arrow keys: move
-- Left mouse button: fire one bullet
-- Right mouse button: place or remove a door in the cell under the cursor
-- Left Shift: toggle ambush mode
-- `E`: open or close a nearby door, interact with a station
-- `Tab`: open or close the explored map
-- Mouse wheel: zoom the map
-- Right mouse button on the map: set or clear a route destination
-- `Esc`: pause or return from the controls screen
+Doors are limited inventory items. Installation and removal take two seconds
+and are interrupted by movement, firing, or taking damage. A door separating
+safe and unsafe floor cannot be removed. The starting locked door and the
+final door are permanent.
 
-`Сохранить и выйти` writes `far_signal_save.json` next to the exported game
-binary. When running from the editor, the file is written to the project root.
-When this file exists, the main menu shows `Продолжить`. Starting a new game
-deletes the previous save.
+Enemies are divided into five horizontal level zones and become stronger
+toward the top of the maze. They patrol within their assigned zone but may
+leave it while pursuing the player. Replacement enemies spawn outside a
+minimum radius around the player and return to their own zone afterward. As
+the safe zone expands and leaves less hostile floor available, the target
+enemy count decreases, starting with lower-level enemies.
 
-The 199 by 199 cell maze is randomized on every run.
-Its dimensions are controlled by `COLUMNS` and `ROWS` in `scripts/maze.gd`;
-the internal generation grid is derived automatically.
-The player starts in a random floor cell along the bottom of the maze.
-Ten armed enemies patrol the entire maze. When one is killed, a replacement
-spawns elsewhere outside safe zones and away from the player. After firing,
-enemies have a 40% chance to change position before taking another shot.
-Moving can be heard within 20
-cells after about two cells of continuous movement; stopping drains the noise
-meter in about one second. Firing immediately fills the noise meter and
-attracts enemies within 30 cells. The HUD shows only the distance band of the
-nearest living enemy. Audible enemies are indicated by arrows around the
-player: gray while patrolling and red after they become alerted.
-Ambush mode suppresses movement noise. Audible living enemies remain marked
-by direction arrows around the player and also appear as facing-direction
-arrows in the game world and on the map. Firing leaves ambush mode and can
-still alert enemies.
-The player starts inside a station room built into the bottom maze boundary.
-The exterior door behind the player is permanently locked; the player faces
-up into the room, and the other three doors can be opened normally. The
-station's central machine restores health and ammunition.
-Player-built doors can enclose parts of the maze. A separated floor component
-that touches a station door is marked as a safe zone in green in the game and
-on the map. Safety also propagates through doors to adjacent enclosed
-components without crossing the main open maze. Enemies never spawn inside
-safe zones. The zone topology is recalculated only when a door is placed,
-removed, or restored from a save.
-The map can plot a route to a previously explored floor cell. Routes use only
-known floor cells, may pass through doors regardless of their current state,
-and refresh from the player's current position every five seconds.
-Extra connections are opened after generation, creating loops and alternate
-routes through parts of the maze. Most corridors are two cells wide while
-roughly 35% of connections narrow to one cell; walls remain one cell thick.
-The generator also carves rectangular rooms from 4 by 4 to 7 by 7 cells.
-Their number scales with the amount of walkable space so that continuous
-exploration should reach a room roughly every 30 seconds. Rooms are kept at
-least five cells apart so neighboring rooms do not merge into larger spaces.
-Generation may place up to 10% fewer rooms when the map has no suitable space.
-All visuals are drawn with Godot primitives; there are no textures or tile
-sets. The camera keeps the player centered. Visibility is calculated uniformly
-for rooms and corridors: cells in front of the player are visible when no wall
-or closed door blocks the line of sight, while cells behind the player remain
-hidden.
+## Progression
+
+Station 1 is the expedition base. It exchanges enemy cores and exploration
+points for energy, accepts returned megacores, sells ammunition and doors,
+and restores health. It also provides current expedition statistics.
+
+Stations 2 and 3 are hidden in enemy zones 2 and 4. Each station unlocks two
+stages of damage, maximum-health, and ammunition-capacity upgrades. Their
+horizontal regions and their positions within the assigned level zones are
+randomized for each generated maze.
+
+The map shows explored terrain, safe zones, doors, discovered stations,
+uncollected enemy cores, level boundaries, and the active megacore. A marker
+can be placed on explored floor; the route to it is drawn through known cells
+and refreshed periodically. Selecting an explored safe cell while the player
+is already inside the safe zone performs instant travel.
+
+## Controls
+
+- `WASD` or arrow keys: move; scroll the map while it is open
+- Left mouse button: fire
+- Right mouse button: install or remove a door
+- `E`: open or close a nearby door; interact with a station
+- `Tab`: open or close the map
+- Right mouse button on the map: place or remove a marker; fast travel between
+  safe cells
+- `Esc`: pause, close the current screen, or return to the previous menu
+
+## Saving
+
+The game can be saved only while the player is inside the safe zone. Outside
+it, the pause menu offers only `Выйти без сохранения`; leaving discards the
+current expedition progress.
+
+Desktop builds store `far_signal_save.json` next to the executable. Editor
+runs store it in the project directory. Web builds use Godot's `user://`
+storage backed by the browser. Save formats are intentionally versioned
+without backward-compatibility guarantees while the game is in development.
+
+## Running
+
+1. Install Godot 4.7.
+2. Open this directory as a Godot project.
+3. Run the project with `F6` or `F5`.
+
+The project starts at the main menu and supports Linux, Windows, and Web export
+presets. Exported desktop builds use borderless fullscreen; the gameplay
+viewport, camera, and HUD adapt to the available resolution. Debug performance
+metrics can be enabled from the settings menu.

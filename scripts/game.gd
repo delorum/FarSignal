@@ -24,6 +24,7 @@ const SHOT_REACTION_DELAY := 2.0
 const PLAYER_RECOIL_ENABLED := false
 const MAP_MARKER_PATH_REFRESH_SECONDS := 5.0
 const BUILD_ACTION_DURATION := 2.0
+const BUILD_ACTION_HIT_INTERVAL := 0.5
 const MEGA_CORE_MIN_SAFE_ZONE_DISTANCE := 30
 const MEGA_CORE_MAX_SAFE_ZONE_DISTANCE := 80
 const MAX_ALERTED_ENEMIES := 3
@@ -111,6 +112,7 @@ var _map_marker_path: Array[Vector2i] = []
 var _map_marker_path_refresh_left := 0.0
 var _build_action_type := BuildActionType.NONE
 var _build_action_elapsed := 0.0
+var _build_action_next_hit := 0.0
 var _build_action_cell := Vector2i(-1, -1)
 var _build_action_position := Vector2.ZERO
 var _build_action_direction := Vector2.RIGHT
@@ -137,6 +139,7 @@ func _ready() -> void:
 	Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
 	AudioManager.set_combat_active(false)
 	AudioManager.set_menu_music_active(false)
+	AudioManager.set_station_music_active(false)
 	_rng.randomize()
 	enemy_target_markers.setup(maze, enemies)
 	mega_core_marker.setup(maze, player, self)
@@ -567,9 +570,9 @@ func _pick_up_mega_core() -> void:
 
 func _mega_core_status_text() -> String:
 	if player.has_mega_core:
-		return "Мегаядро: вернуть"
+		return "Вернуть мегаядро на станцию 1"
 	if player.mega_core_cell.x >= 0:
-		return "Мегаядро: зона %d" % _enemy_level_for_y(
+		return "Найти мегаядро в зоне %d" % _enemy_level_for_y(
 			player.mega_core_cell.y
 		)
 	return "Мегаядро: не найдено"
@@ -1199,7 +1202,6 @@ func _finish_place_door() -> void:
 	)
 	if door != null:
 		player.door_inventory -= 1
-		AudioManager.play_door_place()
 		_refresh_safe_zone()
 		_update_player_panel()
 
@@ -1226,6 +1228,7 @@ func _start_build_action(
 ) -> void:
 	_build_action_type = action_type
 	_build_action_elapsed = 0.0
+	_build_action_next_hit = 0.0
 	_build_action_cell = target_cell
 	_build_action_position = world_position
 	_build_action_direction = (
@@ -1238,6 +1241,7 @@ func _start_build_action(
 		maze.cell_to_world(target_cell),
 		_build_action_label(action_type)
 	)
+	_play_due_build_action_hits()
 
 
 func _update_build_action(delta: float) -> void:
@@ -1248,6 +1252,7 @@ func _update_build_action(delta: float) -> void:
 		return
 
 	_build_action_elapsed += delta
+	_play_due_build_action_hits()
 	build_action_marker.set_progress(
 		_build_action_elapsed / BUILD_ACTION_DURATION
 	)
@@ -1276,11 +1281,19 @@ func _cancel_build_action() -> void:
 func _clear_build_action() -> void:
 	_build_action_type = BuildActionType.NONE
 	_build_action_elapsed = 0.0
+	_build_action_next_hit = 0.0
 	_build_action_cell = Vector2i(-1, -1)
 	_build_action_position = Vector2.ZERO
 	_build_action_direction = Vector2.RIGHT
 	_build_action_horizontal_passage = false
 	build_action_marker.hide_action()
+
+
+func _play_due_build_action_hits() -> void:
+	while _build_action_next_hit <= _build_action_elapsed \
+			and _build_action_next_hit < BUILD_ACTION_DURATION:
+		AudioManager.play_door_work_hit()
+		_build_action_next_hit += BUILD_ACTION_HIT_INTERVAL
 
 
 func _build_action_label(action_type: BuildActionType) -> String:
@@ -1329,7 +1342,6 @@ func _door_sides_have_matching_safe_zone(door: Door) -> bool:
 
 
 func _remove_door(door: Door) -> void:
-	AudioManager.play_door_remove()
 	maze.set_door_closed(door.cell, false)
 	_doors.erase(door)
 	door.queue_free()

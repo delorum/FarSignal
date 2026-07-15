@@ -59,6 +59,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func open(show_instructions: bool = false, station_id: int = 1) -> void:
 	AudioManager.play_station_open()
+	AudioManager.set_station_music_active(true)
 	_station_id = station_id
 	title.text = "Станция %d" % station_id
 	for button in _station_one_buttons:
@@ -148,6 +149,7 @@ func _percentage(value: int, total: int) -> float:
 
 
 func close() -> void:
+	AudioManager.set_station_music_active(false)
 	visible = false
 	get_tree().paused = false
 	Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)

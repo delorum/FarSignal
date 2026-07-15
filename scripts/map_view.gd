@@ -154,7 +154,7 @@ func _set_marker_at_mouse() -> void:
 		AudioManager.play_map_marker_remove()
 	else:
 		game.set_map_marker_cell(cell)
-		AudioManager.play_menu_confirmation()
+		AudioManager.play_map_marker_place()
 	map_content.queue_redraw()
 
 

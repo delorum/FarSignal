@@ -4,6 +4,8 @@ const BuildInfo = preload("res://scripts/build_info.gd")
 const LoreText = preload("res://scripts/lore_text.gd")
 const INTRO_SCENE := "res://scenes/intro.tscn"
 const MAIN_MENU_SCENE := "res://scenes/menu.tscn"
+const UNSAVED_EXIT_COLOR := Color(0.95, 0.22, 0.22)
+const UNSAVED_EXIT_HOVER_COLOR := Color(1.0, 0.38, 0.38)
 
 @onready var pause_menu: VBoxContainer = $CenterContainer/PauseMenu
 @onready var controls_screen: VBoxContainer = $CenterContainer/ControlsScreen
@@ -123,10 +125,34 @@ func _show_pause_menu() -> void:
 	controls_screen.hide()
 	objective_screen.hide()
 	settings_menu.hide()
+	var can_save: bool = game.can_save_game()
 	save_and_exit_button.text = (
 		"Сохранить и выйти"
-		if game.can_save_game()
+		if can_save
 		else "Выйти без сохранения"
 	)
+	_set_unsaved_exit_warning(not can_save)
 	pause_menu.show()
 	continue_button.grab_focus()
+
+
+func _set_unsaved_exit_warning(enabled: bool) -> void:
+	var color_names := [
+		"font_color",
+		"font_focus_color",
+		"font_hover_color",
+		"font_hover_pressed_color",
+		"font_pressed_color",
+	]
+	if not enabled:
+		for color_name: String in color_names:
+			save_and_exit_button.remove_theme_color_override(color_name)
+		return
+
+	for color_name: String in color_names:
+		save_and_exit_button.add_theme_color_override(
+			color_name,
+			UNSAVED_EXIT_HOVER_COLOR
+			if color_name != "font_color"
+			else UNSAVED_EXIT_COLOR
+		)

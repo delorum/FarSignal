@@ -3,7 +3,7 @@ extends Control
 const BuildInfo = preload("res://scripts/build_info.gd")
 const GAME_SCENE := "res://scenes/main.tscn"
 const INTRO_SCENE := "res://scenes/intro.tscn"
-const ART_HOLD_SECONDS := 2.0
+const ART_HOLD_SECONDS := 1.0
 const MENU_FADE_SECONDS := 1.0
 
 @onready var background: ColorRect = $Background
