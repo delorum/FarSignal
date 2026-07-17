@@ -85,9 +85,14 @@ enum BuildActionType {
 @onready var victory_menu: Control = $VictoryOverlay/VictoryMenu
 
 var _displayed_health := -1
+var _displayed_max_health := -1
+var _displayed_health_upgrade_level := -1
 var _displayed_ammo := -1
+var _displayed_max_ammo := -1
+var _displayed_ammo_upgrade_level := -1
 var _displayed_damage_min := -1
 var _displayed_damage_max := -1
+var _displayed_damage_upgrade_level := -1
 var _displayed_energy_cores := -1
 var _displayed_energy := -1
 var _displayed_door_inventory := -1
@@ -496,16 +501,26 @@ func _update_player_panel() -> void:
 	var current_damage_min := player.damage_min()
 	var current_damage_max := player.damage_max()
 	if current_damage_min != _displayed_damage_min \
-			or current_damage_max != _displayed_damage_max:
+			or current_damage_max != _displayed_damage_max \
+			or player.damage_upgrade_level != _displayed_damage_upgrade_level:
 		_displayed_damage_min = current_damage_min
 		_displayed_damage_max = current_damage_max
-		damage_value.text = tr("Урон: %d-%d") % [
+		_displayed_damage_upgrade_level = player.damage_upgrade_level
+		damage_value.text = tr("Урон: %d-%d (%d уровень)") % [
 			current_damage_min,
 			current_damage_max,
+			player.damage_upgrade_level + 1,
 		]
-	if player.health != _displayed_health:
+	if player.health != _displayed_health \
+			or player.max_health != _displayed_max_health \
+			or player.health_upgrade_level != _displayed_health_upgrade_level:
 		_displayed_health = player.health
-		health_value.text = "%d / %d" % [player.health, player.max_health]
+		_displayed_max_health = player.max_health
+		_displayed_health_upgrade_level = player.health_upgrade_level
+		health_value.text = tr("Здоровье: %d (%d уровень)") % [
+			player.health,
+			player.health_upgrade_level + 1,
+		]
 		health_bar.max_value = player.max_health
 		health_value.modulate = (
 			STATUS_CRITICAL_COLOR
@@ -514,9 +529,16 @@ func _update_player_panel() -> void:
 		)
 		health_bar.value = player.health
 
-	if player.ammo != _displayed_ammo:
+	if player.ammo != _displayed_ammo \
+			or player.max_ammo != _displayed_max_ammo \
+			or player.ammo_upgrade_level != _displayed_ammo_upgrade_level:
 		_displayed_ammo = player.ammo
-		ammo_value.text = "%d / %d" % [player.ammo, player.max_ammo]
+		_displayed_max_ammo = player.max_ammo
+		_displayed_ammo_upgrade_level = player.ammo_upgrade_level
+		ammo_value.text = tr("Патроны: %d (%d уровень)") % [
+			player.ammo,
+			player.ammo_upgrade_level + 1,
+		]
 		ammo_bar.max_value = player.max_ammo
 		ammo_value.modulate = (
 			STATUS_CRITICAL_COLOR
@@ -925,6 +947,7 @@ func station_statistics() -> Dictionary:
 		"total_floor_cells": maze.floor_cell_count(),
 		"enemies_killed": _enemies_killed,
 		"living_enemies": _living_enemy_count(),
+		"target_enemies": _target_enemy_count(),
 		"mega_cores_returned": _mega_cores_returned,
 		"energy_received": player.energy_received_total,
 		"energy_spent": player.energy_spent_total,
@@ -936,13 +959,39 @@ func station_statistics() -> Dictionary:
 func _enemy_level_summary() -> String:
 	var lines: Array[String] = []
 	for level in range(1, ENEMY_LEVEL_COUNT + 1):
-		lines.append(tr("%d: %d здоровья, урон %d–%d") % [
+		var enemy_health := _enemy_health_for_level(level)
+		var enemy_damage_min := _enemy_damage_min_for_level(level)
+		var enemy_damage_max := _enemy_damage_max_for_level(level)
+		lines.append(tr(
+			"%d: %d здоровья (%d попаданий), урон %d–%d (%d попаданий)"
+		) % [
 			level,
-			_enemy_health_for_level(level),
-			_enemy_damage_min_for_level(level),
-			_enemy_damage_max_for_level(level),
+			enemy_health,
+			_average_hits_to_kill(
+				enemy_health,
+				player.damage_min(),
+				player.damage_max()
+			),
+			enemy_damage_min,
+			enemy_damage_max,
+			_average_hits_to_kill(
+				player.max_health,
+				enemy_damage_min,
+				enemy_damage_max
+			),
 		])
 	return "\n".join(lines)
+
+
+func _average_hits_to_kill(
+	health: int,
+	damage_min: int,
+	damage_max: int
+) -> int:
+	var average_damage := (float(damage_min) + float(damage_max)) * 0.5
+	if average_damage <= 0.0:
+		return 0
+	return ceili(float(health) / average_damage)
 
 
 func _create_enemy_from_save(saved_data: Dictionary, index: int) -> void:
@@ -1774,8 +1823,15 @@ func show_door_error(
 
 
 func _on_language_changed() -> void:
+	_displayed_health = -1
+	_displayed_max_health = -1
+	_displayed_health_upgrade_level = -1
+	_displayed_ammo = -1
+	_displayed_max_ammo = -1
+	_displayed_ammo_upgrade_level = -1
 	_displayed_damage_min = -1
 	_displayed_damage_max = -1
+	_displayed_damage_upgrade_level = -1
 	_displayed_energy_cores = -1
 	_displayed_energy = -1
 	_displayed_door_inventory = -1

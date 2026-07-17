@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: Far Signal 0.4.0\n"
+"Project-Id-Version: Far Signal 0.4.1\n"
 "Language: en\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -20,6 +20,9 @@ msgstr "Controls"
 
 msgid "Настройки"
 msgstr "Settings"
+
+msgid "Авторы"
+msgstr "Credits"
 
 msgid "Выход"
 msgstr "Exit"
@@ -69,14 +72,14 @@ msgstr "Sound Enabled"
 msgid "Громкость звуков"
 msgstr "Sound Volume"
 
-msgid "WASD или стрелки — движение\nМышь — направление взгляда\nЛевая кнопка мыши — выстрел\nПравая кнопка мыши — поставить или убрать дверь на соседней клетке\nE — открыть или закрыть дверь, взаимодействовать со станцией\nTab — открыть или закрыть карту\nПравая кнопка мыши на карте — указать или убрать точку маршрута\nEsc — пауза или вернуться назад"
-msgstr "WASD or arrow keys — move\nMouse — aim\nLeft mouse button — fire\nRight mouse button — install or remove a door in an adjacent cell\nE — open or close a door, interact with a station\nTab — open or close the map\nRight mouse button on the map — set or remove a route marker\nEsc — pause or go back"
+msgid "• WASD или стрелки — движение\n• Мышь — направление взгляда\n• Левая кнопка мыши — выстрел\n• Правая кнопка мыши — установить или снять дверь\n• E — открыть или закрыть дверь, взаимодействовать со станцией\n• Tab — открыть или закрыть карту\n• Правая кнопка мыши на карте — маркер маршрута или быстрое перемещение\n• Esc — пауза или вернуться назад"
+msgstr "• WASD or arrow keys — move\n• Mouse — aim\n• Left mouse button — fire\n• Right mouse button — install or remove a door\n• E — open or close a door, interact with a station\n• Tab — open or close the map\n• Right mouse button on the map — route marker or fast travel\n• Esc — pause or go back"
 
 msgid "Мы принимаем слабый сигнал с верхней стены - там есть выход.\n\nНайди его и проложи безопасный маршрут.\n\nСтанция расскажет подробности."
 msgstr "We are receiving a weak signal from the upper wall. There is an exit there.\n\nFind it and establish a safe route.\n\nThe station will provide further instructions."
 
-msgid "1. Убивай охотников, забирай энергоядра и сдавай их на Станции 1.\n\n2. Исследуй клетки карты и сдавай накопленные очки исследования.\n\n3. Ищи мегаядра по координатам и возвращай их на Станцию 1.\n\n4. За ядра и исследование ты получаешь энергию. Чем опаснее враг или зона относительно твоего уровня, тем выше награда.\n\n5. На Станции 1 покупай здоровье, патроны и двери.\n\n6. Ставь двери, расширяя безопасную зону до выхода на верхней стене.\n\n7. Чем больше безопасная зона, тем меньше врагов остается на карте.\n\n8. На карте правой кнопкой мыши можно мгновенно перемещаться между проходимыми клетками безопасной зоны.\n\n9. Чем выше по карте, тем сильнее враги. Найди Станции 2 и 3: там за энергию можно улучшать урон, здоровье и боезапас."
-msgstr "1. Kill hunters, collect their energy cores, and deliver them to Station 1.\n\n2. Explore map cells and exchange the accumulated exploration points.\n\n3. Locate megacores and return them to Station 1.\n\n4. Cores and exploration earn energy. The more dangerous an enemy or zone is relative to your level, the greater the reward.\n\n5. Buy health, ammunition, and doors at Station 1.\n\n6. Install doors to extend the safe zone toward the exit in the upper wall.\n\n7. The larger the safe zone becomes, the fewer enemies remain on the map.\n\n8. On the map, use the right mouse button to travel instantly between walkable cells inside the safe zone.\n\n9. Enemies become stronger toward the top of the map. Find Stations 2 and 3 to upgrade damage, health, and ammunition capacity with energy."
+msgid "1. Убивай охотников, забирай энергоядра и сдавай их на Станции 1.\n\n2. Исследуй клетки карты и сдавай накопленные очки исследования.\n\n3. Ищи мегаядра по координатам и возвращай их на Станцию 1.\n\n4. За ядра и исследование ты получаешь энергию. Чем опаснее враг или зона относительно твоего уровня, тем выше награда.\n\n5. На Станции 1 покупай здоровье, патроны и двери.\n\n6. Безопасная зона - это зеленые клетки пола, соединенные со Станцией 1 и отделенные дверями от остального лабиринта. Враги внутри нее не появляются.\n\n7. Чтобы расширить безопасную зону, исследуй проходы и поставь двери дальше от станции, перекрыв все выходы из присоединяемой области.\n\n8. Чем больше безопасная зона, тем меньше врагов остается на карте.\n\n9. На карте правой кнопкой мыши можно мгновенно перемещаться между проходимыми клетками безопасной зоны.\n\n10. Чем выше по карте, тем сильнее враги. Найди Станции 2 и 3: там за энергию можно улучшать урон, здоровье и боезапас."
+msgstr "1. Kill hunters, collect their energy cores, and deliver them to Station 1.\n\n2. Explore map cells and exchange the accumulated exploration points.\n\n3. Locate megacores and return them to Station 1.\n\n4. Cores and exploration earn energy. The more dangerous an enemy or zone is relative to your level, the greater the reward.\n\n5. Buy health, ammunition, and doors at Station 1.\n\n6. The safe zone consists of green floor cells connected to Station 1 and separated from the rest of the maze by doors. Enemies do not spawn inside it.\n\n7. To expand the safe zone, explore the passages and install doors farther from the station, blocking every exit from the area being added.\n\n8. The larger the safe zone becomes, the fewer enemies remain on the map.\n\n9. On the map, use the right mouse button to travel instantly between walkable cells inside the safe zone.\n\n10. Enemies become stronger toward the top of the map. Find Stations 2 and 3 to upgrade damage, health, and ammunition capacity with energy."
 
 msgid "ЗДОРОВЬЕ"
 msgstr "HEALTH"
@@ -96,6 +99,21 @@ msgstr "Enemy inside safe zone"
 msgid "Урон: %d-%d"
 msgstr "Damage: %d-%d"
 
+msgid "Урон: %d-%d (%d уровень)"
+msgstr "Damage: %d-%d (level %d)"
+
+msgid "Здоровье: %d (%d уровень)"
+msgstr "Health: %d (level %d)"
+
+msgid "Патроны: %d (%d уровень)"
+msgstr "Ammo: %d (level %d)"
+
+msgid "Здоровье: 100"
+msgstr "Health: 100"
+
+msgid "Патроны: 30"
+msgstr "Ammo: 30"
+
 msgid "Энергоядра: %d"
 msgstr "Energy cores: %d"
 
@@ -107,6 +125,15 @@ msgstr "Doors: %d"
 
 msgid "Очки исследования: %d"
 msgstr "Exploration points: %d"
+
+msgid "Задания:"
+msgstr "Objectives:"
+
+msgid "Расширять безопасную зону"
+msgstr "Expand the safe zone"
+
+msgid "Искать станции прокачки"
+msgstr "Find upgrade stations"
 
 msgid "Вернуть мегаядро на станцию 1"
 msgstr "Return the megacore to Station 1"
@@ -255,6 +282,9 @@ msgstr "Enemies killed: %d\n"
 msgid "Врагов на карте: %d\n"
 msgstr "Enemies on map: %d\n"
 
+msgid "Врагов на карте: %d (целевое: %d)\n"
+msgstr "Enemies on map: %d (target: %d)\n"
+
 msgid "Возвращено мегаядер: %d\n"
 msgstr "Megacores returned: %d\n"
 
@@ -270,8 +300,8 @@ msgstr "Energy remaining: %d\n\n"
 msgid "Уровни врагов:\n%s"
 msgstr "Enemy levels:\n%s"
 
-msgid "%d: %d здоровья, урон %d–%d"
-msgstr "%d: %d health, damage %d–%d"
+msgid "%d: %d здоровья (%d попаданий), урон %d–%d (%d попаданий)"
+msgstr "%d: %d health (%d hits), damage %d–%d (%d hits)"
 
 msgid "Поражение"
 msgstr "Defeat"

@@ -10,11 +10,13 @@ const MENU_FADE_SECONDS := 1.0
 @onready var center_container: CenterContainer = $CenterContainer
 @onready var main_menu: VBoxContainer = $CenterContainer/MainMenu
 @onready var controls_screen: VBoxContainer = $CenterContainer/ControlsScreen
+@onready var credits_screen: VBoxContainer = $CenterContainer/CreditsScreen
 @onready var settings_menu: Control = $CenterContainer/SettingsMenu
 @onready var continue_button: Button = $CenterContainer/MainMenu/ContinueButton
 @onready var new_game_button: Button = $CenterContainer/MainMenu/NewGameButton
 @onready var exit_button: Button = $CenterContainer/MainMenu/ExitButton
 @onready var back_button: Button = $CenterContainer/ControlsScreen/BackButton
+@onready var credits_back_button: Button = $CenterContainer/CreditsScreen/BackButton
 @onready var version_label: Label = $VersionLabel
 
 
@@ -70,7 +72,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if settings_menu.visible and settings_menu.close_submenu():
 		get_viewport().set_input_as_handled()
 		return
-	if controls_screen.visible or settings_menu.visible:
+	if controls_screen.visible or credits_screen.visible or settings_menu.visible:
 		_show_main_menu()
 		get_viewport().set_input_as_handled()
 
@@ -102,6 +104,16 @@ func _on_settings_pressed() -> void:
 	settings_menu.open()
 
 
+func _on_credits_pressed() -> void:
+	main_menu.hide()
+	credits_screen.show()
+	credits_back_button.grab_focus()
+
+
+func _on_github_pressed() -> void:
+	OS.shell_open("https://github.com/delorum")
+
+
 func _on_settings_back_requested() -> void:
 	_show_main_menu()
 
@@ -119,6 +131,7 @@ func _on_back_pressed() -> void:
 
 func _show_main_menu() -> void:
 	controls_screen.hide()
+	credits_screen.hide()
 	settings_menu.hide()
 	main_menu.show()
 	_focus_first_menu_button()

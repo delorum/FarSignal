@@ -86,6 +86,12 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Настройки"
 
+[node name="CreditsButton" type="Button" parent="CenterContainer/MainMenu"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Авторы"
+
 [node name="ExitButton" type="Button" parent="CenterContainer/MainMenu"]
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
@@ -111,12 +117,13 @@ layout_mode = 2
 mouse_filter = 2
 
 [node name="Description" type="Label" parent="CenterContainer/ControlsScreen"]
+custom_minimum_size = Vector2(560, 0)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.82, 0.88, 0.94, 1)
 theme_override_font_sizes/font_size = 20
-text = "WASD или стрелки — движение\nМышь — направление взгляда\nЛевая кнопка мыши — выстрел\nПравая кнопка мыши — поставить или убрать дверь на соседней клетке\nE — открыть или закрыть дверь, взаимодействовать со станцией\nTab — открыть или закрыть карту\nПравая кнопка мыши на карте — указать или убрать точку маршрута\nEsc — пауза или вернуться назад"
-horizontal_alignment = 1
-line_spacing = 8
+text = "• WASD или стрелки — движение\n• Мышь — направление взгляда\n• Левая кнопка мыши — выстрел\n• Правая кнопка мыши — установить или снять дверь\n• E — открыть или закрыть дверь, взаимодействовать со станцией\n• Tab — открыть или закрыть карту\n• Правая кнопка мыши на карте — маркер маршрута или быстрое перемещение\n• Esc — пауза или вернуться назад"
+autowrap_mode = 2
+line_spacing = 6
 
 [node name="DescriptionSeparator" type="Control" parent="CenterContainer/ControlsScreen"]
 custom_minimum_size = Vector2(0, 20)
@@ -124,6 +131,49 @@ layout_mode = 2
 mouse_filter = 2
 
 [node name="BackButton" type="Button" parent="CenterContainer/ControlsScreen"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Назад"
+
+[node name="CreditsScreen" type="VBoxContainer" parent="CenterContainer"]
+visible = false
+custom_minimum_size = Vector2(420, 0)
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="Title" type="Label" parent="CenterContainer/CreditsScreen"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.345, 0.839, 0.961, 1)
+theme_override_font_sizes/font_size = 38
+text = "Авторы"
+horizontal_alignment = 1
+
+[node name="TitleSeparator" type="Control" parent="CenterContainer/CreditsScreen"]
+custom_minimum_size = Vector2(0, 22)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="GithubLink" type="LinkButton" parent="CenterContainer/CreditsScreen"]
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "github.com/delorum"
+
+[node name="CodexLabel" type="Label" parent="CenterContainer/CreditsScreen"]
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.82, 0.88, 0.94, 1)
+theme_override_font_sizes/font_size = 22
+text = "OpenAI Codex"
+horizontal_alignment = 0
+vertical_alignment = 1
+
+[node name="CreditsSpacer" type="Control" parent="CenterContainer/CreditsScreen"]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+
+[node name="BackButton" type="Button" parent="CenterContainer/CreditsScreen"]
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
@@ -155,6 +205,9 @@ horizontal_alignment = 2
 [connection signal="pressed" from="CenterContainer/MainMenu/ContinueButton" to="." method="_on_continue_pressed"]
 [connection signal="pressed" from="CenterContainer/MainMenu/ControlsButton" to="." method="_on_controls_pressed"]
 [connection signal="pressed" from="CenterContainer/MainMenu/SettingsButton" to="." method="_on_settings_pressed"]
+[connection signal="pressed" from="CenterContainer/MainMenu/CreditsButton" to="." method="_on_credits_pressed"]
 [connection signal="pressed" from="CenterContainer/MainMenu/ExitButton" to="." method="_on_exit_pressed"]
 [connection signal="pressed" from="CenterContainer/ControlsScreen/BackButton" to="." method="_on_back_pressed"]
+[connection signal="pressed" from="CenterContainer/CreditsScreen/GithubLink" to="." method="_on_github_pressed"]
+[connection signal="pressed" from="CenterContainer/CreditsScreen/BackButton" to="." method="_on_back_pressed"]
 [connection signal="back_requested" from="CenterContainer/SettingsMenu" to="." method="_on_settings_back_requested"]

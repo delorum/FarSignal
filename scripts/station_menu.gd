@@ -114,11 +114,18 @@ func _show_instructions() -> void:
 func _show_information() -> void:
 	var statistics: Dictionary = game.station_statistics()
 	var total_floor_cells: int = statistics.total_floor_cells
+	var enemy_count_text: String = tr("Врагов на карте: %d\n") % (
+		statistics.living_enemies
+	)
+	if statistics.living_enemies != statistics.target_enemies:
+		enemy_count_text = tr(
+			"Врагов на карте: %d (целевое: %d)\n"
+		) % [statistics.living_enemies, statistics.target_enemies]
 	information_text.text = (
 		tr("Исследовано клеток: %d (%.1f%%)\n")
 		+ tr("Размер безопасной зоны: %d (%.1f%%)\n")
 		+ tr("Убито врагов: %d\n")
-		+ tr("Врагов на карте: %d\n")
+		+ enemy_count_text
 		+ tr("Возвращено мегаядер: %d\n")
 		+ tr("Получено энергии: %d\n")
 		+ tr("Потрачено энергии: %d\n")
@@ -130,7 +137,6 @@ func _show_information() -> void:
 		statistics.safe_zone_size,
 		_percentage(statistics.safe_zone_size, total_floor_cells),
 		statistics.enemies_killed,
-		statistics.living_enemies,
 		statistics.mega_cores_returned,
 		statistics.energy_received,
 		statistics.energy_spent,

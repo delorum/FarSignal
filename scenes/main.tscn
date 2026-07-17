@@ -138,6 +138,7 @@ layout_mode = 2
 theme_override_constants/separation = 10
 
 [node name="HealthTitle" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
+visible = false
 layout_mode = 2
 theme_override_colors/font_color = Color(0.82, 0.88, 0.94, 1)
 theme_override_font_sizes/font_size = 18
@@ -146,8 +147,8 @@ text = "ЗДОРОВЬЕ"
 [node name="HealthValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
-theme_override_font_sizes/font_size = 24
-text = "100 / 100"
+theme_override_font_sizes/font_size = 18
+text = "Здоровье: 100"
 
 [node name="HealthBar" type="ProgressBar" parent="GameInterface/PlayerPanel/Margin/VBox"]
 custom_minimum_size = Vector2(0, 18)
@@ -157,12 +158,8 @@ theme_override_styles/fill = SubResource("StyleBoxFlat_health_fill")
 value = 100.0
 show_percentage = false
 
-[node name="HealthSpacer" type="Control" parent="GameInterface/PlayerPanel/Margin/VBox"]
-custom_minimum_size = Vector2(0, 18)
-layout_mode = 2
-mouse_filter = 2
-
 [node name="AmmoTitle" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
+visible = false
 layout_mode = 2
 theme_override_colors/font_color = Color(0.82, 0.88, 0.94, 1)
 theme_override_font_sizes/font_size = 18
@@ -171,8 +168,8 @@ text = "ПАТРОНЫ"
 [node name="AmmoValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
-theme_override_font_sizes/font_size = 24
-text = "30 / 30"
+theme_override_font_sizes/font_size = 18
+text = "Патроны: 30"
 
 [node name="AmmoBar" type="ProgressBar" parent="GameInterface/PlayerPanel/Margin/VBox"]
 custom_minimum_size = Vector2(0, 18)
@@ -213,11 +210,31 @@ theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
 theme_override_font_sizes/font_size = 18
 text = "Очки исследования: 0"
 
+[node name="TasksTitle" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.82, 0.88, 0.94, 1)
+theme_override_font_sizes/font_size = 18
+text = "Задания:"
+
 [node name="MegaCoreValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
 theme_override_font_sizes/font_size = 18
 text = "Мегаядро: нет координат"
+autowrap_mode = 2
+
+[node name="ExpandSafeZoneTask" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
+theme_override_font_sizes/font_size = 18
+text = "Расширять безопасную зону"
+autowrap_mode = 2
+
+[node name="FindUpgradeStationsTask" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
+theme_override_font_sizes/font_size = 18
+text = "Искать станции прокачки"
 autowrap_mode = 2
 
 [node name="AlertValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
@@ -396,12 +413,13 @@ layout_mode = 2
 mouse_filter = 2
 
 [node name="Description" type="Label" parent="PauseOverlay/PauseMenu/CenterContainer/ControlsScreen"]
+custom_minimum_size = Vector2(560, 0)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.82, 0.88, 0.94, 1)
 theme_override_font_sizes/font_size = 20
-text = "WASD или стрелки — движение\nМышь — направление взгляда\nЛевая кнопка мыши — выстрел\nПравая кнопка мыши — поставить или убрать дверь на соседней клетке\nE — открыть или закрыть дверь, взаимодействовать со станцией\nTab — открыть или закрыть карту\nПравая кнопка мыши на карте — указать или убрать точку маршрута\nEsc — пауза или вернуться назад"
-horizontal_alignment = 1
-line_spacing = 8
+text = "• WASD или стрелки — движение\n• Мышь — направление взгляда\n• Левая кнопка мыши — выстрел\n• Правая кнопка мыши — установить или снять дверь\n• E — открыть или закрыть дверь, взаимодействовать со станцией\n• Tab — открыть или закрыть карту\n• Правая кнопка мыши на карте — маркер маршрута или быстрое перемещение\n• Esc — пауза или вернуться назад"
+autowrap_mode = 2
+line_spacing = 6
 
 [node name="DescriptionSeparator" type="Control" parent="PauseOverlay/PauseMenu/CenterContainer/ControlsScreen"]
 custom_minimum_size = Vector2(0, 20)
