@@ -27,6 +27,11 @@ const LOWER_LEVEL_MEGA_CORE_ENERGY := 50
 const EQUAL_LEVEL_MEGA_CORE_ENERGY := 100
 const MEGA_CORE_LEVEL_BONUS_ENERGY := 50
 const DOOR_COST := 50
+const TURRET_COST := 50
+const TURRET_MAX_HEALTH := 200
+const TURRET_MAX_AMMO := 30
+const TOWER_COST := 50
+const TOWER_MAX_HEALTH := 500
 const STARTING_DOORS := 0
 const MAX_DOOR_INVENTORY := 5
 const CELL_SIZE := 48.0
@@ -55,6 +60,8 @@ var energy := 0
 var energy_received_total := 0
 var energy_spent_total := 0
 var door_inventory := STARTING_DOORS
+var turret_inventory: Array[Dictionary] = []
+var tower_inventory: Array[Dictionary] = []
 var exploration_points := 0
 var mega_core_cell := Vector2i(-1, -1)
 var has_mega_core := false
@@ -109,7 +116,9 @@ func restore_status(
 	saved_energy_core_energy: int = 0,
 	saved_energy_received_total: int = 0,
 	saved_energy_spent_total: int = 0,
-	saved_mega_core_energy_value: int = EQUAL_LEVEL_MEGA_CORE_ENERGY
+	saved_mega_core_energy_value: int = EQUAL_LEVEL_MEGA_CORE_ENERGY,
+	saved_turret_inventory: Array = [],
+	saved_tower_inventory: Array = []
 ) -> void:
 	damage_upgrade_level = clampi(
 		saved_damage_upgrade_level,
@@ -131,6 +140,8 @@ func restore_status(
 	energy_received_total = maxi(0, saved_energy_received_total)
 	energy_spent_total = maxi(0, saved_energy_spent_total)
 	door_inventory = clampi(saved_door_inventory, 0, MAX_DOOR_INVENTORY)
+	turret_inventory = _sanitize_turret_inventory(saved_turret_inventory)
+	tower_inventory = _sanitize_tower_inventory(saved_tower_inventory)
 	exploration_points = maxi(0, saved_exploration_points)
 	mega_core_cell = saved_mega_core_cell
 	has_mega_core = saved_has_mega_core
@@ -286,6 +297,14 @@ func can_buy_door() -> bool:
 	return energy >= DOOR_COST and can_store_door()
 
 
+func can_buy_turret() -> bool:
+	return energy >= TURRET_COST
+
+
+func can_buy_tower() -> bool:
+	return energy >= TOWER_COST
+
+
 func can_store_door() -> bool:
 	return door_inventory < MAX_DOOR_INVENTORY
 
@@ -322,6 +341,101 @@ func buy_door() -> bool:
 	_spend_energy(DOOR_COST)
 	door_inventory += 1
 	return true
+
+
+func buy_turret() -> bool:
+	if not can_buy_turret():
+		return false
+	_spend_energy(TURRET_COST)
+	turret_inventory.append({
+		"health": TURRET_MAX_HEALTH,
+		"ammo": TURRET_MAX_AMMO,
+	})
+	return true
+
+
+func turret_inventory_count() -> int:
+	return turret_inventory.size()
+
+
+func take_turret_from_inventory() -> Dictionary:
+	if turret_inventory.is_empty():
+		return {}
+	return turret_inventory.pop_back()
+
+
+func store_turret_in_inventory(health_value: int, ammo_value: int) -> void:
+	turret_inventory.append({
+		"health": clampi(health_value, 1, TURRET_MAX_HEALTH),
+		"ammo": clampi(ammo_value, 0, TURRET_MAX_AMMO),
+	})
+
+
+func turret_inventory_for_save() -> Array:
+	return turret_inventory.duplicate(true)
+
+
+func buy_tower() -> bool:
+	if not can_buy_tower():
+		return false
+	_spend_energy(TOWER_COST)
+	tower_inventory.append({"health": TOWER_MAX_HEALTH})
+	return true
+
+
+func tower_inventory_count() -> int:
+	return tower_inventory.size()
+
+
+func take_tower_from_inventory() -> Dictionary:
+	if tower_inventory.is_empty():
+		return {}
+	return tower_inventory.pop_back()
+
+
+func store_tower_in_inventory(health_value: int) -> void:
+	tower_inventory.append({
+		"health": clampi(health_value, 1, TOWER_MAX_HEALTH),
+	})
+
+
+func tower_inventory_for_save() -> Array:
+	return tower_inventory.duplicate(true)
+
+
+func _sanitize_turret_inventory(saved_turrets: Array) -> Array[Dictionary]:
+	var restored: Array[Dictionary] = []
+	for saved_turret in saved_turrets:
+		if not saved_turret is Dictionary:
+			continue
+		restored.append({
+			"health": clampi(
+				int(saved_turret.get("health", TURRET_MAX_HEALTH)),
+				1,
+				TURRET_MAX_HEALTH
+			),
+			"ammo": clampi(
+				int(saved_turret.get("ammo", TURRET_MAX_AMMO)),
+				0,
+				TURRET_MAX_AMMO
+			),
+		})
+	return restored
+
+
+func _sanitize_tower_inventory(saved_towers: Array) -> Array[Dictionary]:
+	var restored: Array[Dictionary] = []
+	for saved_tower in saved_towers:
+		if not saved_tower is Dictionary:
+			continue
+		restored.append({
+			"health": clampi(
+				int(saved_tower.get("health", TOWER_MAX_HEALTH)),
+				1,
+				TOWER_MAX_HEALTH
+			),
+		})
+	return restored
 
 
 func exchange_energy_cores() -> bool:

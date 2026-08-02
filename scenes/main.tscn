@@ -1,4 +1,4 @@
-[gd_scene load_steps=25 format=3 uid="uid://dw58ygdj26wbu"]
+[gd_scene load_steps=28 format=3 uid="uid://dw58ygdj26wbu"]
 
 [ext_resource type="Script" uid="uid://b7t1b5rs3b076" path="res://scripts/game.gd" id="1_game"]
 [ext_resource type="Script" uid="uid://1jcmw0g6148v" path="res://scripts/maze.gd" id="2_maze"]
@@ -16,6 +16,9 @@
 [ext_resource type="Script" path="res://scripts/aim_indicator.gd" id="17_aim_indicator"]
 [ext_resource type="Script" path="res://scripts/build_action_marker.gd" id="18_build_action_marker"]
 [ext_resource type="Texture2D" path="res://assets/objects/megacore/megacore_sheet_48.png" id="19_mega_core_texture"]
+[ext_resource type="Script" path="res://scripts/story_screen.gd" id="20_story"]
+[ext_resource type="PackedScene" path="res://scenes/turret_menu.tscn" id="21_turret_menu"]
+[ext_resource type="PackedScene" path="res://scenes/tower_menu.tscn" id="22_tower_menu"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_player"]
 radius = 14.0
@@ -59,6 +62,10 @@ script = ExtResource("2_maze")
 
 [node name="Doors" type="Node2D" parent="."]
 
+[node name="Turrets" type="Node2D" parent="."]
+
+[node name="Towers" type="Node2D" parent="."]
+
 [node name="Stations" type="Node2D" parent="."]
 
 [node name="Enemies" type="Node2D" parent="."]
@@ -92,7 +99,7 @@ script = ExtResource("17_aim_indicator")
 
 [node name="Player" type="CharacterBody2D" parent="." unique_id=1057369580]
 collision_layer = 2
-collision_mask = 5
+collision_mask = 29
 script = ExtResource("3_player")
 
 [node name="Sprite2D" type="Sprite2D" parent="Player"]
@@ -199,10 +206,29 @@ theme_override_font_sizes/font_size = 18
 text = "Энергия: 0"
 
 [node name="DoorsValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
+visible = false
 layout_mode = 2
 theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
 theme_override_font_sizes/font_size = 18
 text = "Двери: 0"
+
+[node name="TurretsValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
+theme_override_font_sizes/font_size = 18
+text = "Турели: 0"
+
+[node name="TowersValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
+theme_override_font_sizes/font_size = 18
+text = "Башни: 0"
+
+[node name="BuildModeValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.82, 0.88, 0.94, 1)
+theme_override_font_sizes/font_size = 18
+text = "Ставим: турель"
 
 [node name="ExploredCellsValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
 layout_mode = 2
@@ -257,6 +283,22 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.9, 0.25, 0.27, 1)
 theme_override_font_sizes/font_size = 18
 text = "Враг в безопасной зоне"
+autowrap_mode = 2
+
+[node name="TowerAttackedValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
+visible = false
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.25, 0.27, 1)
+theme_override_font_sizes/font_size = 18
+text = "Атакована башня"
+autowrap_mode = 2
+
+[node name="TurretAttackedValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
+visible = false
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.25, 0.27, 1)
+theme_override_font_sizes/font_size = 18
+text = "Атакована турель"
 autowrap_mode = 2
 
 [node name="HitFlash" type="Panel" parent="GameInterface"]
@@ -376,12 +418,6 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Управление"
 
-[node name="ObjectiveButton" type="Button" parent="PauseOverlay/PauseMenu/CenterContainer/PauseMenu"]
-custom_minimum_size = Vector2(0, 52)
-layout_mode = 2
-theme_override_font_sizes/font_size = 22
-text = "Цель игры"
-
 [node name="SettingsButton" type="Button" parent="PauseOverlay/PauseMenu/CenterContainer/PauseMenu"]
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
@@ -417,7 +453,7 @@ custom_minimum_size = Vector2(560, 0)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.82, 0.88, 0.94, 1)
 theme_override_font_sizes/font_size = 20
-text = "• WASD или стрелки — движение\n• Мышь — направление взгляда\n• Левая кнопка мыши — выстрел\n• Правая кнопка мыши — установить или снять дверь\n• E — открыть или закрыть дверь, взаимодействовать со станцией\n• Tab — открыть или закрыть карту\n• Правая кнопка мыши на карте — маркер маршрута или быстрое перемещение\n• Esc — пауза или вернуться назад"
+text = "• WASD или стрелки — движение\n• Мышь — направление взгляда\n• Левая кнопка мыши — выстрел\n• Колесо мыши — выбрать турель или башню\n• Правая кнопка мыши — установить или снять выбранное устройство\n• E — взаимодействовать со станцией, турелью или башней\n• Tab — открыть или закрыть карту\n• Правая кнопка мыши на карте — маркер маршрута или быстрое перемещение\n• Esc — пауза или вернуться назад"
 autowrap_mode = 2
 line_spacing = 6
 
@@ -427,36 +463,6 @@ layout_mode = 2
 mouse_filter = 2
 
 [node name="BackButton" type="Button" parent="PauseOverlay/PauseMenu/CenterContainer/ControlsScreen"]
-custom_minimum_size = Vector2(0, 52)
-layout_mode = 2
-theme_override_font_sizes/font_size = 22
-text = "Назад"
-
-[node name="ObjectiveScreen" type="VBoxContainer" parent="PauseOverlay/PauseMenu/CenterContainer"]
-visible = false
-custom_minimum_size = Vector2(720, 0)
-layout_mode = 2
-theme_override_constants/separation = 16
-
-[node name="Title" type="Label" parent="PauseOverlay/PauseMenu/CenterContainer/ObjectiveScreen"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.345, 0.839, 0.961, 1)
-theme_override_font_sizes/font_size = 38
-text = "Цель"
-horizontal_alignment = 1
-
-[node name="ObjectiveText" type="Label" parent="PauseOverlay/PauseMenu/CenterContainer/ObjectiveScreen"]
-custom_minimum_size = Vector2(0, 310)
-layout_mode = 2
-theme_override_colors/font_color = Color(0.82, 0.88, 0.94, 1)
-theme_override_font_sizes/font_size = 19
-text = "Цель"
-horizontal_alignment = 1
-vertical_alignment = 1
-autowrap_mode = 2
-line_spacing = 6
-
-[node name="BackButton" type="Button" parent="PauseOverlay/PauseMenu/CenterContainer/ObjectiveScreen"]
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
@@ -588,11 +594,26 @@ theme_override_font_sizes/font_size = 22
 text = "Мегаядро не найдено"
 
 [node name="DoorButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid"]
+visible = false
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 22
 text = "Купить дверь"
+
+[node name="TurretButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "Купить турель за 50 энергии"
+
+[node name="TowerButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "Купить башню за 50 энергии"
 
 [node name="DamageUpgradeButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid"]
 visible = false
@@ -631,6 +652,13 @@ layout_mode = 2
 size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 22
 text = "Информация"
+
+[node name="NotesButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "Заметки"
 
 [node name="ExitButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid"]
 custom_minimum_size = Vector2(0, 52)
@@ -722,6 +750,119 @@ custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Назад"
+
+[node name="NotesPanel" type="MarginContainer" parent="StationOverlay/StationMenu/Background"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 24
+
+[node name="NotesScreen" type="VBoxContainer" parent="StationOverlay/StationMenu/Background/NotesPanel"]
+custom_minimum_size = Vector2(520, 0)
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="Title" type="Label" parent="StationOverlay/StationMenu/Background/NotesPanel/NotesScreen"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.345, 0.839, 0.561, 1)
+theme_override_font_sizes/font_size = 40
+text = "Заметки"
+
+[node name="NotesList" type="VBoxContainer" parent="StationOverlay/StationMenu/Background/NotesPanel/NotesScreen"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 12
+
+[node name="Note1Button" type="Button" parent="StationOverlay/StationMenu/Background/NotesPanel/NotesScreen/NotesList"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Заметка 0"
+
+[node name="Note2Button" type="Button" parent="StationOverlay/StationMenu/Background/NotesPanel/NotesScreen/NotesList"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Заметка 1"
+
+[node name="Note3Button" type="Button" parent="StationOverlay/StationMenu/Background/NotesPanel/NotesScreen/NotesList"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Заметка 2"
+
+[node name="Note4Button" type="Button" parent="StationOverlay/StationMenu/Background/NotesPanel/NotesScreen/NotesList"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Заметка 3"
+
+[node name="BackButton" type="Button" parent="StationOverlay/StationMenu/Background/NotesPanel/NotesScreen"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Назад"
+
+[node name="NoteReaderPanel" type="MarginContainer" parent="StationOverlay/StationMenu/Background"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 24
+
+[node name="NoteReader" type="VBoxContainer" parent="StationOverlay/StationMenu/Background/NoteReaderPanel"]
+custom_minimum_size = Vector2(620, 0)
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="Title" type="Label" parent="StationOverlay/StationMenu/Background/NoteReaderPanel/NoteReader"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.345, 0.839, 0.561, 1)
+theme_override_font_sizes/font_size = 40
+text = "Заметка 0"
+
+[node name="NoteScroll" type="ScrollContainer" parent="StationOverlay/StationMenu/Background/NoteReaderPanel/NoteReader"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="NoteText" type="Label" parent="StationOverlay/StationMenu/Background/NoteReaderPanel/NoteReader/NoteScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.82, 0.88, 0.94, 1)
+theme_override_font_sizes/font_size = 22
+autowrap_mode = 2
+
+[node name="BackButton" type="Button" parent="StationOverlay/StationMenu/Background/NoteReaderPanel/NoteReader"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Назад"
+
+[node name="TurretOverlay" type="CanvasLayer" parent="."]
+layer = 35
+
+[node name="TurretMenu" parent="TurretOverlay" instance=ExtResource("21_turret_menu")]
+layout_mode = 2
+
+[node name="TowerOverlay" type="CanvasLayer" parent="."]
+layer = 35
+
+[node name="TowerMenu" parent="TowerOverlay" instance=ExtResource("22_tower_menu")]
+layout_mode = 2
 
 [node name="DefeatOverlay" type="CanvasLayer" parent="."]
 layer = 40
@@ -889,14 +1030,70 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Главное меню"
 
+[node name="StoryOverlay" type="CanvasLayer" parent="."]
+layer = 50
+
+[node name="StoryScreen" type="Control" parent="StoryOverlay"]
+process_mode = 3
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("20_story")
+
+[node name="Background" type="ColorRect" parent="StoryOverlay/StoryScreen"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.02, 0.035, 0.055, 1)
+
+[node name="Center" type="CenterContainer" parent="StoryOverlay/StoryScreen/Background"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="VBoxContainer" parent="StoryOverlay/StoryScreen/Background/Center"]
+custom_minimum_size = Vector2(720, 0)
+layout_mode = 2
+theme_override_constants/separation = 28
+
+[node name="Title" type="Label" parent="StoryOverlay/StoryScreen/Background/Center/Panel"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.345, 0.839, 0.961, 1)
+theme_override_font_sizes/font_size = 40
+horizontal_alignment = 1
+
+[node name="Text" type="Label" parent="StoryOverlay/StoryScreen/Background/Center/Panel"]
+custom_minimum_size = Vector2(0, 320)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.82, 0.88, 0.94, 1)
+theme_override_font_sizes/font_size = 22
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+line_spacing = 8
+
+[node name="ContinueButton" type="Button" parent="StoryOverlay/StoryScreen/Background/Center/Panel"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Далее"
+
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/PauseMenu/ContinueButton" to="PauseOverlay/PauseMenu" method="_on_continue_pressed"]
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/PauseMenu/NewGameButton" to="PauseOverlay/PauseMenu" method="_on_new_game_pressed"]
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/PauseMenu/ControlsButton" to="PauseOverlay/PauseMenu" method="_on_controls_pressed"]
-[connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/PauseMenu/ObjectiveButton" to="PauseOverlay/PauseMenu" method="_on_objective_pressed"]
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/PauseMenu/SettingsButton" to="PauseOverlay/PauseMenu" method="_on_settings_pressed"]
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/PauseMenu/SaveAndExitButton" to="PauseOverlay/PauseMenu" method="_on_save_and_exit_pressed"]
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/ControlsScreen/BackButton" to="PauseOverlay/PauseMenu" method="_on_back_pressed"]
-[connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/ObjectiveScreen/BackButton" to="PauseOverlay/PauseMenu" method="_on_back_pressed"]
 [connection signal="back_requested" from="PauseOverlay/PauseMenu/CenterContainer/SettingsMenu" to="PauseOverlay/PauseMenu" method="_on_settings_back_requested"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/AmmoButton" to="StationOverlay/StationMenu" method="_on_ammo_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/HealthButton" to="StationOverlay/StationMenu" method="_on_health_pressed"]
@@ -904,13 +1101,24 @@ text = "Главное меню"
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/ExchangeCellsButton" to="StationOverlay/StationMenu" method="_on_exchange_cells_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/ReturnMegaCoreButton" to="StationOverlay/StationMenu" method="_on_return_mega_core_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/DoorButton" to="StationOverlay/StationMenu" method="_on_door_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/TurretButton" to="StationOverlay/StationMenu" method="_on_turret_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/TowerButton" to="StationOverlay/StationMenu" method="_on_tower_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/DamageUpgradeButton" to="StationOverlay/StationMenu" method="_on_damage_upgrade_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/HealthUpgradeButton" to="StationOverlay/StationMenu" method="_on_health_upgrade_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/AmmoUpgradeButton" to="StationOverlay/StationMenu" method="_on_ammo_upgrade_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/InstructionsButton" to="StationOverlay/StationMenu" method="_on_instructions_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/InformationButton" to="StationOverlay/StationMenu" method="_on_information_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/NotesButton" to="StationOverlay/StationMenu" method="_on_notes_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/ExitButton" to="StationOverlay/StationMenu" method="_on_exit_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/InstructionsPanel/InstructionsScreen/BackButton" to="StationOverlay/StationMenu" method="_on_instructions_back_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/InformationPanel/InformationScreen/BackButton" to="StationOverlay/StationMenu" method="_on_information_back_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/NotesPanel/NotesScreen/NotesList/Note1Button" to="StationOverlay/StationMenu" method="_on_note_one_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/NotesPanel/NotesScreen/NotesList/Note2Button" to="StationOverlay/StationMenu" method="_on_note_two_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/NotesPanel/NotesScreen/NotesList/Note3Button" to="StationOverlay/StationMenu" method="_on_note_three_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/NotesPanel/NotesScreen/NotesList/Note4Button" to="StationOverlay/StationMenu" method="_on_note_four_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/NotesPanel/NotesScreen/BackButton" to="StationOverlay/StationMenu" method="_on_notes_back_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/NoteReaderPanel/NoteReader/BackButton" to="StationOverlay/StationMenu" method="_on_note_back_pressed"]
 [connection signal="pressed" from="DefeatOverlay/DefeatMenu/Background/Center/Menu/MainMenuButton" to="DefeatOverlay/DefeatMenu" method="_on_main_menu_pressed"]
 [connection signal="pressed" from="VictoryOverlay/VictoryMenu/Background/Center/Menu/MainMenuButton" to="VictoryOverlay/VictoryMenu" method="_on_main_menu_pressed"]
+[connection signal="continued" from="StoryOverlay/StoryScreen" to="." method="_on_story_continued"]
+[connection signal="pressed" from="StoryOverlay/StoryScreen/Background/Center/Panel/ContinueButton" to="StoryOverlay/StoryScreen" method="_on_continue_pressed"]

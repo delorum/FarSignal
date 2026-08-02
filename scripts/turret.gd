@@ -1,13 +1,13 @@
 extends StaticBody2D
 class_name Turret
 
-const MAX_HEALTH := 100
-const MAX_AMMO := 30
+const MAX_HEALTH := Player.TURRET_MAX_HEALTH
+const MAX_AMMO := Player.TURRET_MAX_AMMO
 const VISION_RANGE := 30.0
 const VISION_HALF_ANGLE := PI * 0.5
 const TURN_SPEED := deg_to_rad(180.0)
 const AIM_TOLERANCE := deg_to_rad(6.0)
-const SHOOT_INTERVAL := 1.0
+const SHOOT_INTERVAL := 0.5
 const BODY_RADIUS := 24.0
 const BARREL_LENGTH := 20.0
 const STATUS_BACK_OFFSET := 18.0
@@ -99,7 +99,7 @@ func show_damage_number(amount: int, direction: Vector2) -> void:
 
 
 func is_active() -> bool:
-	return health > 0 and ammo > 0
+	return health > 0
 
 
 func update_visibility(currently_visible: bool) -> void:
@@ -119,7 +119,7 @@ func _process(delta: float) -> void:
 	_firing_flash_left = maxf(0.0, _firing_flash_left - delta)
 	firing = _firing_flash_left > 0.0
 
-	var target := _visible_target()
+	var target := _visible_target() if ammo > 0 else null
 	if target != null:
 		var desired_direction := _clamp_to_arc(position.direction_to(target.position))
 		aim_direction = aim_direction.rotated(
@@ -194,8 +194,6 @@ func _fire() -> void:
 	_shoot_cooldown = SHOOT_INTERVAL
 	_firing_flash_left = 0.18
 	firing = true
-	if ammo <= 0:
-		_game.destroy_turret(self)
 
 
 func _draw() -> void:

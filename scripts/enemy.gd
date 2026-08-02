@@ -35,6 +35,7 @@ const TURN_SPEED := deg_to_rad(150.0)
 const AIM_TOLERANCE := deg_to_rad(10.0)
 const FIRING_POSITION_SEARCH_RADIUS := 6
 const FIRING_POSITION_REPATH_INTERVAL := 1.5
+const TARGET_SCAN_INTERVAL := 0.15
 const ANIMATION_FRAME_COUNT := 8
 const RUN_ANIMATION_FPS := 10.0
 const IDLE_ANIMATION_FPS := 5.0
@@ -75,6 +76,9 @@ var _search_repath_cooldown := 0.0
 var _search_path_retry_needed := false
 var _firing_position_repath_cooldown := 0.0
 var _last_path_build_deferred := false
+var _target_scan_cooldown := 0.0
+var _cached_structure_target: Node2D
+var _current_attack_target: Node2D
 var _last_known_player_cell := Vector2i(-1, -1)
 var _patrol_minimum_y := 0
 var _patrol_maximum_y := Maze.ROWS - 1
@@ -227,6 +231,7 @@ func set_active(active: bool) -> void:
 	_active = active and not dead
 	if not _active:
 		velocity = Vector2.ZERO
+		_current_attack_target = null
 
 
 func update_visibility(
@@ -267,6 +272,7 @@ func take_damage(amount: int) -> bool:
 		return false
 
 	dead = true
+	_current_attack_target = null
 	energy_core_collected = false
 	energy_core_energy_value = Player.energy_core_reward(
 		enemy_level,
@@ -358,6 +364,7 @@ func _physics_process(delta: float) -> void:
 		0.0,
 		_firing_position_repath_cooldown - delta
 	)
+	_target_scan_cooldown = maxf(0.0, _target_scan_cooldown - delta)
 	_search_repath_cooldown = maxf(0.0, _search_repath_cooldown - delta)
 	_update_facing(delta)
 
@@ -373,22 +380,29 @@ func _physics_process(delta: float) -> void:
 				_player.position,
 				VISION_RANGE
 			)
+	var structure_target := _visible_structure_target()
+	var target: Node2D = _player if sees_player else structure_target
+	_current_attack_target = structure_target if target == structure_target else null
 	var target_position := Vector2.ZERO
 	var target_cell := Vector2i(-1, -1)
 	var direction_to_target := Vector2.ZERO
 	var aim_position := Vector2.ZERO
 	var aim_direction := Vector2.ZERO
-	if sees_player:
-		target_position = _player.position
+	if target != null:
+		target_position = target.position
 		target_cell = _maze.world_to_cell(target_position)
 		direction_to_target = position.direction_to(target_position)
-		aim_position = _predicted_player_position()
+		aim_position = (
+			_predicted_player_position()
+			if target == _player
+			else target_position
+		)
 		aim_direction = position.direction_to(aim_position)
 		if aim_direction.is_zero_approx():
 			aim_direction = direction_to_target
 
 	if state == State.MANEUVER:
-		if sees_player:
+		if target != null:
 			_last_known_player_cell = target_cell
 			_desired_facing = direction_to_target
 			_update_maneuver(true)
@@ -396,7 +410,7 @@ func _physics_process(delta: float) -> void:
 			_update_maneuver(false)
 		return
 
-	if sees_player:
+	if target != null:
 		_last_known_player_cell = target_cell
 		if state != State.COMBAT:
 			_enter_combat()
@@ -417,7 +431,7 @@ func _physics_process(delta: float) -> void:
 						target_position
 					)
 				return
-		if _try_start_coordinated_flank(player_cell):
+		if target == _player and _try_start_coordinated_flank(player_cell):
 			return
 		if _shoot_cooldown <= 0.0 and _is_aimed_at(aim_direction):
 			_game.spawn_enemy_bullet(position, aim_direction, self)
@@ -475,6 +489,34 @@ func _enter_search() -> void:
 		_path.clear()
 		_path_index = 0
 		_search_path_retry_needed = _last_path_build_deferred
+
+
+func _visible_structure_target() -> Node2D:
+	if _target_scan_cooldown > 0.0:
+		return (
+			_cached_structure_target
+			if is_instance_valid(_cached_structure_target)
+			else null
+		)
+	_target_scan_cooldown = TARGET_SCAN_INTERVAL \
+			+ _rng.randf_range(0.0, 0.05)
+	_cached_structure_target = _game.visible_structure_for_enemy(
+		self,
+		VISION_RANGE,
+		_facing,
+		VISION_HALF_ANGLE
+	)
+	return _cached_structure_target
+
+
+func is_attacking_tower() -> bool:
+	return is_instance_valid(_current_attack_target) \
+			and _current_attack_target is Tower
+
+
+func is_attacking_turret() -> bool:
+	return is_instance_valid(_current_attack_target) \
+			and _current_attack_target is Turret
 
 
 func _try_start_combat_maneuver(direction_to_player: Vector2) -> bool:

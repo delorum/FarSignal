@@ -1,7 +1,6 @@
 extends Control
 
 const BuildInfo = preload("res://scripts/build_info.gd")
-const LoreText = preload("res://scripts/lore_text.gd")
 const INTRO_SCENE := "res://scenes/intro.tscn"
 const MAIN_MENU_SCENE := "res://scenes/menu.tscn"
 const UNSAVED_EXIT_COLOR := Color(0.95, 0.22, 0.22)
@@ -9,15 +8,14 @@ const UNSAVED_EXIT_HOVER_COLOR := Color(1.0, 0.38, 0.38)
 
 @onready var pause_menu: VBoxContainer = $CenterContainer/PauseMenu
 @onready var controls_screen: VBoxContainer = $CenterContainer/ControlsScreen
-@onready var objective_screen: VBoxContainer = $CenterContainer/ObjectiveScreen
 @onready var settings_menu: Control = $CenterContainer/SettingsMenu
 @onready var continue_button: Button = $CenterContainer/PauseMenu/ContinueButton
 @onready var save_and_exit_button: Button = $CenterContainer/PauseMenu/SaveAndExitButton
 @onready var controls_back_button: Button = $CenterContainer/ControlsScreen/BackButton
-@onready var objective_back_button: Button = $CenterContainer/ObjectiveScreen/BackButton
-@onready var objective_text: Label = $CenterContainer/ObjectiveScreen/ObjectiveText
 @onready var map_view: Control = $"../../MapOverlay/MapView"
 @onready var station_menu: Control = $"../../StationOverlay/StationMenu"
+@onready var turret_menu: Control = $"../../TurretOverlay/TurretMenu"
+@onready var tower_menu: Control = $"../../TowerOverlay/TowerMenu"
 @onready var defeat_menu: Control = $"../../DefeatOverlay/DefeatMenu"
 @onready var victory_menu: Control = $"../../VictoryOverlay/VictoryMenu"
 @onready var game: Node = $"../.."
@@ -27,7 +25,6 @@ const UNSAVED_EXIT_HOVER_COLOR := Color(1.0, 0.38, 0.38)
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	version_label.text = BuildInfo.display_text()
-	objective_text.text = LoreText.objective_text()
 	Localization.language_changed.connect(_on_language_changed)
 
 
@@ -39,15 +36,15 @@ func _exit_tree() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not event.is_action_pressed("ui_cancel"):
 		return
-	if station_menu.visible or defeat_menu.visible or victory_menu.visible:
+	if station_menu.visible or turret_menu.visible or tower_menu.visible \
+			or defeat_menu.visible or victory_menu.visible:
 		return
 
 	if not visible:
 		_open_pause_menu()
 	elif settings_menu.visible and settings_menu.close_submenu():
 		pass
-	elif controls_screen.visible or objective_screen.visible \
-			or settings_menu.visible:
+	elif controls_screen.visible or settings_menu.visible:
 		_show_pause_menu()
 	else:
 		_resume_game()
@@ -71,12 +68,6 @@ func _on_controls_pressed() -> void:
 	pause_menu.hide()
 	controls_screen.show()
 	controls_back_button.grab_focus()
-
-
-func _on_objective_pressed() -> void:
-	pause_menu.hide()
-	objective_screen.show()
-	objective_back_button.grab_focus()
 
 
 func _on_settings_pressed() -> void:
@@ -124,7 +115,6 @@ func _resume_game() -> void:
 
 func _show_pause_menu() -> void:
 	controls_screen.hide()
-	objective_screen.hide()
 	settings_menu.hide()
 	var can_save: bool = game.can_save_game()
 	save_and_exit_button.text = (
@@ -161,6 +151,5 @@ func _set_unsaved_exit_warning(enabled: bool) -> void:
 
 func _on_language_changed() -> void:
 	version_label.text = BuildInfo.display_text()
-	objective_text.text = LoreText.objective_text()
 	if pause_menu.visible:
 		_show_pause_menu()

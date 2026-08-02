@@ -36,6 +36,9 @@ const ESTIMATED_CORRIDOR_WIDTH := 2.0
 const STATION_ROOM_RADIUS := 3
 const STATION_FLOOR_RADIUS := 2
 const PLACEMENT_SPREAD := 14
+const START_STATION_OFFSET_MIN := 10
+const START_STATION_OFFSET_MAX := 16
+const START_STATION_Y := ROWS - 14
 const LEFT_PLACEMENT_X := 25
 const CENTER_PLACEMENT_X := int(COLUMNS / 2.0)
 const RIGHT_PLACEMENT_X := COLUMNS - 26
@@ -69,6 +72,8 @@ var _station_specs: Array[Dictionary] = []
 var _closed_door_cells: Dictionary = {}
 var _safe_cell_mask := PackedByteArray()
 var _planned_exit_x := int(COLUMNS / 2.0)
+var _start_cell := Vector2i(-1, -1)
+var _start_door_cell := Vector2i(-1, -1)
 
 
 func _ready() -> void:
@@ -172,15 +177,15 @@ func station_cell() -> Vector2i:
 
 
 func station_start_cell() -> Vector2i:
-	if _station_specs.is_empty():
-		return Vector2i(-1, -1)
-	return _station_specs[0].start_cell
+	return _start_cell
 
 
 func station_start_facing() -> Vector2i:
-	if _station_specs.is_empty():
-		return Vector2i.UP
-	return _station_specs[0].start_facing
+	return Vector2i.UP
+
+
+func start_door_cell() -> Vector2i:
+	return _start_door_cell
 
 
 func exit_door_cell() -> Vector2i:
@@ -615,6 +620,98 @@ func update_safe_zone(
 
 	for index in cell_count:
 		if safe_components.has(component_ids[index]):
+			_safe_cell_mask[index] = 1
+	queue_redraw()
+
+
+func extend_safe_zone_from_towers(
+	tower_positions: Array[Vector2],
+	door_cells: Array[Vector2i],
+	radius: int
+) -> void:
+	if tower_positions.is_empty():
+		return
+	var cell_count := COLUMNS * ROWS
+	var direct_mask := PackedByteArray()
+	direct_mask.resize(cell_count)
+	direct_mask.fill(0)
+	for tower_position in tower_positions:
+		var tower_cell := world_to_cell(tower_position)
+		for y in range(-radius, radius + 1):
+			for x in range(-radius, radius + 1):
+				var cell := tower_cell + Vector2i(x, y)
+				if not _is_inside(cell) or _is_wall(cell) \
+						or Vector2(x, y).length() > float(radius):
+					continue
+				if not has_line_of_sight(
+					tower_position,
+					cell_to_world(cell),
+					float(radius) + 0.5
+				):
+					continue
+				direct_mask[_cell_index(cell)] = 1
+				_safe_cell_mask[_cell_index(cell)] = 1
+
+	var door_mask := PackedByteArray()
+	door_mask.resize(cell_count)
+	door_mask.fill(0)
+	for cell in door_cells:
+		if _is_inside(cell):
+			door_mask[_cell_index(cell)] = 1
+	var component_ids := PackedInt32Array()
+	component_ids.resize(cell_count)
+	component_ids.fill(-1)
+	var component_sizes: Array[int] = []
+	var component_touches_tower_field: Array[bool] = []
+	var largest_component := -1
+	var largest_size := 0
+
+	for y in ROWS:
+		for x in COLUMNS:
+			var start := Vector2i(x, y)
+			var start_index := _cell_index(start)
+			if component_ids[start_index] >= 0 or _is_wall(start) \
+					or door_mask[start_index] == 1 \
+					or _safe_cell_mask[start_index] == 1:
+				continue
+			var component_id := component_sizes.size()
+			var size := 0
+			var touches_tower_field := false
+			var pending := PackedInt32Array([start_index])
+			component_ids[start_index] = component_id
+			var pending_index := 0
+			while pending_index < pending.size():
+				var current_index := pending[pending_index]
+				pending_index += 1
+				size += 1
+				var current := Vector2i(
+					current_index % COLUMNS,
+					current_index / COLUMNS
+				)
+				for direction in CARDINAL_DIRECTIONS:
+					var neighbor := current + direction
+					if not _is_inside(neighbor):
+						continue
+					var neighbor_index := _cell_index(neighbor)
+					if direct_mask[neighbor_index] == 1:
+						touches_tower_field = true
+					if component_ids[neighbor_index] >= 0 \
+							or _cells[neighbor.y][neighbor.x] == 1 \
+							or door_mask[neighbor_index] == 1 \
+							or _safe_cell_mask[neighbor_index] == 1:
+						continue
+					component_ids[neighbor_index] = component_id
+					pending.append(neighbor_index)
+			component_sizes.append(size)
+			component_touches_tower_field.append(touches_tower_field)
+			if size > largest_size:
+				largest_size = size
+				largest_component = component_id
+
+	for index in cell_count:
+		var component_id := component_ids[index]
+		if component_id >= 0 and component_id != largest_component \
+				and component_touches_tower_field[component_id]:
 			_safe_cell_mask[index] = 1
 	queue_redraw()
 
@@ -1109,10 +1206,28 @@ func _add_stations(rng: RandomNumberGenerator) -> void:
 		)
 	_planned_exit_x += rng.randi_range(-PLACEMENT_SPREAD, PLACEMENT_SPREAD)
 
+	_start_cell = Vector2i(station_one_x, ROWS - 2)
+	_start_door_cell = _start_cell + Vector2i.DOWN
+	for y in range(ROWS - 2, START_STATION_Y - 1, -1):
+		_cells[y][station_one_x] = 0
+	_door_specs.append({
+		"cell": _start_door_cell,
+		"horizontal_passage": false,
+		"locked": true,
+		"start_door": true,
+	})
+	var station_offset := rng.randi_range(
+		START_STATION_OFFSET_MIN,
+		START_STATION_OFFSET_MAX
+	)
+	if station_one_x > CENTER_PLACEMENT_X:
+		station_offset = -station_offset
+	elif station_one_x == CENTER_PLACEMENT_X and rng.randi_range(0, 1) == 0:
+		station_offset = -station_offset
 	_add_station(
-		Vector2i(station_one_x, ROWS - STATION_ROOM_RADIUS - 1),
+		Vector2i(station_one_x + station_offset, START_STATION_Y),
 		1,
-		Vector2i.DOWN
+		Vector2i.ZERO
 	)
 	var station_two_region := _random_other_placement_region(placement, rng)
 	var station_three_region := _random_other_placement_region(
@@ -1201,9 +1316,6 @@ func _add_station(
 		"cell": center,
 		"station_id": station_id,
 		"doors": doors,
-		"start_cell": center
-				+ Vector2i.DOWN * STATION_FLOOR_RADIUS,
-		"start_facing": Vector2i.UP,
 	})
 
 

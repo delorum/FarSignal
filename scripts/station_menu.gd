@@ -10,6 +10,11 @@ const LoreText = preload("res://scripts/lore_text.gd")
 @onready var instructions_text: Label = $Background/InstructionsPanel/InstructionsScreen/InstructionsScroll/InstructionsText
 @onready var information_screen: Control = $Background/InformationPanel
 @onready var information_text: Label = $Background/InformationPanel/InformationScreen/InformationText
+@onready var notes_screen: Control = $Background/NotesPanel
+@onready var notes_list: VBoxContainer = $Background/NotesPanel/NotesScreen/NotesList
+@onready var note_reader: Control = $Background/NoteReaderPanel
+@onready var note_title: Label = $Background/NoteReaderPanel/NoteReader/Title
+@onready var note_text: Label = $Background/NoteReaderPanel/NoteReader/NoteScroll/NoteText
 @onready var energy_value: Label = $Background/Center/Menu/EnergyValue
 @onready var player_status_value: Label = $Background/Center/Menu/PlayerStatusValue
 @onready var ammo_button: Button = $Background/Center/Menu/ActionsGrid/AmmoButton
@@ -18,16 +23,22 @@ const LoreText = preload("res://scripts/lore_text.gd")
 @onready var exchange_cells_button: Button = $Background/Center/Menu/ActionsGrid/ExchangeCellsButton
 @onready var return_mega_core_button: Button = $Background/Center/Menu/ActionsGrid/ReturnMegaCoreButton
 @onready var door_button: Button = $Background/Center/Menu/ActionsGrid/DoorButton
+@onready var turret_button: Button = $Background/Center/Menu/ActionsGrid/TurretButton
+@onready var tower_button: Button = $Background/Center/Menu/ActionsGrid/TowerButton
 @onready var instructions_button: Button = $Background/Center/Menu/ActionsGrid/InstructionsButton
 @onready var information_button: Button = $Background/Center/Menu/ActionsGrid/InformationButton
+@onready var notes_button: Button = $Background/Center/Menu/ActionsGrid/NotesButton
 @onready var damage_upgrade_button: Button = $Background/Center/Menu/ActionsGrid/DamageUpgradeButton
 @onready var health_upgrade_button: Button = $Background/Center/Menu/ActionsGrid/HealthUpgradeButton
 @onready var ammo_upgrade_button: Button = $Background/Center/Menu/ActionsGrid/AmmoUpgradeButton
 @onready var exit_button: Button = $Background/Center/Menu/ActionsGrid/ExitButton
 @onready var instructions_back_button: Button = $Background/InstructionsPanel/InstructionsScreen/BackButton
 @onready var information_back_button: Button = $Background/InformationPanel/InformationScreen/BackButton
+@onready var notes_back_button: Button = $Background/NotesPanel/NotesScreen/BackButton
+@onready var note_back_button: Button = $Background/NoteReaderPanel/NoteReader/BackButton
 
 var _station_id := 1
+var _open_note_number := 0
 var _station_one_buttons: Array[Button] = []
 var _upgrade_buttons: Array[Button] = []
 
@@ -43,6 +54,8 @@ func _ready() -> void:
 		exchange_cells_button,
 		return_mega_core_button,
 		door_button,
+		turret_button,
+		tower_button,
 		instructions_button,
 	]
 	_upgrade_buttons = [
@@ -65,6 +78,7 @@ func open(show_instructions: bool = false, station_id: int = 1) -> void:
 	title.text = tr("Станция %d") % station_id
 	for button in _station_one_buttons:
 		button.visible = station_id == 1
+	door_button.visible = station_id == 1 and game.door_gameplay_enabled()
 	for button in _upgrade_buttons:
 		button.visible = station_id > 1
 	_update_buttons()
@@ -81,6 +95,8 @@ func _show_menu() -> void:
 	menu.visible = true
 	instructions_screen.visible = false
 	information_screen.visible = false
+	notes_screen.visible = false
+	note_reader.visible = false
 	if _station_id > 1:
 		for button in _upgrade_buttons:
 			if not button.disabled:
@@ -97,8 +113,12 @@ func _show_menu() -> void:
 		health_button.grab_focus()
 	elif not ammo_button.disabled:
 		ammo_button.grab_focus()
-	elif not door_button.disabled:
+	elif door_button.visible and not door_button.disabled:
 		door_button.grab_focus()
+	elif turret_button.visible and not turret_button.disabled:
+		turret_button.grab_focus()
+	elif tower_button.visible and not tower_button.disabled:
+		tower_button.grab_focus()
 	else:
 		exit_button.grab_focus()
 
@@ -107,6 +127,8 @@ func _show_instructions() -> void:
 	menu.visible = false
 	instructions_screen.visible = true
 	information_screen.visible = false
+	notes_screen.visible = false
+	note_reader.visible = false
 	instructions_scroll.scroll_vertical = 0
 	instructions_back_button.grab_focus()
 
@@ -146,7 +168,34 @@ func _show_information() -> void:
 	menu.visible = false
 	instructions_screen.visible = false
 	information_screen.visible = true
+	notes_screen.visible = false
+	note_reader.visible = false
 	information_back_button.grab_focus()
+
+
+func _show_notes() -> void:
+	menu.visible = false
+	instructions_screen.visible = false
+	information_screen.visible = false
+	notes_screen.visible = true
+	note_reader.visible = false
+	var unlocked_count: int = game.unlocked_note_count()
+	for index in notes_list.get_child_count():
+		var button := notes_list.get_child(index) as Button
+		button.visible = index < unlocked_count
+	if unlocked_count > 0:
+		(notes_list.get_child(0) as Button).grab_focus()
+	else:
+		notes_back_button.grab_focus()
+
+
+func _show_note(note_number: int) -> void:
+	_open_note_number = note_number
+	notes_screen.visible = false
+	note_reader.visible = true
+	note_title.text = tr("Заметка %d") % note_number
+	note_text.text = LoreText.note_text(note_number)
+	note_back_button.grab_focus()
 
 
 func _percentage(value: int, total: int) -> float:
@@ -198,12 +247,44 @@ func _on_door_pressed() -> void:
 	_show_menu()
 
 
+func _on_turret_pressed() -> void:
+	game.buy_turret()
+	_update_buttons()
+	_show_menu()
+
+
+func _on_tower_pressed() -> void:
+	game.buy_tower()
+	_update_buttons()
+	_show_menu()
+
+
 func _on_instructions_pressed() -> void:
 	_show_instructions()
 
 
 func _on_information_pressed() -> void:
 	_show_information()
+
+
+func _on_notes_pressed() -> void:
+	_show_notes()
+
+
+func _on_note_one_pressed() -> void:
+	_show_note(0)
+
+
+func _on_note_two_pressed() -> void:
+	_show_note(1)
+
+
+func _on_note_three_pressed() -> void:
+	_show_note(2)
+
+
+func _on_note_four_pressed() -> void:
+	_show_note(3)
 
 
 func _on_damage_upgrade_pressed() -> void:
@@ -230,6 +311,14 @@ func _on_instructions_back_pressed() -> void:
 
 func _on_information_back_pressed() -> void:
 	_show_menu()
+
+
+func _on_notes_back_pressed() -> void:
+	_show_menu()
+
+
+func _on_note_back_pressed() -> void:
+	_show_notes()
 
 
 func _on_exit_pressed() -> void:
@@ -301,6 +390,10 @@ func _update_buttons() -> void:
 		if not game.player.can_store_door()
 		else tr("Купить дверь за %d энергии") % Player.DOOR_COST
 	)
+	turret_button.disabled = not game.player.can_buy_turret()
+	turret_button.text = tr("Купить турель за %d энергии") % Player.TURRET_COST
+	tower_button.disabled = not game.player.can_buy_tower()
+	tower_button.text = tr("Купить башню за %d энергии") % Player.TOWER_COST
 
 	damage_upgrade_button.disabled = not game.can_upgrade_player_damage(
 		_station_id
@@ -348,3 +441,7 @@ func _on_language_changed() -> void:
 	_update_buttons()
 	if information_screen.visible:
 		_show_information()
+	elif notes_screen.visible:
+		_show_notes()
+	elif note_reader.visible and _open_note_number > 0:
+		_show_note(_open_note_number)

@@ -11,10 +11,14 @@ const TEXT_COLOR := Color("d8e7f5")
 @onready var game: Node = $"../.."
 @onready var player: Player = $"../../Player"
 @onready var doors: Node2D = $"../../Doors"
+@onready var turrets: Node2D = $"../../Turrets"
+@onready var towers: Node2D = $"../../Towers"
 @onready var stations: Node2D = $"../../Stations"
 @onready var enemies: Node2D = $"../../Enemies"
 @onready var pause_menu: Control = $"../../PauseOverlay/PauseMenu"
 @onready var station_menu: Control = $"../../StationOverlay/StationMenu"
+@onready var turret_menu: Control = $"../../TurretOverlay/TurretMenu"
+@onready var tower_menu: Control = $"../../TowerOverlay/TowerMenu"
 @onready var defeat_menu: Control = $"../../DefeatOverlay/DefeatMenu"
 @onready var victory_menu: Control = $"../../VictoryOverlay/VictoryMenu"
 @onready var map_viewport: Control = $MapViewport
@@ -32,6 +36,8 @@ func _ready() -> void:
 		maze,
 		player,
 		doors,
+		turrets,
+		towers,
 		stations,
 		enemies,
 		_cell_size
@@ -64,6 +70,8 @@ func _process(delta: float) -> void:
 	if Input.is_action_just_pressed("toggle_map"):
 		if pause_menu.visible \
 				or station_menu.visible \
+				or turret_menu.visible \
+				or tower_menu.visible \
 				or defeat_menu.visible \
 				or victory_menu.visible:
 			return

@@ -7,8 +7,6 @@ const UI_MENU_CONFIRM_DURATION := 0.3
 const MUSIC_VOLUME_DB := -8.0
 const MENU_MUSIC_VOLUME_DB := -3.0
 const STATION_AMBIENCE_VOLUME_DB := -18.0
-const STATION_WAITING_VOLUME_DB := -20.0
-const USE_STATION_WAITING_LAYER := false
 const SILENT_VOLUME_DB := -60.0
 const SETTINGS_PATH := "user://far_signal_settings.cfg"
 const MUSIC_BUS := "Music"
@@ -17,7 +15,6 @@ const MENU_MUSIC_PATH := "res://assets/audio/music_menu_soft_loop.ogg"
 const STATION_AMBIENCE_PATH := (
 	"res://assets/audio/music_station_controlroom.ogg"
 )
-const STATION_WAITING_PATH := "res://assets/audio/music_station_waiting.ogg"
 const VICTORY_MUSIC_PATH := "res://assets/audio/music_victory_corpo_coffee.ogg"
 const DEFEAT_MUSIC_PATH := "res://assets/audio/music_defeat_corpo_nostalgia.ogg"
 const EXPLORATION_MUSIC_PATHS := [
@@ -36,8 +33,6 @@ const ENEMY_SHOT_PATH := "res://assets/audio/sfx/enemy_shot.ogg"
 const DOOR_OPEN_PATH := "res://assets/audio/sfx/door_open.ogg"
 const DOOR_CLOSE_PATH := "res://assets/audio/sfx/door_close.ogg"
 const DOOR_ERROR_PATH := "res://assets/audio/sfx/door_error.ogg"
-const DOOR_WORK_GENERIC_PATH := "res://assets/audio/sfx/door_work_impact.ogg"
-const DOOR_WORK_MINING_PATH := "res://assets/audio/sfx/door_work_mining.ogg"
 const DOOR_WORK_PLATE_PATH := "res://assets/audio/sfx/door_work_plate_heavy.ogg"
 const DOOR_WORK_IMPACT_PATH := DOOR_WORK_PLATE_PATH
 const USE_KENNEY_DOOR_WORK_IMPACT := true
@@ -47,24 +42,9 @@ const UI_CONFIRMATION_PATH := "res://assets/audio/sfx/ui_confirmation.ogg"
 const UI_MENU_CONFIRM_PATH := "res://assets/audio/sfx/ui_menu_confirm.ogg"
 const MAP_MARKER_PLACE_PATH := "res://assets/audio/sfx/map_marker_place.ogg"
 const MAP_MARKER_REMOVE_PATH := "res://assets/audio/sfx/map_marker_remove.ogg"
-const USE_KENNEY_STATION_SOUNDS := false
-const STATION_OPEN_PATH := (
-	"res://assets/audio/sfx/station_open_kenney.ogg"
-	if USE_KENNEY_STATION_SOUNDS
-	else "res://assets/audio/sfx/station_open_jrpg.ogg"
-)
-const STATION_CLOSE_PATH := (
-	"res://assets/audio/sfx/station_close_kenney.ogg"
-	if USE_KENNEY_STATION_SOUNDS
-	else "res://assets/audio/sfx/station_close_jrpg.ogg"
-)
+const STATION_OPEN_PATH := "res://assets/audio/sfx/station_open_jrpg.ogg"
+const STATION_CLOSE_PATH := "res://assets/audio/sfx/station_close_jrpg.ogg"
 const PLAYER_FOOTSTEP_19_PATHS := [
-	"res://assets/audio/sfx/player_footstep.ogg",
-]
-const DULL_PLAYER_FOOTSTEP_PATHS := [
-	"res://assets/audio/sfx/player_footstep_02.ogg",
-	"res://assets/audio/sfx/player_footstep_05.ogg",
-	"res://assets/audio/sfx/player_footstep_14.ogg",
 	"res://assets/audio/sfx/player_footstep.ogg",
 ]
 const PLAYER_FOOTSTEP_PATHS := PLAYER_FOOTSTEP_19_PATHS
@@ -86,7 +66,6 @@ var _last_combat_track := -1
 var _combat_track_time_left := 0.0
 var _menu_music_player: AudioStreamPlayer
 var _station_music_player: AudioStreamPlayer
-var _station_waiting_player: AudioStreamPlayer
 var _ending_music_player: AudioStreamPlayer
 var _victory_music_stream: AudioStreamOggVorbis
 var _defeat_music_stream: AudioStreamOggVorbis
@@ -132,7 +111,6 @@ func _ready() -> void:
 	]
 	_menu_music_player = _create_player("MenuMusic")
 	_station_music_player = _create_player("StationAmbience")
-	_station_waiting_player = _create_player("StationWaiting")
 	_ending_music_player = _create_player("EndingMusic")
 	for player: AudioStreamPlayer in _exploration_players:
 		player.bus = MUSIC_BUS
@@ -140,7 +118,6 @@ func _ready() -> void:
 		player.bus = MUSIC_BUS
 	_menu_music_player.bus = MUSIC_BUS
 	_station_music_player.bus = MUSIC_BUS
-	_station_waiting_player.bus = MUSIC_BUS
 	_ending_music_player.bus = MUSIC_BUS
 	for path: String in EXPLORATION_MUSIC_PATHS:
 		var stream: AudioStreamOggVorbis = load(path)
@@ -158,11 +135,6 @@ func _ready() -> void:
 	)
 	station_music_stream.loop = true
 	_station_music_player.stream = station_music_stream
-	var station_waiting_stream: AudioStreamOggVorbis = load(
-		STATION_WAITING_PATH
-	)
-	station_waiting_stream.loop = true
-	_station_waiting_player.stream = station_waiting_stream
 	_victory_music_stream = load(VICTORY_MUSIC_PATH)
 	_victory_music_stream.loop = true
 	_defeat_music_stream = load(DEFEAT_MUSIC_PATH)
@@ -194,8 +166,6 @@ func _ready() -> void:
 	_menu_music_player.play()
 	_station_music_player.volume_db = SILENT_VOLUME_DB
 	_station_music_player.play()
-	_station_waiting_player.volume_db = SILENT_VOLUME_DB
-	_station_waiting_player.play()
 	_ending_music_player.volume_db = SILENT_VOLUME_DB
 	_update_player_pause_states()
 	_apply_bus_settings()
@@ -338,14 +308,6 @@ func _update_music_mix() -> void:
 		"volume_db",
 		STATION_AMBIENCE_VOLUME_DB
 		if _station_music_active
-		else SILENT_VOLUME_DB,
-		MUSIC_FADE_DURATION
-	)
-	_music_tween.tween_property(
-		_station_waiting_player,
-		"volume_db",
-		STATION_WAITING_VOLUME_DB
-		if _station_music_active and USE_STATION_WAITING_LAYER
 		else SILENT_VOLUME_DB,
 		MUSIC_FADE_DURATION
 	)

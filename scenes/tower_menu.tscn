@@ -1,0 +1,73 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/tower_menu.gd" id="1_menu"]
+
+[node name="TowerMenu" type="Control"]
+process_mode = 3
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_menu")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.02, 0.035, 0.055, 0.94)
+
+[node name="Center" type="CenterContainer" parent="Background"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Menu" type="VBoxContainer" parent="Background/Center"]
+custom_minimum_size = Vector2(560, 0)
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="Title" type="Label" parent="Background/Center/Menu"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.35, 0.82, 0.92, 1)
+theme_override_font_sizes/font_size = 40
+text = "Башня"
+horizontal_alignment = 1
+
+[node name="TowerStatus" type="Label" parent="Background/Center/Menu"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 21
+horizontal_alignment = 1
+
+[node name="PlayerStatus" type="Label" parent="Background/Center/Menu"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.78, 0.84, 0.9, 1)
+theme_override_font_sizes/font_size = 19
+horizontal_alignment = 1
+
+[node name="Separator" type="Control" parent="Background/Center/Menu"]
+custom_minimum_size = Vector2(0, 12)
+layout_mode = 2
+
+[node name="HealthButton" type="Button" parent="Background/Center/Menu"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Передать 5 здоровья"
+
+[node name="ExitButton" type="Button" parent="Background/Center/Menu"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Выход"
+
+[connection signal="pressed" from="Background/Center/Menu/HealthButton" to="." method="_on_health_pressed"]
+[connection signal="pressed" from="Background/Center/Menu/ExitButton" to="." method="_on_exit_pressed"]
