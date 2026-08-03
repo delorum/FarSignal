@@ -453,6 +453,9 @@ msgstr "Megacore: no coordinates"
 msgid "Здоровье: 100    Патроны: 30"
 msgstr "Health: 100    Ammo: 30"
 
+msgid "Здоровье: %d/%d    Патроны: %d/%d    Турели: %d    Башни: %d"
+msgstr "Health: %d/%d    Ammo: %d/%d    Turrets: %d    Towers: %d"
+
 msgid "Убито врагов: 0"
 msgstr "Enemies killed: 0"
 

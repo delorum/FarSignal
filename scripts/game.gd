@@ -53,8 +53,8 @@ const DOOR_REMOVE_FORBIDDEN_LABEL := "нельзя удалить"
 const INVENTORY_LIMIT_LABEL := "лимит"
 const TURRET_HEALTH_TRANSFER_PLAYER_RESERVE := 20
 const TURRET_AMMO_TRANSFER_PLAYER_RESERVE := 5
-const TOWER_CONNECTION_RANGE := 20.0
-const TOWER_SAFE_RADIUS := 3
+const TURRET_PLACEMENT_REQUIRES_SAFE_ZONE := false
+const TOWER_SAFE_RADIUS := 5
 
 enum BuildMode {
 	TURRET,
@@ -83,6 +83,7 @@ enum BuildActionType {
 @onready var enemy_target_markers: Node2D = $EnemyTargetMarkers
 @onready var mega_core_marker: Node2D = $MegaCoreMarker
 @onready var build_action_marker: Node2D = $BuildActionMarker
+@onready var tower_connection_preview: Node2D = $TowerConnectionPreview
 @onready var camera: Camera2D = $Player/Camera2D
 @onready var player_panel: Panel = $GameInterface/PlayerPanel
 @onready var hit_flash: Panel = $GameInterface/HitFlash
@@ -161,6 +162,10 @@ var _build_action_cell := Vector2i(-1, -1)
 var _build_action_position := Vector2.ZERO
 var _build_action_direction := Vector2.RIGHT
 var _build_action_horizontal_passage := false
+var _tower_network_revision := 0
+var _tower_preview_cell := Vector2i(-1, -1)
+var _tower_preview_network_revision := -1
+var _tower_preview_connection_target := Vector2.INF
 var _pursuit_status_refresh_left := 0.0
 var _ai_budget_physics_frame := -1
 var _ai_pathfind_used_this_frame := 0
@@ -265,6 +270,7 @@ func _process(delta: float) -> void:
 
 	_game_time_seconds += delta
 	_update_build_action(delta)
+	_update_tower_connection_preview()
 	if Input.is_action_just_pressed("shoot"):
 		_shoot()
 	if Input.is_action_just_pressed("place_door") \
@@ -568,6 +574,13 @@ func _update_structure_attack_status() -> void:
 			break
 	tower_attacked_value.visible = tower_attacked
 	turret_attacked_value.visible = turret_attacked
+
+
+func is_structure_under_attack(structure: Node2D) -> bool:
+	for enemy: Enemy in _enemies:
+		if not enemy.dead and enemy.is_attacking_structure(structure):
+			return true
+	return false
 
 
 func _update_player_panel() -> void:
@@ -1381,10 +1394,25 @@ func _start_build_at(target_position: Vector2) -> void:
 		return
 	if DOOR_GAMEPLAY_ENABLED:
 		_start_door_action_at(maze.world_to_cell(target_position))
+		return
+	var target_cell := _structure_target_cell(target_position)
+	if _tower_at(target_cell) != null:
+		_start_tower_action_at(target_position)
+	elif _turret_at(target_cell) != null:
+		_start_turret_action_at(target_position)
 	elif _build_mode == BuildMode.TOWER:
 		_start_tower_action_at(target_position)
 	else:
 		_start_turret_action_at(target_position)
+
+
+func _structure_target_cell(target_position: Vector2) -> Vector2i:
+	var direction := player.position.direction_to(target_position)
+	if direction.is_zero_approx():
+		direction = player.facing_direction()
+	return maze.world_to_cell(
+		player.position + direction.normalized() * Maze.CELL_SIZE
+	)
 
 
 func _start_build_action(
@@ -1490,6 +1518,7 @@ func _start_turret_action_at(target_position: Vector2) -> void:
 	var placement_position := player.position \
 			+ placement_direction * Maze.CELL_SIZE
 	var target_cell := maze.world_to_cell(placement_position)
+	placement_position = maze.cell_to_world(target_cell)
 
 	var existing_turret := _turret_at(target_cell)
 	if existing_turret != null:
@@ -1504,6 +1533,8 @@ func _start_turret_action_at(target_position: Vector2) -> void:
 
 	if player.turret_inventory_count() <= 0 \
 			or not maze.is_cell_walkable(target_cell) \
+			or TURRET_PLACEMENT_REQUIRES_SAFE_ZONE \
+			and not maze.is_cell_safe(target_cell) \
 			or _tower_at(target_cell) != null \
 			or _has_door_at(target_cell):
 		return
@@ -1520,6 +1551,8 @@ func _start_turret_action_at(target_position: Vector2) -> void:
 func _finish_place_turret() -> void:
 	if player.turret_inventory_count() <= 0 \
 			or not maze.is_cell_walkable(_build_action_cell) \
+			or TURRET_PLACEMENT_REQUIRES_SAFE_ZONE \
+			and not maze.is_cell_safe(_build_action_cell) \
 			or _tower_at(_build_action_cell) != null \
 			or _has_door_at(_build_action_cell) \
 			or _turret_at(_build_action_cell) != null:
@@ -1633,6 +1666,7 @@ func _start_tower_action_at(target_position: Vector2) -> void:
 	var placement_position := player.position \
 			+ placement_direction * Maze.CELL_SIZE
 	var target_cell := maze.world_to_cell(placement_position)
+	placement_position = maze.cell_to_world(target_cell)
 	var existing_tower := _tower_at(target_cell)
 	if existing_tower != null:
 		_start_build_action(
@@ -1654,6 +1688,47 @@ func _start_tower_action_at(target_position: Vector2) -> void:
 		placement_position,
 		placement_direction,
 		false
+	)
+
+
+func _update_tower_connection_preview() -> void:
+	if _build_mode != BuildMode.TOWER \
+			or _build_action_type != BuildActionType.NONE \
+			or not player.controls_enabled \
+			or get_tree().paused \
+			or player.tower_inventory_count() <= 0:
+		tower_connection_preview.set_connection(Vector2.ZERO, Vector2.ZERO, false)
+		return
+	var placement_direction := player.position.direction_to(
+		get_global_mouse_position()
+	)
+	if placement_direction.is_zero_approx():
+		placement_direction = player.facing_direction()
+	var placement_position := player.position \
+			+ placement_direction.normalized() * Maze.CELL_SIZE
+	var target_cell := maze.world_to_cell(placement_position)
+	placement_position = maze.cell_to_world(target_cell)
+	if not maze.is_cell_walkable(target_cell) \
+			or _turret_at(target_cell) != null \
+			or _tower_at(target_cell) != null \
+			or _has_door_at(target_cell):
+		tower_connection_preview.set_connection(Vector2.ZERO, Vector2.ZERO, false)
+		return
+	if target_cell != _tower_preview_cell \
+			or _tower_preview_network_revision != _tower_network_revision:
+		_tower_preview_cell = target_cell
+		_tower_preview_network_revision = _tower_network_revision
+		_tower_preview_connection_target = (
+			_nearest_connection_target_from_position(
+				maze.cell_to_world(target_cell),
+				_station_one_door_positions(),
+				_connected_towers()
+			)
+		)
+	tower_connection_preview.set_connection(
+		_tower_preview_connection_target,
+		placement_position,
+		_tower_preview_connection_target != Vector2.INF
 	)
 
 
@@ -1806,13 +1881,15 @@ func _refresh_safe_zone() -> void:
 
 
 func _refresh_tower_connections() -> void:
+	_tower_network_revision += 1
 	for tower: Tower in _towers:
 		tower.set_connection(false)
 	var root_positions := _station_one_door_positions()
 	var connected_towers: Array[Tower] = []
-	var changed := true
-	while changed:
-		changed = false
+	while true:
+		var next_tower: Tower
+		var next_target := Vector2.INF
+		var shortest_connection := INF
 		for tower: Tower in _towers:
 			if tower.connected or not tower.is_active():
 				continue
@@ -1823,9 +1900,15 @@ func _refresh_tower_connections() -> void:
 			)
 			if target == Vector2.INF:
 				continue
-			tower.set_connection(true, target)
-			connected_towers.append(tower)
-			changed = true
+			var connection_length := tower.position.distance_to(target)
+			if connection_length < shortest_connection:
+				shortest_connection = connection_length
+				next_tower = tower
+				next_target = target
+		if next_tower == null:
+			break
+		next_tower.set_connection(true, next_target)
+		connected_towers.append(next_tower)
 
 
 func _station_one_door_positions() -> Array[Vector2]:
@@ -1843,20 +1926,32 @@ func _nearest_tower_connection_target(
 	root_positions: Array[Vector2],
 	connected_towers: Array[Tower]
 ) -> Vector2:
+	return _nearest_connection_target_from_position(
+		tower.position,
+		root_positions,
+		connected_towers
+	)
+
+
+func _nearest_connection_target_from_position(
+	position_to_connect: Vector2,
+	root_positions: Array[Vector2],
+	connected_towers: Array[Tower]
+) -> Vector2:
 	var best_target := Vector2.INF
 	var best_distance := INF
 	for root_position in root_positions:
-		var distance := tower.position.distance_to(root_position)
+		var distance := position_to_connect.distance_to(root_position)
 		if distance < best_distance and _tower_connection_is_clear(
-			tower.position,
+			position_to_connect,
 			root_position
 		):
 			best_distance = distance
 			best_target = root_position
 	for parent: Tower in connected_towers:
-		var distance := tower.position.distance_to(parent.position)
+		var distance := position_to_connect.distance_to(parent.position)
 		if distance < best_distance and _tower_connection_is_clear(
-			tower.position,
+			position_to_connect,
 			parent.position
 		):
 			best_distance = distance
@@ -1864,9 +1959,16 @@ func _nearest_tower_connection_target(
 	return best_target
 
 
+func _connected_towers() -> Array[Tower]:
+	var result: Array[Tower] = []
+	for tower: Tower in _towers:
+		if tower.connected and tower.is_active():
+			result.append(tower)
+	return result
+
+
 func _tower_connection_is_clear(from: Vector2, to: Vector2) -> bool:
-	return from.distance_to(to) <= TOWER_CONNECTION_RANGE * Maze.CELL_SIZE \
-			and maze.has_line_of_sight(from, to, TOWER_CONNECTION_RANGE)
+	return maze.has_line_of_sight(from, to)
 
 
 func _assert_station_floor_is_safe() -> void:
@@ -2164,6 +2266,11 @@ func buy_tower() -> bool:
 
 func door_gameplay_enabled() -> bool:
 	return DOOR_GAMEPLAY_ENABLED
+
+
+func turret_can_operate(turret: Turret) -> bool:
+	return not TURRET_PLACEMENT_REQUIRES_SAFE_ZONE \
+			or maze.is_cell_safe(maze.world_to_cell(turret.position))
 
 
 func upgrade_player_damage(station_id: int) -> bool:

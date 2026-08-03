@@ -19,7 +19,7 @@ const SHOOT_INTERVAL := 2.0
 const BULLET_SPEED := 650.0
 const HEARING_RANGE := 20.0
 const VISION_RANGE := 30.0
-const VISION_HALF_ANGLE := deg_to_rad(45.0)
+const VISION_HALF_ANGLE := deg_to_rad(85.0)
 const TARGET_ATTEMPTS := 12
 const SEARCH_DURATION := 5.0
 const SEARCH_REPATH_INTERVAL := 0.5
@@ -517,6 +517,11 @@ func is_attacking_tower() -> bool:
 func is_attacking_turret() -> bool:
 	return is_instance_valid(_current_attack_target) \
 			and _current_attack_target is Turret
+
+
+func is_attacking_structure(structure: Node2D) -> bool:
+	return is_instance_valid(_current_attack_target) \
+			and _current_attack_target == structure
 
 
 func _try_start_combat_maneuver(direction_to_player: Vector2) -> bool:

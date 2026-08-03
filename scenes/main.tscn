@@ -1,4 +1,4 @@
-[gd_scene load_steps=28 format=3 uid="uid://dw58ygdj26wbu"]
+[gd_scene load_steps=29 format=3 uid="uid://dw58ygdj26wbu"]
 
 [ext_resource type="Script" uid="uid://b7t1b5rs3b076" path="res://scripts/game.gd" id="1_game"]
 [ext_resource type="Script" uid="uid://1jcmw0g6148v" path="res://scripts/maze.gd" id="2_maze"]
@@ -19,6 +19,7 @@
 [ext_resource type="Script" path="res://scripts/story_screen.gd" id="20_story"]
 [ext_resource type="PackedScene" path="res://scenes/turret_menu.tscn" id="21_turret_menu"]
 [ext_resource type="PackedScene" path="res://scenes/tower_menu.tscn" id="22_tower_menu"]
+[ext_resource type="Script" path="res://scripts/tower_connection_preview.gd" id="23_tower_preview"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_player"]
 radius = 14.0
@@ -92,6 +93,11 @@ hframes = 8
 visible = false
 z_index = 120
 script = ExtResource("18_build_action_marker")
+
+[node name="TowerConnectionPreview" type="Node2D" parent="."]
+visible = false
+z_index = 110
+script = ExtResource("23_tower_preview")
 
 [node name="AimIndicator" type="Node2D" parent="."]
 z_index = 200
@@ -546,6 +552,7 @@ theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
 theme_override_font_sizes/font_size = 22
 text = "Здоровье: 100    Патроны: 30"
 horizontal_alignment = 1
+autowrap_mode = 2
 
 [node name="Separator" type="Control" parent="StationOverlay/StationMenu/Background/Center/Menu"]
 custom_minimum_size = Vector2(0, 20)

@@ -114,6 +114,11 @@ func _process(delta: float) -> void:
 	if not is_active():
 		_game.destroy_turret(self)
 		return
+	if not _game.turret_can_operate(self):
+		_firing_flash_left = 0.0
+		firing = false
+		queue_redraw()
+		return
 
 	_shoot_cooldown = maxf(0.0, _shoot_cooldown - delta)
 	_firing_flash_left = maxf(0.0, _firing_flash_left - delta)

@@ -328,11 +328,15 @@ func _on_exit_pressed() -> void:
 
 func _update_buttons() -> void:
 	energy_value.text = tr("Энергия: %d") % game.player.energy
-	player_status_value.text = tr("Здоровье: %d/%d    Патроны: %d/%d") % [
+	player_status_value.text = tr(
+		"Здоровье: %d/%d    Патроны: %d/%d    Турели: %d    Башни: %d"
+	) % [
 		game.player.health,
 		game.player.max_health,
 		game.player.ammo,
 		game.player.max_ammo,
+		game.player.turret_inventory_count(),
+		game.player.tower_inventory_count(),
 	]
 
 	var ammo_amount: int = game.player.ammo_purchase_amount()

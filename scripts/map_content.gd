@@ -313,7 +313,8 @@ func _draw_turrets(map_origin: Vector2) -> void:
 			continue
 		var center := _map_cell_center(map_origin, turret.cell)
 		var color := TURRET_FIRING_COLOR \
-				if turret.firing else TURRET_IDLE_COLOR
+				if turret.firing or _game.is_structure_under_attack(turret) \
+				else TURRET_IDLE_COLOR
 		var radius := cell_size * 0.2
 		draw_circle(
 			center,
@@ -345,7 +346,7 @@ func _draw_turrets(map_origin: Vector2) -> void:
 			status_position,
 			str(turret.ammo),
 			HORIZONTAL_ALIGNMENT_LEFT,
-			cell_size,
+			-1.0,
 			maxi(10, roundi(cell_size * 0.5)),
 			TURRET_IDLE_COLOR
 		)
@@ -354,7 +355,7 @@ func _draw_turrets(map_origin: Vector2) -> void:
 			status_position + Vector2(0.0, cell_size * 0.42),
 			str(turret.health),
 			HORIZONTAL_ALIGNMENT_LEFT,
-			cell_size,
+			-1.0,
 			maxi(10, roundi(cell_size * 0.5)),
 			TURRET_HEALTH_COLOR
 		)
@@ -387,15 +388,31 @@ func _draw_towers(map_origin: Vector2) -> void:
 			center + Vector2(radius * 0.87, radius * 0.5),
 			center + Vector2(-radius * 0.87, radius * 0.5),
 		])
-		if tower.connected:
-			draw_colored_polygon(points, TOWER_CONNECTED_COLOR)
-		var outline := points.duplicate()
-		outline.append(points[0])
-		draw_polyline(
-			outline,
-			TOWER_CONNECTED_COLOR if tower.connected else TOWER_DISCONNECTED_COLOR,
-			maxf(1.5, cell_size * 0.06),
-			true
+		var attacked: bool = _game.is_structure_under_attack(tower)
+		var tower_color := (
+			TURRET_FIRING_COLOR
+			if attacked
+			else TOWER_CONNECTED_COLOR
+		)
+		if tower.connected or attacked:
+			draw_colored_polygon(points, tower_color)
+		else:
+			var outline := points.duplicate()
+			outline.append(points[0])
+			draw_polyline(
+				outline,
+				TOWER_DISCONNECTED_COLOR,
+				maxf(1.5, cell_size * 0.06),
+				true
+			)
+		draw_string(
+			ThemeDB.fallback_font,
+			center + Vector2(-radius, radius + cell_size * 0.45),
+			str(tower.health),
+			HORIZONTAL_ALIGNMENT_LEFT,
+			-1.0,
+			maxi(10, roundi(cell_size * 0.5)),
+			TURRET_HEALTH_COLOR
 		)
 
 

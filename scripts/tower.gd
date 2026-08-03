@@ -4,7 +4,7 @@ class_name Tower
 const MAX_HEALTH := Player.TOWER_MAX_HEALTH
 const TRIANGLE_RADIUS := 20.0
 const CONNECTED_COLOR := Color(0.35, 0.82, 0.92, 1.0)
-const DISCONNECTED_COLOR := Color(0.55, 0.72, 0.78, 1.0)
+const OUTLINE_COLOR := Color(0.58, 0.64, 0.7, 1.0)
 const CONNECTION_COLOR := Color(1.0, 0.82, 0.18, 0.38)
 const OUTLINE_WIDTH := 2.5
 
@@ -93,7 +93,7 @@ func _draw() -> void:
 	outline.append(points[0])
 	draw_polyline(
 		outline,
-		CONNECTED_COLOR if connected else DISCONNECTED_COLOR,
+		OUTLINE_COLOR,
 		OUTLINE_WIDTH,
 		true
 	)
