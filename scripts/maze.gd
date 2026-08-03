@@ -421,6 +421,32 @@ func has_line_of_sight(
 	return true
 
 
+func has_strict_line_of_sight(
+	from_position: Vector2,
+	to_position: Vector2
+) -> bool:
+	var from_cell := world_to_cell(from_position)
+	var to_cell := world_to_cell(to_position)
+	var minimum_cell := world_to_cell(from_position.min(to_position))
+	var maximum_cell := world_to_cell(from_position.max(to_position))
+
+	for y in range(minimum_cell.y, maximum_cell.y + 1):
+		for x in range(minimum_cell.x, maximum_cell.x + 1):
+			var cell := Vector2i(x, y)
+			if cell == from_cell or cell == to_cell:
+				continue
+			if _is_inside(cell) and not _is_wall(cell) \
+					and not _closed_door_cells.has(cell):
+				continue
+			var blocker := Rect2(
+				Vector2(cell) * CELL_SIZE,
+				Vector2.ONE * CELL_SIZE
+			)
+			if _segment_intersects_rect(from_position, to_position, blocker):
+				return false
+	return true
+
+
 func has_clear_projectile_path(
 	from_position: Vector2,
 	to_position: Vector2,

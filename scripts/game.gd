@@ -51,15 +51,18 @@ const EXIT_DOOR_LOCKED_LABEL := "Нужна безопасная зона"
 const SAFE_ZONE_BOUNDARY_DOOR_LABEL := "Граница безопасной зоны"
 const DOOR_REMOVE_FORBIDDEN_LABEL := "нельзя удалить"
 const INVENTORY_LIMIT_LABEL := "лимит"
-const TURRET_HEALTH_TRANSFER_PLAYER_RESERVE := 20
-const TURRET_AMMO_TRANSFER_PLAYER_RESERVE := 5
 const TURRET_PLACEMENT_REQUIRES_SAFE_ZONE := false
 const TOWER_SAFE_RADIUS := 5
+const STRUCTURE_STATUS_DURATION := 3.0
 
 enum BuildMode {
-	TURRET,
 	TOWER,
+	TURRET,
+	SHOOTING,
+	SAFETY,
 }
+
+const BUILD_MODE_COUNT := 4
 
 enum BuildActionType {
 	NONE,
@@ -107,6 +110,8 @@ enum BuildActionType {
 @onready var enemy_in_safe_zone_value: Label = $GameInterface/PlayerPanel/Margin/VBox/EnemyInSafeZoneValue
 @onready var tower_attacked_value: Label = $GameInterface/PlayerPanel/Margin/VBox/TowerAttackedValue
 @onready var turret_attacked_value: Label = $GameInterface/PlayerPanel/Margin/VBox/TurretAttackedValue
+@onready var tower_destroyed_value: Label = $GameInterface/PlayerPanel/Margin/VBox/TowerDestroyedValue
+@onready var turret_destroyed_value: Label = $GameInterface/PlayerPanel/Margin/VBox/TurretDestroyedValue
 @onready var station_menu: Control = $StationOverlay/StationMenu
 @onready var turret_menu: Control = $TurretOverlay/TurretMenu
 @onready var tower_menu: Control = $TowerOverlay/TowerMenu
@@ -166,6 +171,10 @@ var _tower_network_revision := 0
 var _tower_preview_cell := Vector2i(-1, -1)
 var _tower_preview_network_revision := -1
 var _tower_preview_connection_target := Vector2.INF
+var _structure_attack_highlight_until: Dictionary = {}
+var _tower_destroyed_message_until := -1.0
+var _turret_destroyed_message_until := -1.0
+var _turret_being_reoriented: Turret
 var _pursuit_status_refresh_left := 0.0
 var _ai_budget_physics_frame := -1
 var _ai_pathfind_used_this_frame := 0
@@ -227,11 +236,12 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed \
 			and (event.button_index == MOUSE_BUTTON_WHEEL_UP \
 			or event.button_index == MOUSE_BUTTON_WHEEL_DOWN):
-		_build_mode = (
-			BuildMode.TOWER
-			if _build_mode == BuildMode.TURRET
-			else BuildMode.TURRET
+		var step := (
+			-1
+			if event.button_index == MOUSE_BUTTON_WHEEL_UP
+			else 1
 		)
+		_build_mode = posmod(_build_mode + step, BUILD_MODE_COUNT)
 		_update_player_panel()
 		get_viewport().set_input_as_handled()
 
@@ -270,16 +280,21 @@ func _process(delta: float) -> void:
 
 	_game_time_seconds += delta
 	_update_build_action(delta)
-	_update_tower_connection_preview()
-	if Input.is_action_just_pressed("shoot"):
+	_update_placement_preview()
+	_update_turret_reorientation()
+	if Input.is_action_just_pressed("shoot") \
+			and _build_mode == BuildMode.SHOOTING:
 		_shoot()
 	if Input.is_action_just_pressed("place_door") \
-			and player.controls_enabled:
-		_start_build_at(
-			get_global_mouse_position()
-		)
+			and (player.controls_enabled \
+			or is_instance_valid(_turret_being_reoriented)):
+		if is_instance_valid(_turret_being_reoriented):
+			_finish_turret_reorientation()
+		else:
+			_start_build_at(get_global_mouse_position())
 
-	if Input.is_action_just_pressed("interact"):
+	if Input.is_action_just_pressed("interact") \
+			and not is_instance_valid(_turret_being_reoriented):
 		if not _interact_with_station() \
 				and not _interact_with_turret() \
 				and not _interact_with_tower():
@@ -568,19 +583,29 @@ func _update_structure_attack_status() -> void:
 	for enemy: Enemy in _enemies:
 		if enemy.dead:
 			continue
+		var structure_target := enemy.current_structure_target()
+		if structure_target != null:
+			_structure_attack_highlight_until[
+				structure_target.get_instance_id()
+			] = _game_time_seconds + STRUCTURE_STATUS_DURATION
 		tower_attacked = tower_attacked or enemy.is_attacking_tower()
 		turret_attacked = turret_attacked or enemy.is_attacking_turret()
 		if tower_attacked and turret_attacked:
 			break
 	tower_attacked_value.visible = tower_attacked
 	turret_attacked_value.visible = turret_attacked
+	tower_destroyed_value.visible = (
+		_game_time_seconds <= _tower_destroyed_message_until
+	)
+	turret_destroyed_value.visible = (
+		_game_time_seconds <= _turret_destroyed_message_until
+	)
 
 
 func is_structure_under_attack(structure: Node2D) -> bool:
-	for enemy: Enemy in _enemies:
-		if not enemy.dead and enemy.is_attacking_structure(structure):
-			return true
-	return false
+	return _game_time_seconds <= float(
+		_structure_attack_highlight_until.get(structure.get_instance_id(), -1.0)
+	)
 
 
 func _update_player_panel() -> void:
@@ -651,9 +676,7 @@ func _update_player_panel() -> void:
 		towers_value.text = tr("Башни: %d") % tower_count
 	if _build_mode != _displayed_build_mode:
 		_displayed_build_mode = _build_mode
-		build_mode_value.text = tr("Ставим: %s") % (
-			tr("турель") if _build_mode == BuildMode.TURRET else tr("башню")
-		)
+		build_mode_value.text = tr("Режим: %s") % _build_mode_label()
 	if player.exploration_points != _displayed_exploration_points:
 		_displayed_exploration_points = player.exploration_points
 		explored_cells_value.text = (
@@ -670,8 +693,12 @@ func _update_player_panel() -> void:
 	if mega_core_text != _displayed_mega_core_text:
 		_displayed_mega_core_text = mega_core_text
 		mega_core_value.text = mega_core_text
-	var weapon_readiness := 1.0 if player.ammo > 0 else 0.0
+	var shooting_enabled := player.controls_enabled \
+			and _build_mode == BuildMode.SHOOTING \
+			and player.ammo > 0
+	var weapon_readiness := 1.0 if shooting_enabled else 0.0
 	player.set_aim_indicator_readiness(weapon_readiness)
+	player.set_aim_indicator_shooting_enabled(shooting_enabled)
 
 
 func _pick_up_energy_cores() -> void:
@@ -724,7 +751,7 @@ func save_game() -> bool:
 		"player_doors": player.door_inventory,
 		"player_turrets": player.turret_inventory_for_save(),
 		"player_towers": player.tower_inventory_for_save(),
-		"build_mode": "tower" if _build_mode == BuildMode.TOWER else "turret",
+		"build_mode": _build_mode_save_value(),
 		"player_exploration_points": player.exploration_points,
 		"player_mega_core_cell": [
 			player.mega_core_cell.x,
@@ -808,10 +835,8 @@ func _restore_game(save_data: Dictionary) -> void:
 		save_data.get("player_turrets", []),
 		save_data.get("player_towers", [])
 	)
-	_build_mode = (
-		BuildMode.TOWER
-		if String(save_data.get("build_mode", "turret")) == "tower"
-		else BuildMode.TURRET
+	_build_mode = _build_mode_from_save(
+		String(save_data.get("build_mode", "turret"))
 	)
 	var saved_map_marker_cell: Array = save_data.get("map_marker_cell", [])
 	if saved_map_marker_cell.size() == 2:
@@ -1089,9 +1114,10 @@ func _enemy_level_summary() -> String:
 		var enemy_damage_min := _enemy_damage_min_for_level(level)
 		var enemy_damage_max := _enemy_damage_max_for_level(level)
 		lines.append(tr(
-			"%d: %d здоровья (%d попаданий), урон %d–%d (%d попаданий)"
+			"%d: врагов %d, %d здоровья (%d попаданий), урон %d–%d (%d попаданий)"
 		) % [
 			level,
+			_living_enemy_count_for_level(level),
 			enemy_health,
 			_average_hits_to_kill(
 				enemy_health,
@@ -1102,6 +1128,55 @@ func _enemy_level_summary() -> String:
 			enemy_damage_max,
 			_average_hits_to_kill(
 				player.max_health,
+				enemy_damage_min,
+				enemy_damage_max
+			),
+		])
+	return "\n".join(lines)
+
+
+func turret_enemy_level_summary() -> String:
+	var lines: Array[String] = []
+	for level in range(1, ENEMY_LEVEL_COUNT + 1):
+		var enemy_health := _enemy_health_for_level(level)
+		var enemy_damage_min := _enemy_damage_min_for_level(level)
+		var enemy_damage_max := _enemy_damage_max_for_level(level)
+		lines.append(tr(
+			"%d: врагов %d, %d здоровья (%d попаданий турели), урон %d–%d (%d попаданий по турели)"
+		) % [
+			level,
+			_living_enemy_count_for_level(level),
+			enemy_health,
+			_average_hits_to_kill(
+				enemy_health,
+				Player.BASE_DAMAGE_MIN,
+				Player.BASE_DAMAGE_MAX
+			),
+			enemy_damage_min,
+			enemy_damage_max,
+			_average_hits_to_kill(
+				Turret.MAX_HEALTH,
+				enemy_damage_min,
+				enemy_damage_max
+			),
+		])
+	return "\n".join(lines)
+
+
+func tower_enemy_level_summary() -> String:
+	var lines: Array[String] = []
+	for level in range(1, ENEMY_LEVEL_COUNT + 1):
+		var enemy_damage_min := _enemy_damage_min_for_level(level)
+		var enemy_damage_max := _enemy_damage_max_for_level(level)
+		lines.append(tr(
+			"%d: врагов %d, урон %d–%d (%d попаданий по башне)"
+		) % [
+			level,
+			_living_enemy_count_for_level(level),
+			enemy_damage_min,
+			enemy_damage_max,
+			_average_hits_to_kill(
+				Tower.MAX_HEALTH,
 				enemy_damage_min,
 				enemy_damage_max
 			),
@@ -1402,8 +1477,41 @@ func _start_build_at(target_position: Vector2) -> void:
 		_start_turret_action_at(target_position)
 	elif _build_mode == BuildMode.TOWER:
 		_start_tower_action_at(target_position)
-	else:
+	elif _build_mode == BuildMode.TURRET:
 		_start_turret_action_at(target_position)
+
+
+func _build_mode_label() -> String:
+	match _build_mode:
+		BuildMode.TOWER:
+			return tr("установка башни")
+		BuildMode.TURRET:
+			return tr("установка турели")
+		BuildMode.SHOOTING:
+			return tr("стрельба")
+	return tr("предохранитель")
+
+
+func _build_mode_save_value() -> String:
+	match _build_mode:
+		BuildMode.TOWER:
+			return "tower"
+		BuildMode.TURRET:
+			return "turret"
+		BuildMode.SHOOTING:
+			return "shooting"
+	return "safety"
+
+
+func _build_mode_from_save(saved_mode: String) -> int:
+	match saved_mode:
+		"tower":
+			return BuildMode.TOWER
+		"shooting":
+			return BuildMode.SHOOTING
+		"safety":
+			return BuildMode.SAFETY
+	return BuildMode.TURRET
 
 
 func _structure_target_cell(target_position: Vector2) -> Vector2i:
@@ -1522,6 +1630,13 @@ func _start_turret_action_at(target_position: Vector2) -> void:
 
 	var existing_turret := _turret_at(target_cell)
 	if existing_turret != null:
+		if not player.can_store_turret():
+			show_door_error(
+				existing_turret.position + Vector2(0.0, -Maze.CELL_SIZE * 0.35),
+				INVENTORY_LIMIT_LABEL,
+				Vector2.UP
+			)
+			return
 		_start_build_action(
 			BuildActionType.REMOVE_TURRET,
 			target_cell,
@@ -1573,12 +1688,15 @@ func _finish_place_turret() -> void:
 
 func _finish_remove_turret() -> void:
 	var existing_turret := _turret_at(_build_action_cell)
-	if existing_turret == null:
+	if existing_turret == null or not player.can_store_turret():
 		return
+	if existing_turret == _turret_being_reoriented:
+		_turret_being_reoriented = null
 	player.store_turret_in_inventory(
 		existing_turret.health,
 		existing_turret.ammo
 	)
+	_structure_attack_highlight_until.erase(existing_turret.get_instance_id())
 	_turrets.erase(existing_turret)
 	existing_turret.queue_free()
 	_update_player_panel()
@@ -1653,6 +1771,10 @@ func _create_turret_from_save(saved_data: Dictionary) -> void:
 func destroy_turret(turret: Turret) -> void:
 	if not is_instance_valid(turret):
 		return
+	if turret == _turret_being_reoriented:
+		_restore_after_turret_reorientation()
+	_structure_attack_highlight_until.erase(turret.get_instance_id())
+	_turret_destroyed_message_until = _game_time_seconds + STRUCTURE_STATUS_DURATION
 	_turrets.erase(turret)
 	turret.queue_free()
 	_update_player_panel()
@@ -1669,6 +1791,13 @@ func _start_tower_action_at(target_position: Vector2) -> void:
 	placement_position = maze.cell_to_world(target_cell)
 	var existing_tower := _tower_at(target_cell)
 	if existing_tower != null:
+		if not player.can_store_tower():
+			show_door_error(
+				existing_tower.position + Vector2(0.0, -Maze.CELL_SIZE * 0.35),
+				INVENTORY_LIMIT_LABEL,
+				Vector2.UP
+			)
+			return
 		_start_build_action(
 			BuildActionType.REMOVE_TOWER,
 			target_cell,
@@ -1691,13 +1820,18 @@ func _start_tower_action_at(target_position: Vector2) -> void:
 	)
 
 
-func _update_tower_connection_preview() -> void:
-	if _build_mode != BuildMode.TOWER \
-			or _build_action_type != BuildActionType.NONE \
+func _update_placement_preview() -> void:
+	if _build_action_type != BuildActionType.NONE \
 			or not player.controls_enabled \
-			or get_tree().paused \
+			or get_tree().paused:
+		tower_connection_preview.hide_preview()
+		return
+	if _build_mode == BuildMode.TURRET:
+		_update_turret_placement_preview()
+		return
+	if _build_mode != BuildMode.TOWER \
 			or player.tower_inventory_count() <= 0:
-		tower_connection_preview.set_connection(Vector2.ZERO, Vector2.ZERO, false)
+		tower_connection_preview.hide_preview()
 		return
 	var placement_direction := player.position.direction_to(
 		get_global_mouse_position()
@@ -1712,7 +1846,7 @@ func _update_tower_connection_preview() -> void:
 			or _turret_at(target_cell) != null \
 			or _tower_at(target_cell) != null \
 			or _has_door_at(target_cell):
-		tower_connection_preview.set_connection(Vector2.ZERO, Vector2.ZERO, false)
+		tower_connection_preview.hide_preview()
 		return
 	if target_cell != _tower_preview_cell \
 			or _tower_preview_network_revision != _tower_network_revision:
@@ -1725,10 +1859,35 @@ func _update_tower_connection_preview() -> void:
 				_connected_towers()
 			)
 		)
-	tower_connection_preview.set_connection(
+	tower_connection_preview.set_tower(
 		_tower_preview_connection_target,
 		placement_position,
+		true,
 		_tower_preview_connection_target != Vector2.INF
+	)
+
+
+func _update_turret_placement_preview() -> void:
+	if player.turret_inventory_count() <= 0:
+		tower_connection_preview.hide_preview()
+		return
+	var placement_direction := player.position.direction_to(
+		get_global_mouse_position()
+	)
+	if placement_direction.is_zero_approx():
+		placement_direction = player.facing_direction()
+	var target_cell := maze.world_to_cell(
+		player.position + placement_direction.normalized() * Maze.CELL_SIZE
+	)
+	var valid := maze.is_cell_walkable(target_cell) \
+			and _turret_at(target_cell) == null \
+			and _tower_at(target_cell) == null \
+			and not _has_door_at(target_cell) \
+			and (not TURRET_PLACEMENT_REQUIRES_SAFE_ZONE \
+			or maze.is_cell_safe(target_cell))
+	tower_connection_preview.set_turret(
+		maze.cell_to_world(target_cell),
+		valid
 	)
 
 
@@ -1753,9 +1912,10 @@ func _finish_place_tower() -> void:
 
 func _finish_remove_tower() -> void:
 	var existing_tower := _tower_at(_build_action_cell)
-	if existing_tower == null:
+	if existing_tower == null or not player.can_store_tower():
 		return
 	player.store_tower_in_inventory(existing_tower.health)
+	_structure_attack_highlight_until.erase(existing_tower.get_instance_id())
 	_towers.erase(existing_tower)
 	existing_tower.queue_free()
 	_refresh_safe_zone()
@@ -1806,6 +1966,8 @@ func _create_tower_from_save(saved_data: Dictionary) -> void:
 func destroy_tower(tower: Tower) -> void:
 	if not is_instance_valid(tower):
 		return
+	_structure_attack_highlight_until.erase(tower.get_instance_id())
+	_tower_destroyed_message_until = _game_time_seconds + STRUCTURE_STATUS_DURATION
 	_towers.erase(tower)
 	tower.queue_free()
 	_refresh_safe_zone()
@@ -1968,7 +2130,7 @@ func _connected_towers() -> Array[Tower]:
 
 
 func _tower_connection_is_clear(from: Vector2, to: Vector2) -> bool:
-	return maze.has_line_of_sight(from, to)
+	return maze.has_strict_line_of_sight(from, to)
 
 
 func _assert_station_floor_is_safe() -> void:
@@ -2119,6 +2281,39 @@ func _interact_with_turret() -> bool:
 	return true
 
 
+func start_turret_reorientation(turret: Turret) -> void:
+	if not is_instance_valid(turret) or not turret.is_active():
+		return
+	_turret_being_reoriented = turret
+	player.controls_enabled = false
+	turret.begin_reorientation()
+
+
+func _update_turret_reorientation() -> void:
+	if not is_instance_valid(_turret_being_reoriented):
+		_restore_after_turret_reorientation()
+		return
+	_turret_being_reoriented.update_reorientation(
+		_turret_being_reoriented.position.direction_to(
+			get_global_mouse_position()
+		)
+	)
+
+
+func _finish_turret_reorientation() -> void:
+	if not is_instance_valid(_turret_being_reoriented):
+		_restore_after_turret_reorientation()
+		return
+	_turret_being_reoriented.finish_reorientation()
+	_restore_after_turret_reorientation()
+
+
+func _restore_after_turret_reorientation() -> void:
+	_turret_being_reoriented = null
+	if not _defeated and not _victorious:
+		player.controls_enabled = true
+
+
 func _interact_with_tower() -> bool:
 	var facing := player.facing_direction()
 	var closest_tower: Tower
@@ -2140,60 +2335,51 @@ func _interact_with_tower() -> bool:
 	return true
 
 
-func tower_health_transfer_amount(tower: Tower, maximum: int = 5) -> int:
+func tower_health_purchase_amount(tower: Tower) -> int:
 	if not is_instance_valid(tower):
 		return 0
-	return mini(
-		mini(maximum, Tower.MAX_HEALTH - tower.health),
-		maxi(0, player.health - TURRET_HEALTH_TRANSFER_PLAYER_RESERVE)
-	)
+	return mini(Player.MAX_HEALTH_BUY, Tower.MAX_HEALTH - tower.health)
 
 
-func transfer_health_to_tower(tower: Tower, maximum: int = 5) -> int:
-	var amount := tower_health_transfer_amount(tower, maximum)
-	if amount <= 0:
+func buy_tower_health(tower: Tower) -> int:
+	var amount := tower_health_purchase_amount(tower)
+	var cost := Player.health_energy_cost(amount)
+	if amount <= 0 or not player.spend_energy(cost):
 		return 0
-	player.health -= amount
 	tower.health += amount
 	tower.queue_redraw()
 	_update_player_panel()
 	return amount
 
 
-func turret_health_transfer_amount(turret: Turret, maximum: int = 5) -> int:
+func turret_health_purchase_amount(turret: Turret) -> int:
 	if not is_instance_valid(turret):
 		return 0
-	return mini(
-		mini(maximum, Turret.MAX_HEALTH - turret.health),
-		maxi(0, player.health - TURRET_HEALTH_TRANSFER_PLAYER_RESERVE)
-	)
+	return mini(Player.MAX_HEALTH_BUY, Turret.MAX_HEALTH - turret.health)
 
 
-func turret_ammo_transfer_amount(turret: Turret, maximum: int = 5) -> int:
+func turret_ammo_purchase_amount(turret: Turret) -> int:
 	if not is_instance_valid(turret):
 		return 0
-	return mini(
-		mini(maximum, Turret.MAX_AMMO - turret.ammo),
-		maxi(0, player.ammo - TURRET_AMMO_TRANSFER_PLAYER_RESERVE)
-	)
+	return mini(Player.MAX_AMMO_BUY, Turret.MAX_AMMO - turret.ammo)
 
 
-func transfer_health_to_turret(turret: Turret, maximum: int = 5) -> int:
-	var amount := turret_health_transfer_amount(turret, maximum)
-	if amount <= 0:
+func buy_turret_health(turret: Turret) -> int:
+	var amount := turret_health_purchase_amount(turret)
+	var cost := Player.health_energy_cost(amount)
+	if amount <= 0 or not player.spend_energy(cost):
 		return 0
-	player.health -= amount
 	turret.health += amount
 	turret.queue_redraw()
 	_update_player_panel()
 	return amount
 
 
-func transfer_ammo_to_turret(turret: Turret, maximum: int = 5) -> int:
-	var amount := turret_ammo_transfer_amount(turret, maximum)
-	if amount <= 0:
+func buy_turret_ammo(turret: Turret) -> int:
+	var amount := turret_ammo_purchase_amount(turret)
+	var cost := Player.ammo_energy_cost(amount)
+	if amount <= 0 or not player.spend_energy(cost):
 		return 0
-	player.ammo -= amount
 	turret.ammo += amount
 	turret.queue_redraw()
 	_update_player_panel()

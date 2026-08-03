@@ -47,6 +47,13 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 21
 horizontal_alignment = 1
 
+[node name="TowerStats" type="Label" parent="Background/Center/Menu"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.72, 0.79, 0.86, 1)
+theme_override_font_sizes/font_size = 18
+horizontal_alignment = 1
+autowrap_mode = 2
+
 [node name="PlayerStatus" type="Label" parent="Background/Center/Menu"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.78, 0.84, 0.9, 1)
@@ -61,7 +68,13 @@ layout_mode = 2
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
-text = "Передать 5 здоровья"
+text = "Восстановить здоровье"
+
+[node name="InformationButton" type="Button" parent="Background/Center/Menu"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Информация"
 
 [node name="ExitButton" type="Button" parent="Background/Center/Menu"]
 custom_minimum_size = Vector2(0, 52)
@@ -69,5 +82,45 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Выход"
 
+[node name="InformationPanel" type="MarginContainer" parent="Background"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 40
+theme_override_constants/margin_top = 40
+theme_override_constants/margin_right = 40
+theme_override_constants/margin_bottom = 40
+
+[node name="Information" type="VBoxContainer" parent="Background/InformationPanel"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="Title" type="Label" parent="Background/InformationPanel/Information"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.35, 0.82, 0.92, 1)
+theme_override_font_sizes/font_size = 36
+text = "Информация"
+
+[node name="InformationText" type="Label" parent="Background/InformationPanel/Information"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_colors/font_color = Color(0.82, 0.88, 0.94, 1)
+theme_override_font_sizes/font_size = 20
+vertical_alignment = 1
+autowrap_mode = 2
+line_spacing = 8
+
+[node name="BackButton" type="Button" parent="Background/InformationPanel/Information"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Назад"
+
 [connection signal="pressed" from="Background/Center/Menu/HealthButton" to="." method="_on_health_pressed"]
+[connection signal="pressed" from="Background/Center/Menu/InformationButton" to="." method="_on_information_pressed"]
 [connection signal="pressed" from="Background/Center/Menu/ExitButton" to="." method="_on_exit_pressed"]
+[connection signal="pressed" from="Background/InformationPanel/Information/BackButton" to="." method="_on_information_back_pressed"]

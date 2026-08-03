@@ -24,6 +24,7 @@ var ammo := MAX_AMMO
 var base_direction := Vector2.RIGHT
 var aim_direction := Vector2.RIGHT
 var firing := false
+var being_reoriented := false
 var _normally_visible := false
 
 var _game: Node
@@ -102,6 +103,30 @@ func is_active() -> bool:
 	return health > 0
 
 
+func begin_reorientation() -> void:
+	being_reoriented = true
+	_firing_flash_left = 0.0
+	firing = false
+	queue_redraw()
+
+
+func update_reorientation(direction: Vector2) -> void:
+	if not being_reoriented or direction.is_zero_approx():
+		return
+	aim_direction = direction.normalized()
+	_update_sprite()
+	queue_redraw()
+
+
+func finish_reorientation() -> void:
+	if not being_reoriented:
+		return
+	base_direction = aim_direction.normalized()
+	being_reoriented = false
+	_update_sprite()
+	queue_redraw()
+
+
 func update_visibility(currently_visible: bool) -> void:
 	if _normally_visible == currently_visible:
 		return
@@ -113,6 +138,8 @@ func update_visibility(currently_visible: bool) -> void:
 func _process(delta: float) -> void:
 	if not is_active():
 		_game.destroy_turret(self)
+		return
+	if being_reoriented:
 		return
 	if not _game.turret_can_operate(self):
 		_firing_flash_left = 0.0

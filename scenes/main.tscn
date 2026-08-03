@@ -234,7 +234,7 @@ text = "Башни: 0"
 layout_mode = 2
 theme_override_colors/font_color = Color(0.82, 0.88, 0.94, 1)
 theme_override_font_sizes/font_size = 18
-text = "Ставим: турель"
+text = "Режим: установка турели"
 
 [node name="ExploredCellsValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
 layout_mode = 2
@@ -305,6 +305,22 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.9, 0.25, 0.27, 1)
 theme_override_font_sizes/font_size = 18
 text = "Атакована турель"
+autowrap_mode = 2
+
+[node name="TowerDestroyedValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
+visible = false
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.25, 0.27, 1)
+theme_override_font_sizes/font_size = 18
+text = "Башня уничтожена"
+autowrap_mode = 2
+
+[node name="TurretDestroyedValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
+visible = false
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.25, 0.27, 1)
+theme_override_font_sizes/font_size = 18
+text = "Турель уничтожена"
 autowrap_mode = 2
 
 [node name="HitFlash" type="Panel" parent="GameInterface"]
@@ -459,7 +475,7 @@ custom_minimum_size = Vector2(560, 0)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.82, 0.88, 0.94, 1)
 theme_override_font_sizes/font_size = 20
-text = "• WASD или стрелки — движение\n• Мышь — направление взгляда\n• Левая кнопка мыши — выстрел\n• Колесо мыши — выбрать турель или башню\n• Правая кнопка мыши — установить или снять выбранное устройство\n• E — взаимодействовать со станцией, турелью или башней\n• Tab — открыть или закрыть карту\n• Правая кнопка мыши на карте — маркер маршрута или быстрое перемещение\n• Esc — пауза или вернуться назад"
+text = "• WASD или стрелки — движение\n• Мышь — направление взгляда\n• Колесо мыши — режим: башня, турель, стрельба или предохранитель\n• Левая кнопка мыши — выстрел в режиме стрельбы\n• Правая кнопка мыши — установить выбранное устройство или демонтировать существующее\n• E — взаимодействовать со станцией, турелью или башней\n• Tab — открыть или закрыть карту\n• Правая кнопка мыши на карте — маркер маршрута или быстрое перемещение\n• Esc — пауза или вернуться назад"
 autowrap_mode = 2
 line_spacing = 6
 

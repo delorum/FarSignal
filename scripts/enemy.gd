@@ -524,6 +524,14 @@ func is_attacking_structure(structure: Node2D) -> bool:
 			and _current_attack_target == structure
 
 
+func current_structure_target() -> Node2D:
+	return (
+		_current_attack_target
+		if is_instance_valid(_current_attack_target)
+		else null
+	)
+
+
 func _try_start_combat_maneuver(direction_to_player: Vector2) -> bool:
 	if _rng.randf() >= MANEUVER_CHANCE:
 		return false

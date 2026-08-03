@@ -1,11 +1,13 @@
 extends Control
 
-const TRANSFER_STEP := 5
-
 @onready var game: Node = $"../.."
 @onready var tower_status: Label = $Background/Center/Menu/TowerStatus
+@onready var tower_stats: Label = $Background/Center/Menu/TowerStats
 @onready var player_status: Label = $Background/Center/Menu/PlayerStatus
 @onready var health_button: Button = $Background/Center/Menu/HealthButton
+@onready var information_panel: Control = $Background/InformationPanel
+@onready var information_text: Label = $Background/InformationPanel/Information/InformationText
+@onready var information_back_button: Button = $Background/InformationPanel/Information/BackButton
 
 var _tower: Tower
 
@@ -17,7 +19,10 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if visible and event.is_action_pressed("ui_cancel"):
-		close()
+		if information_panel.visible:
+			_on_information_back_pressed()
+		else:
+			close()
 		get_viewport().set_input_as_handled()
 
 
@@ -27,6 +32,8 @@ func open(tower: Tower) -> void:
 	get_tree().paused = true
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	_update_menu()
+	$Background/Center.visible = true
+	information_panel.visible = false
 	if not health_button.disabled:
 		health_button.grab_focus()
 	else:
@@ -42,8 +49,21 @@ func close() -> void:
 
 func _on_health_pressed() -> void:
 	if is_instance_valid(_tower):
-		game.transfer_health_to_tower(_tower, TRANSFER_STEP)
+		game.buy_tower_health(_tower)
 	_update_menu()
+
+
+func _on_information_pressed() -> void:
+	_update_information_text()
+	$Background/Center.visible = false
+	information_panel.visible = true
+	information_back_button.grab_focus()
+
+
+func _on_information_back_pressed() -> void:
+	information_panel.visible = false
+	$Background/Center.visible = true
+	$Background/Center/Menu/InformationButton.grab_focus()
 
 
 func _on_exit_pressed() -> void:
@@ -57,11 +77,24 @@ func _update_menu() -> void:
 		_tower.health,
 		Tower.MAX_HEALTH,
 	]
-	player_status.text = tr("Игрок: здоровье %d") % game.player.health
-	var amount: int = game.tower_health_transfer_amount(_tower, TRANSFER_STEP)
-	health_button.disabled = amount <= 0
+	tower_stats.text = tr("Максимальное здоровье: %d (%d уровень)") % [
+		Tower.MAX_HEALTH,
+		1,
+	]
+	player_status.text = tr("Энергия: %d") % game.player.energy
+	var amount: int = game.tower_health_purchase_amount(_tower)
+	var cost := Player.health_energy_cost(amount)
+	health_button.disabled = amount <= 0 or game.player.energy < cost
 	health_button.text = (
-		tr("Передать %d здоровья") % amount
-		if amount > 0
-		else tr("Здоровье передать нельзя")
+		tr("Полное здоровье")
+		if amount <= 0
+		else tr("Восстановить %d здоровья за %d энергии") % [amount, cost]
+	)
+	if information_panel.visible:
+		_update_information_text()
+
+
+func _update_information_text() -> void:
+	information_text.text = tr("Уровни врагов:\n%s") % (
+		game.tower_enemy_level_summary()
 	)

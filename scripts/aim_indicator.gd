@@ -3,10 +3,12 @@ extends Node2D
 const ARM_LENGTH := 6.0
 const INNER_GAP := 1.5
 const LINE_WIDTH := 1.5
+const DISABLED_DOT_RADIUS := 3.0
 const COOLDOWN_COLOR := Color(0.12, 0.16, 0.18, 0.45)
 const READY_COLOR := Color(0.88, 0.96, 1.0, 0.86)
 
 var _readiness := 1.0
+var _shooting_enabled := true
 
 
 func set_readiness(readiness: float) -> void:
@@ -14,6 +16,13 @@ func set_readiness(readiness: float) -> void:
 	if is_equal_approx(_readiness, normalized_readiness):
 		return
 	_readiness = normalized_readiness
+	queue_redraw()
+
+
+func set_shooting_enabled(enabled: bool) -> void:
+	if _shooting_enabled == enabled:
+		return
+	_shooting_enabled = enabled
 	queue_redraw()
 
 
@@ -27,6 +36,16 @@ func _process(_delta: float) -> void:
 
 func _draw() -> void:
 	var color := COOLDOWN_COLOR.lerp(READY_COLOR, _readiness)
+	if not _shooting_enabled:
+		draw_circle(
+			Vector2.ZERO,
+			DISABLED_DOT_RADIUS,
+			READY_COLOR,
+			true,
+			-1.0,
+			true
+		)
+		return
 	for axis in [Vector2.RIGHT, Vector2.DOWN]:
 		draw_line(
 			-axis * ARM_LENGTH,

@@ -395,9 +395,17 @@ func _update_buttons() -> void:
 		else tr("Купить дверь за %d энергии") % Player.DOOR_COST
 	)
 	turret_button.disabled = not game.player.can_buy_turret()
-	turret_button.text = tr("Купить турель за %d энергии") % Player.TURRET_COST
+	turret_button.text = (
+		tr("Турели: максимум")
+		if not game.player.can_store_turret()
+		else tr("Купить турель за %d энергии") % Player.TURRET_COST
+	)
 	tower_button.disabled = not game.player.can_buy_tower()
-	tower_button.text = tr("Купить башню за %d энергии") % Player.TOWER_COST
+	tower_button.text = (
+		tr("Башни: максимум")
+		if not game.player.can_store_tower()
+		else tr("Купить башню за %d энергии") % Player.TOWER_COST
+	)
 
 	damage_upgrade_button.disabled = not game.can_upgrade_player_damage(
 		_station_id

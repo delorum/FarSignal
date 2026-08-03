@@ -34,6 +34,8 @@ const TOWER_COST := 50
 const TOWER_MAX_HEALTH := 500
 const STARTING_DOORS := 0
 const MAX_DOOR_INVENTORY := 5
+const MAX_TURRET_INVENTORY := 5
+const MAX_TOWER_INVENTORY := 5
 const CELL_SIZE := 48.0
 const RECOIL_DISTANCE := CELL_SIZE
 const NOISE_BUILDUP_DISTANCE := CELL_SIZE * 3.0
@@ -272,7 +274,7 @@ func health_purchase_amount() -> int:
 
 
 func health_purchase_cost() -> int:
-	return ceili(float(health_purchase_amount()) * 10.0 / MAX_HEALTH_BUY)
+	return health_energy_cost(health_purchase_amount())
 
 
 func ammo_purchase_amount() -> int:
@@ -280,7 +282,22 @@ func ammo_purchase_amount() -> int:
 
 
 func ammo_purchase_cost() -> int:
-	return ammo_purchase_amount() * AMMO_COST_PER_ROUND
+	return ammo_energy_cost(ammo_purchase_amount())
+
+
+static func health_energy_cost(amount: int) -> int:
+	return ceili(float(maxi(0, amount)) * 10.0 / MAX_HEALTH_BUY)
+
+
+static func ammo_energy_cost(amount: int) -> int:
+	return maxi(0, amount) * AMMO_COST_PER_ROUND
+
+
+func spend_energy(amount: int) -> bool:
+	if amount <= 0 or energy < amount:
+		return false
+	_spend_energy(amount)
+	return true
 
 
 func can_buy_health() -> bool:
@@ -298,15 +315,23 @@ func can_buy_door() -> bool:
 
 
 func can_buy_turret() -> bool:
-	return energy >= TURRET_COST
+	return energy >= TURRET_COST and can_store_turret()
 
 
 func can_buy_tower() -> bool:
-	return energy >= TOWER_COST
+	return energy >= TOWER_COST and can_store_tower()
 
 
 func can_store_door() -> bool:
 	return door_inventory < MAX_DOOR_INVENTORY
+
+
+func can_store_turret() -> bool:
+	return turret_inventory.size() < MAX_TURRET_INVENTORY
+
+
+func can_store_tower() -> bool:
+	return tower_inventory.size() < MAX_TOWER_INVENTORY
 
 
 func exploration_exchange_points() -> int:
@@ -364,11 +389,14 @@ func take_turret_from_inventory() -> Dictionary:
 	return turret_inventory.pop_back()
 
 
-func store_turret_in_inventory(health_value: int, ammo_value: int) -> void:
+func store_turret_in_inventory(health_value: int, ammo_value: int) -> bool:
+	if not can_store_turret():
+		return false
 	turret_inventory.append({
 		"health": clampi(health_value, 1, TURRET_MAX_HEALTH),
 		"ammo": clampi(ammo_value, 0, TURRET_MAX_AMMO),
 	})
+	return true
 
 
 func turret_inventory_for_save() -> Array:
@@ -393,10 +421,13 @@ func take_tower_from_inventory() -> Dictionary:
 	return tower_inventory.pop_back()
 
 
-func store_tower_in_inventory(health_value: int) -> void:
+func store_tower_in_inventory(health_value: int) -> bool:
+	if not can_store_tower():
+		return false
 	tower_inventory.append({
 		"health": clampi(health_value, 1, TOWER_MAX_HEALTH),
 	})
+	return true
 
 
 func tower_inventory_for_save() -> Array:
@@ -406,6 +437,8 @@ func tower_inventory_for_save() -> Array:
 func _sanitize_turret_inventory(saved_turrets: Array) -> Array[Dictionary]:
 	var restored: Array[Dictionary] = []
 	for saved_turret in saved_turrets:
+		if restored.size() >= MAX_TURRET_INVENTORY:
+			break
 		if not saved_turret is Dictionary:
 			continue
 		restored.append({
@@ -426,6 +459,8 @@ func _sanitize_turret_inventory(saved_turrets: Array) -> Array[Dictionary]:
 func _sanitize_tower_inventory(saved_towers: Array) -> Array[Dictionary]:
 	var restored: Array[Dictionary] = []
 	for saved_tower in saved_towers:
+		if restored.size() >= MAX_TOWER_INVENTORY:
+			break
 		if not saved_tower is Dictionary:
 			continue
 		restored.append({
@@ -555,7 +590,15 @@ func set_aim_indicator_readiness(readiness: float) -> void:
 		aim_indicator.set_readiness(readiness)
 
 
+func set_aim_indicator_shooting_enabled(enabled: bool) -> void:
+	if aim_indicator != null \
+			and aim_indicator.has_method("set_shooting_enabled"):
+		aim_indicator.set_shooting_enabled(enabled)
+
+
 func _process(_delta: float) -> void:
+	if not controls_enabled:
+		return
 	var mouse_direction := get_global_mouse_position() - global_position
 	if mouse_direction.is_zero_approx():
 		return

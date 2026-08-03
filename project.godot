@@ -11,10 +11,10 @@ config_version=5
 [application]
 
 config/name="Far Signal"
-config/version="0.6.0"
-config/build_sha=""
+config/version="0.7.0"
 run/main_scene="res://scenes/menu.tscn"
 config/features=PackedStringArray("4.7")
+config/build_sha=""
 
 [autoload]
 
@@ -23,11 +23,6 @@ DisplaySetup="*res://scripts/display_setup.gd"
 SaveStore="*res://scripts/save_store.gd"
 AudioManager="*res://scripts/audio_manager.gd"
 PerformanceOverlay="*res://scripts/performance_overlay.gd"
-
-[internationalization]
-
-locale/fallback="ru"
-locale/translations=PackedStringArray("res://localization/en.po")
 
 [display]
 
@@ -78,6 +73,11 @@ place_door={
 "events": [Object(InputEventMouseButton,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"button_mask":2,"position":Vector2(0, 0),"global_position":Vector2(0, 0),"factor":1.0,"button_index":2,"canceled":false,"pressed":false,"double_click":false,"script":null)
 ]
 }
+
+[internationalization]
+
+locale/translations=PackedStringArray("res://localization/en.po")
+locale/fallback="ru"
 
 [rendering]
 

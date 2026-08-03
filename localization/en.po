@@ -108,6 +108,9 @@ msgstr "Buy a turret for %d energy"
 msgid "Турель"
 msgstr "Turret"
 
+msgid "Развернуть турель"
+msgstr "Rotate turret"
+
 msgid "Турель: здоровье %d/%d, патроны %d/%d"
 msgstr "Turret: health %d/%d, ammo %d/%d"
 
@@ -126,8 +129,20 @@ msgstr "Cannot transfer health"
 msgid "Башни: %d"
 msgstr "Towers: %d"
 
-msgid "Ставим: %s"
-msgstr "Building: %s"
+msgid "Режим: %s"
+msgstr "Mode: %s"
+
+msgid "установка башни"
+msgstr "place tower"
+
+msgid "установка турели"
+msgstr "place turret"
+
+msgid "стрельба"
+msgstr "shooting"
+
+msgid "предохранитель"
+msgstr "safety"
 
 msgid "башню"
 msgstr "tower"
@@ -137,6 +152,12 @@ msgstr "turret"
 
 msgid "Купить башню за %d энергии"
 msgstr "Buy a tower for %d energy"
+
+msgid "Турели: максимум"
+msgstr "Turrets: maximum"
+
+msgid "Башни: максимум"
+msgstr "Towers: maximum"
 
 msgid "Башня"
 msgstr "Tower"
@@ -150,17 +171,35 @@ msgstr "Tower under attack"
 msgid "Атакована турель"
 msgstr "Turret under attack"
 
+msgid "Башня уничтожена"
+msgstr "Tower destroyed"
+
+msgid "Турель уничтожена"
+msgstr "Turret destroyed"
+
+msgid "Максимальное здоровье: %d (%d уровень)"
+msgstr "Maximum health: %d (level %d)"
+
+msgid "Максимальное здоровье: %d (%d уровень)\nМаксимальное количество патронов: %d (%d уровень)\nУрон: %d-%d (%d уровень)"
+msgstr "Maximum health: %d (level %d)\nMaximum ammunition: %d (level %d)\nDamage: %d-%d (level %d)"
+
 msgid "Игрок: здоровье %d"
 msgstr "Player: health %d"
 
-msgid "• WASD или стрелки — движение\n• Мышь — направление взгляда\n• Левая кнопка мыши — выстрел\n• Колесо мыши — выбрать турель или башню\n• Правая кнопка мыши — установить или снять выбранное устройство\n• E — взаимодействовать со станцией, турелью или башней\n• Tab — открыть или закрыть карту\n• Правая кнопка мыши на карте — маркер маршрута или быстрое перемещение\n• Esc — пауза или вернуться назад"
-msgstr "• WASD or arrow keys — move\n• Mouse — aim\n• Left mouse button — fire\n• Mouse wheel — select turret or tower\n• Right mouse button — install or remove the selected device\n• E — interact with a station, turret, or tower\n• Tab — open or close the map\n• Right mouse button on the map — route marker or fast travel\n• Esc — pause or go back"
+msgid "• WASD или стрелки — движение\n• Мышь — направление взгляда\n• Колесо мыши — режим: башня, турель, стрельба или предохранитель\n• Левая кнопка мыши — выстрел в режиме стрельбы\n• Правая кнопка мыши — установить выбранное устройство или демонтировать существующее\n• E — взаимодействовать со станцией, турелью или башней\n• Tab — открыть или закрыть карту\n• Правая кнопка мыши на карте — маркер маршрута или быстрое перемещение\n• Esc — пауза или вернуться назад"
+msgstr "• WASD or arrow keys — move\n• Mouse — aim\n• Mouse wheel — mode: tower, turret, shooting, or safety\n• Left mouse button — fire in shooting mode\n• Right mouse button — install the selected device or remove an existing one\n• E — interact with a station, turret, or tower\n• Tab — open or close the map\n• Right mouse button on the map — route marker or fast travel\n• Esc — pause or go back"
 
-msgid "1. Убивай охотников, забирай энергоядра и сдавай их на Станции 1.\n\n2. Исследуй клетки карты и сдавай накопленные очки исследования.\n\n3. Ищи мегаядра и возвращай их на Станцию 1.\n\n4. За ядра и исследование ты получаешь энергию. Чем опаснее враг или зона относительно твоего уровня, тем выше награда.\n\n5. На Станции 1 покупай здоровье, патроны, турели и башни.\n\n6. Колесом мыши выбери устройство, затем правой кнопкой установи или сними его. Работа занимает две секунды.\n\n7. Башня подключается к двери Станции 1 или другой подключенной башне в прямой видимости не далее 20 клеток. Желтые линии показывают сеть.\n\n8. Подключенная башня создает безопасную зону вокруг себя. Враги там не появляются, но могут войти и разрушить башню.\n\n9. Клавишей E можно передать башне здоровье, а турели - здоровье и патроны.\n\n10. Чем больше безопасная зона, тем меньше врагов остается на карте.\n\n11. Чем выше по карте, тем сильнее враги. Найди Станции 2 и 3: там за энергию можно улучшать урон, здоровье и боезапас."
-msgstr "1. Kill hunters, collect their energy cores, and turn them in at Station 1.\n\n2. Explore map cells and exchange the accumulated exploration points.\n\n3. Find megacores and return them to Station 1.\n\n4. Cores and exploration provide energy. The more dangerous the enemy or zone relative to your level, the greater the reward.\n\n5. Buy health, ammunition, turrets, and towers at Station 1.\n\n6. Select a device with the mouse wheel, then install or remove it with the right mouse button. The operation takes two seconds.\n\n7. A tower connects to a Station 1 door or another connected tower within direct line of sight and 20 cells. Yellow lines show the network.\n\n8. A connected tower creates a safe zone around itself. Enemies do not spawn there, but they can enter and destroy the tower.\n\n9. Press E to transfer health to a tower, or health and ammunition to a turret.\n\n10. The larger the safe zone, the fewer enemies remain on the map.\n\n11. Enemies become stronger toward the top of the map. Find Stations 2 and 3 to upgrade damage, health, and ammunition capacity with energy."
+msgid "1. Убивай охотников, забирай энергоядра и сдавай их на Станции 1.\n\n2. Исследуй клетки карты и сдавай накопленные очки исследования.\n\n3. Ищи мегаядра и возвращай их на Станцию 1.\n\n4. За ядра и исследование ты получаешь энергию. Чем опаснее враг или зона относительно твоего уровня, тем выше награда.\n\n5. На Станции 1 покупай здоровье, патроны, турели и башни.\n\n6. Колесом мыши выбирай режим установки башни, установки турели, стрельбы или предохранителя. Установка и демонтаж правой кнопкой занимают две секунды.\n\n7. Башня подключается к двери Станции 1 или другой подключенной башне в прямой видимости. Желтые линии показывают сеть.\n\n8. Подключенная башня создает безопасную зону вокруг себя. Враги там не появляются, но могут войти и разрушить башню.\n\n9. Клавишей E можно передать башне здоровье, а турели - здоровье и патроны.\n\n10. Чем больше безопасная зона, тем меньше врагов остается на карте.\n\n11. Чем выше по карте, тем сильнее враги. Найди Станции 2 и 3: там за энергию можно улучшать урон, здоровье и боезапас."
+msgstr "1. Kill hunters, collect their energy cores, and turn them in at Station 1.\n\n2. Explore map cells and exchange the accumulated exploration points.\n\n3. Find megacores and return them to Station 1.\n\n4. Cores and exploration provide energy. The more dangerous the enemy or zone relative to your level, the greater the reward.\n\n5. Buy health, ammunition, turrets, and towers at Station 1.\n\n6. Use the mouse wheel to select tower placement, turret placement, shooting, or safety mode. Installation and removal with the right mouse button take two seconds.\n\n7. A tower connects to a Station 1 door or another connected tower within direct line of sight. Yellow lines show the network.\n\n8. A connected tower creates a safe zone around itself. Enemies do not spawn there, but they can enter and destroy the tower.\n\n9. Press E to transfer health to a tower, or health and ammunition to a turret.\n\n10. The larger the safe zone, the fewer enemies remain on the map.\n\n11. Enemies become stronger toward the top of the map. Find Stations 2 and 3 to upgrade damage, health, and ammunition capacity with energy."
 
 msgid "Патроны передать нельзя"
 msgstr "Cannot transfer ammo"
+
+msgid "Клавишей E можно передать башне здоровье, а турели - здоровье и патроны."
+msgstr "Press E to transfer health to a tower, or health and ammunition to a turret."
+
+msgid "Клавишей E можно за энергию ремонтировать башни и пополнять здоровье и патроны турелей."
+msgstr "Press E to spend energy on tower repairs or turret health and ammunition."
 
 msgid "Мы принимаем слабый сигнал с верхней стены - там есть выход.\n\nНайди его и проложи безопасный маршрут.\n\nСтанция расскажет подробности."
 msgstr "We are receiving a weak signal from the upper wall. There is an exit there.\n\nFind it and establish a safe route.\n\nThe station will provide further instructions."
@@ -390,8 +429,14 @@ msgstr "Energy remaining: %d\n\n"
 msgid "Уровни врагов:\n%s"
 msgstr "Enemy levels:\n%s"
 
-msgid "%d: %d здоровья (%d попаданий), урон %d–%d (%d попаданий)"
-msgstr "%d: %d health (%d hits), damage %d–%d (%d hits)"
+msgid "%d: врагов %d, %d здоровья (%d попаданий), урон %d–%d (%d попаданий)"
+msgstr "%d: %d enemies, %d health (%d hits), damage %d–%d (%d hits)"
+
+msgid "%d: врагов %d, %d здоровья (%d попаданий турели), урон %d–%d (%d попаданий по турели)"
+msgstr "%d: %d enemies, %d health (%d turret hits), damage %d–%d (%d hits on turret)"
+
+msgid "%d: врагов %d, урон %d–%d (%d попаданий по башне)"
+msgstr "%d: %d enemies, damage %d–%d (%d hits on tower)"
 
 msgid "Поражение"
 msgstr "Defeat"
