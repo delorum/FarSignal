@@ -65,7 +65,8 @@ is already inside the safe zone performs instant travel.
 - Right mouse button: install or remove a door
 - `E`: open or close a nearby door; interact with a station
 - `Tab`: open or close the map
-- Right mouse button on the map: place or remove a marker; fast travel between
+- Left mouse button on the map: place or remove an informational marker
+- Right mouse button on the map: place or remove a route marker; fast travel between
   safe cells
 - `Esc`: pause, close the current screen, or return to the previous menu
 

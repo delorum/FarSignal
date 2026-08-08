@@ -35,6 +35,8 @@ const TURN_SPEED := deg_to_rad(150.0)
 const AIM_TOLERANCE := deg_to_rad(10.0)
 const FIRING_POSITION_SEARCH_RADIUS := 6
 const FIRING_POSITION_REPATH_INTERVAL := 1.5
+const PATH_STUCK_TIMEOUT := 1.5
+const PATH_MINIMUM_PROGRESS_RATIO := 0.1
 const TARGET_SCAN_INTERVAL := 0.15
 const ANIMATION_FRAME_COUNT := 8
 const RUN_ANIMATION_FPS := 10.0
@@ -76,6 +78,7 @@ var _search_repath_cooldown := 0.0
 var _search_path_retry_needed := false
 var _firing_position_repath_cooldown := 0.0
 var _last_path_build_deferred := false
+var _path_stuck_time := 0.0
 var _target_scan_cooldown := 0.0
 var _cached_structure_target: Node2D
 var _current_attack_target: Node2D
@@ -435,6 +438,8 @@ func _physics_process(delta: float) -> void:
 			return
 		if _shoot_cooldown <= 0.0 and _is_aimed_at(aim_direction):
 			_game.spawn_enemy_bullet(position, aim_direction, self)
+			if target != _player:
+				_game.notify_structure_attacked(target)
 			_shoot_cooldown = SHOOT_INTERVAL
 			_try_start_combat_maneuver(direction_to_target)
 		return
@@ -469,6 +474,7 @@ func _enter_patrol() -> void:
 	_last_known_player_cell = Vector2i(-1, -1)
 	_path.clear()
 	_path_index = 0
+	_path_stuck_time = 0.0
 	velocity = Vector2.ZERO
 	_choose_random_target()
 
@@ -478,6 +484,7 @@ func _enter_combat() -> void:
 	velocity = Vector2.ZERO
 	_path.clear()
 	_path_index = 0
+	_path_stuck_time = 0.0
 
 
 func _enter_search() -> void:
@@ -891,18 +898,21 @@ func _update_maneuver(sees_player: bool) -> void:
 func _follow_path(update_facing: bool = true) -> void:
 	if _path_index >= _path.size():
 		velocity = Vector2.ZERO
+		_path_stuck_time = 0.0
 		return
 
 	if not _maze.is_cell_walkable(_path[_path_index]):
 		_path.clear()
 		_path_index = 0
 		velocity = Vector2.ZERO
+		_path_stuck_time = 0.0
 		return
 
 	var target_position := _maze.cell_to_world(_path[_path_index])
 	var offset := target_position - position
 	if offset.length() < 5.0:
 		_path_index += 1
+		_path_stuck_time = 0.0
 		_follow_path(update_facing)
 		return
 
@@ -913,7 +923,19 @@ func _follow_path(update_facing: bool = true) -> void:
 		PATROL_SPEED if state == State.PATROL else ALERT_SPEED
 	)
 	velocity = movement_direction * movement_speed
+	var position_before_move := position
 	move_and_slide()
+	var expected_distance := movement_speed * get_physics_process_delta_time()
+	if position.distance_to(position_before_move) \
+			< expected_distance * PATH_MINIMUM_PROGRESS_RATIO:
+		_path_stuck_time += get_physics_process_delta_time()
+	else:
+		_path_stuck_time = 0.0
+	if _path_stuck_time >= PATH_STUCK_TIMEOUT:
+		_path.clear()
+		_path_index = 0
+		_path_stuck_time = 0.0
+		velocity = Vector2.ZERO
 	queue_redraw()
 
 
@@ -946,6 +968,7 @@ func _build_path_to(target: Vector2i) -> bool:
 	var start := _maze.world_to_cell(position)
 	_path = _game.find_enemy_path(start, target)
 	_path_index = 0
+	_path_stuck_time = 0.0
 	return not _path.is_empty()
 
 

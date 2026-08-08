@@ -1,4 +1,4 @@
-[gd_scene load_steps=29 format=3 uid="uid://dw58ygdj26wbu"]
+[gd_scene load_steps=30 format=3 uid="uid://dw58ygdj26wbu"]
 
 [ext_resource type="Script" uid="uid://b7t1b5rs3b076" path="res://scripts/game.gd" id="1_game"]
 [ext_resource type="Script" uid="uid://1jcmw0g6148v" path="res://scripts/maze.gd" id="2_maze"]
@@ -20,6 +20,7 @@
 [ext_resource type="PackedScene" path="res://scenes/turret_menu.tscn" id="21_turret_menu"]
 [ext_resource type="PackedScene" path="res://scenes/tower_menu.tscn" id="22_tower_menu"]
 [ext_resource type="Script" path="res://scripts/tower_connection_preview.gd" id="23_tower_preview"]
+[ext_resource type="Script" path="res://scripts/tower_connections.gd" id="24_tower_connections"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_player"]
 radius = 14.0
@@ -60,6 +61,10 @@ script = ExtResource("1_game")
 
 [node name="Maze" type="StaticBody2D" parent="." unique_id=2053429230]
 script = ExtResource("2_maze")
+
+[node name="TowerConnections" type="Node2D" parent="."]
+z_index = 1
+script = ExtResource("24_tower_connections")
 
 [node name="Doors" type="Node2D" parent="."]
 
@@ -475,7 +480,7 @@ custom_minimum_size = Vector2(560, 0)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.82, 0.88, 0.94, 1)
 theme_override_font_sizes/font_size = 20
-text = "• WASD или стрелки — движение\n• Мышь — направление взгляда\n• Колесо мыши — режим: башня, турель, стрельба или предохранитель\n• Левая кнопка мыши — выстрел в режиме стрельбы\n• Правая кнопка мыши — установить выбранное устройство или демонтировать существующее\n• E — взаимодействовать со станцией, турелью или башней\n• Tab — открыть или закрыть карту\n• Правая кнопка мыши на карте — маркер маршрута или быстрое перемещение\n• Esc — пауза или вернуться назад"
+text = "• WASD или стрелки — движение\n• Мышь — направление взгляда\n• Колесо мыши — режим: башня, турель, стрельба или предохранитель\n• Левая кнопка мыши — выстрел в режиме стрельбы\n• Правая кнопка мыши — установить выбранное устройство или демонтировать существующее\n• E — взаимодействовать со станцией, турелью или башней\n• Tab — открыть или закрыть карту\n• Левая кнопка мыши на карте — информационный маркер\n• Правая кнопка мыши на карте — маркер маршрута или быстрое перемещение\n• Esc — пауза или вернуться назад"
 autowrap_mode = 2
 line_spacing = 6
 
@@ -581,40 +586,12 @@ theme_override_constants/h_separation = 12
 theme_override_constants/v_separation = 12
 columns = 2
 
-[node name="AmmoButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid"]
+[node name="ResourcesButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid"]
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 22
-text = "Купить патроны"
-
-[node name="HealthButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid"]
-custom_minimum_size = Vector2(0, 52)
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 22
-text = "Восстановить 20 здоровья за 10 энергии"
-
-[node name="ExchangeButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid"]
-custom_minimum_size = Vector2(0, 52)
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 22
-text = "Сдать энергоядра"
-
-[node name="ExchangeCellsButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid"]
-custom_minimum_size = Vector2(0, 52)
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 22
-text = "Сдать клетки"
-
-[node name="ReturnMegaCoreButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid"]
-custom_minimum_size = Vector2(0, 52)
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 22
-text = "Мегаядро не найдено"
+text = "Ресурсы"
 
 [node name="DoorButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid"]
 visible = false
@@ -624,43 +601,12 @@ size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 22
 text = "Купить дверь"
 
-[node name="TurretButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid"]
+[node name="UpgradesButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid"]
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 22
-text = "Купить турель за 50 энергии"
-
-[node name="TowerButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid"]
-custom_minimum_size = Vector2(0, 52)
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 22
-text = "Купить башню за 50 энергии"
-
-[node name="DamageUpgradeButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid"]
-visible = false
-custom_minimum_size = Vector2(0, 52)
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 22
-text = "Улучшить урон"
-
-[node name="HealthUpgradeButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid"]
-visible = false
-custom_minimum_size = Vector2(0, 52)
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 22
-text = "Улучшить здоровье"
-
-[node name="AmmoUpgradeButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid"]
-visible = false
-custom_minimum_size = Vector2(0, 52)
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 22
-text = "Улучшить боезапас"
+text = "Улучшения"
 
 [node name="InstructionsButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid"]
 custom_minimum_size = Vector2(0, 52)
@@ -690,6 +636,209 @@ size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 22
 text = "Выход"
 
+[node name="UpgradesPanel" type="MarginContainer" parent="StationOverlay/StationMenu/Background"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 24
+
+[node name="UpgradesScreen" type="VBoxContainer" parent="StationOverlay/StationMenu/Background/UpgradesPanel"]
+custom_minimum_size = Vector2(780, 0)
+layout_mode = 2
+theme_override_constants/separation = 22
+
+[node name="Title" type="Label" parent="StationOverlay/StationMenu/Background/UpgradesPanel/UpgradesScreen"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.345, 0.839, 0.561, 1)
+theme_override_font_sizes/font_size = 40
+text = "Улучшения"
+
+[node name="EnergyValue" type="Label" parent="StationOverlay/StationMenu/Background/UpgradesPanel/UpgradesScreen"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
+theme_override_font_sizes/font_size = 22
+text = "Энергия: 0"
+
+[node name="PlayerStatusValue" type="Label" parent="StationOverlay/StationMenu/Background/UpgradesPanel/UpgradesScreen"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
+theme_override_font_sizes/font_size = 22
+text = "Здоровье: 100/100    Патроны: 30/30    Турели: 0    Башни: 0"
+autowrap_mode = 2
+
+[node name="ActionsGrid" type="GridContainer" parent="StationOverlay/StationMenu/Background/UpgradesPanel/UpgradesScreen"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 12
+columns = 2
+
+[node name="DamageUpgradeButton" type="Button" parent="StationOverlay/StationMenu/Background/UpgradesPanel/UpgradesScreen/ActionsGrid"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "Улучшить урон"
+
+[node name="HealthUpgradeButton" type="Button" parent="StationOverlay/StationMenu/Background/UpgradesPanel/UpgradesScreen/ActionsGrid"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "Улучшить здоровье"
+
+[node name="AmmoUpgradeButton" type="Button" parent="StationOverlay/StationMenu/Background/UpgradesPanel/UpgradesScreen/ActionsGrid"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "Улучшить боезапас"
+
+[node name="TurretHealthUpgradeButton" type="Button" parent="StationOverlay/StationMenu/Background/UpgradesPanel/UpgradesScreen/ActionsGrid"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "Улучшить здоровье турели"
+
+[node name="TurretDamageUpgradeButton" type="Button" parent="StationOverlay/StationMenu/Background/UpgradesPanel/UpgradesScreen/ActionsGrid"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "Улучшить урон турели"
+
+[node name="TurretAmmoUpgradeButton" type="Button" parent="StationOverlay/StationMenu/Background/UpgradesPanel/UpgradesScreen/ActionsGrid"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "Улучшить боезапас турели"
+
+[node name="TowerHealthUpgradeButton" type="Button" parent="StationOverlay/StationMenu/Background/UpgradesPanel/UpgradesScreen/ActionsGrid"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "Улучшить здоровье башни"
+
+[node name="BackButton" type="Button" parent="StationOverlay/StationMenu/Background/UpgradesPanel/UpgradesScreen"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Назад"
+
+[node name="ResourcesPanel" type="MarginContainer" parent="StationOverlay/StationMenu/Background"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 24
+
+[node name="ResourcesScreen" type="VBoxContainer" parent="StationOverlay/StationMenu/Background/ResourcesPanel"]
+custom_minimum_size = Vector2(780, 0)
+layout_mode = 2
+theme_override_constants/separation = 22
+
+[node name="Title" type="Label" parent="StationOverlay/StationMenu/Background/ResourcesPanel/ResourcesScreen"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.345, 0.839, 0.561, 1)
+theme_override_font_sizes/font_size = 40
+text = "Ресурсы"
+
+[node name="EnergyValue" type="Label" parent="StationOverlay/StationMenu/Background/ResourcesPanel/ResourcesScreen"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
+theme_override_font_sizes/font_size = 22
+text = "Энергия: 0"
+
+[node name="PlayerStatusValue" type="Label" parent="StationOverlay/StationMenu/Background/ResourcesPanel/ResourcesScreen"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
+theme_override_font_sizes/font_size = 22
+text = "Здоровье: 100/100    Патроны: 30/30    Турели: 0    Башни: 0"
+autowrap_mode = 2
+
+[node name="ActionsGrid" type="GridContainer" parent="StationOverlay/StationMenu/Background/ResourcesPanel/ResourcesScreen"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 12
+columns = 2
+
+[node name="ReturnMegaCoreButton" type="Button" parent="StationOverlay/StationMenu/Background/ResourcesPanel/ResourcesScreen/ActionsGrid"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "Мегаядро не найдено"
+
+[node name="ExchangeButton" type="Button" parent="StationOverlay/StationMenu/Background/ResourcesPanel/ResourcesScreen/ActionsGrid"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "Сдать энергоядра"
+
+[node name="ExchangeCellsButton" type="Button" parent="StationOverlay/StationMenu/Background/ResourcesPanel/ResourcesScreen/ActionsGrid"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "Сдать клетки"
+
+[node name="ResourceActionsSpacer" type="Control" parent="StationOverlay/StationMenu/Background/ResourcesPanel/ResourcesScreen/ActionsGrid"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="HealthButton" type="Button" parent="StationOverlay/StationMenu/Background/ResourcesPanel/ResourcesScreen/ActionsGrid"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "Восстановить 20 здоровья за 10 энергии"
+
+[node name="AmmoButton" type="Button" parent="StationOverlay/StationMenu/Background/ResourcesPanel/ResourcesScreen/ActionsGrid"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "Купить патроны"
+
+[node name="TurretButton" type="Button" parent="StationOverlay/StationMenu/Background/ResourcesPanel/ResourcesScreen/ActionsGrid"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "Купить турель за 50 энергии"
+
+[node name="TowerButton" type="Button" parent="StationOverlay/StationMenu/Background/ResourcesPanel/ResourcesScreen/ActionsGrid"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "Купить башню за 10 энергии"
+
+[node name="BackButton" type="Button" parent="StationOverlay/StationMenu/Background/ResourcesPanel/ResourcesScreen"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Назад"
+
 [node name="InstructionsPanel" type="MarginContainer" parent="StationOverlay/StationMenu/Background"]
 visible = false
 layout_mode = 1
@@ -714,6 +863,13 @@ theme_override_colors/font_color = Color(0.345, 0.839, 0.561, 1)
 theme_override_font_sizes/font_size = 40
 text = "Инструкции"
 horizontal_alignment = 0
+
+[node name="PlayerStatusValue" type="Label" parent="StationOverlay/StationMenu/Background/InstructionsPanel/InstructionsScreen"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
+theme_override_font_sizes/font_size = 22
+text = "Здоровье: 100/100    Патроны: 30/30    Турели: 0    Башни: 0"
+autowrap_mode = 2
 
 [node name="InstructionsScroll" type="ScrollContainer" parent="StationOverlay/StationMenu/Background/InstructionsPanel/InstructionsScreen"]
 layout_mode = 2
@@ -759,6 +915,13 @@ theme_override_colors/font_color = Color(0.345, 0.839, 0.561, 1)
 theme_override_font_sizes/font_size = 40
 text = "Информация"
 
+[node name="PlayerStatusValue" type="Label" parent="StationOverlay/StationMenu/Background/InformationPanel/InformationScreen"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
+theme_override_font_sizes/font_size = 22
+text = "Здоровье: 100/100    Патроны: 30/30    Турели: 0    Башни: 0"
+autowrap_mode = 2
+
 [node name="InformationText" type="Label" parent="StationOverlay/StationMenu/Background/InformationPanel/InformationScreen"]
 layout_mode = 2
 size_flags_vertical = 3
@@ -797,6 +960,13 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.345, 0.839, 0.561, 1)
 theme_override_font_sizes/font_size = 40
 text = "Заметки"
+
+[node name="PlayerStatusValue" type="Label" parent="StationOverlay/StationMenu/Background/NotesPanel/NotesScreen"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
+theme_override_font_sizes/font_size = 22
+text = "Здоровье: 100/100    Патроны: 30/30    Турели: 0    Башни: 0"
+autowrap_mode = 2
 
 [node name="NotesList" type="VBoxContainer" parent="StationOverlay/StationMenu/Background/NotesPanel/NotesScreen"]
 layout_mode = 2
@@ -856,6 +1026,13 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.345, 0.839, 0.561, 1)
 theme_override_font_sizes/font_size = 40
 text = "Заметка 0"
+
+[node name="PlayerStatusValue" type="Label" parent="StationOverlay/StationMenu/Background/NoteReaderPanel/NoteReader"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
+theme_override_font_sizes/font_size = 22
+text = "Здоровье: 100/100    Патроны: 30/30    Турели: 0    Башни: 0"
+autowrap_mode = 2
 
 [node name="NoteScroll" type="ScrollContainer" parent="StationOverlay/StationMenu/Background/NoteReaderPanel/NoteReader"]
 layout_mode = 2
@@ -1118,23 +1295,31 @@ text = "Далее"
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/PauseMenu/SaveAndExitButton" to="PauseOverlay/PauseMenu" method="_on_save_and_exit_pressed"]
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/ControlsScreen/BackButton" to="PauseOverlay/PauseMenu" method="_on_back_pressed"]
 [connection signal="back_requested" from="PauseOverlay/PauseMenu/CenterContainer/SettingsMenu" to="PauseOverlay/PauseMenu" method="_on_settings_back_requested"]
-[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/AmmoButton" to="StationOverlay/StationMenu" method="_on_ammo_pressed"]
-[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/HealthButton" to="StationOverlay/StationMenu" method="_on_health_pressed"]
-[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/ExchangeButton" to="StationOverlay/StationMenu" method="_on_exchange_pressed"]
-[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/ExchangeCellsButton" to="StationOverlay/StationMenu" method="_on_exchange_cells_pressed"]
-[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/ReturnMegaCoreButton" to="StationOverlay/StationMenu" method="_on_return_mega_core_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/ResourcesButton" to="StationOverlay/StationMenu" method="_on_resources_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/DoorButton" to="StationOverlay/StationMenu" method="_on_door_pressed"]
-[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/TurretButton" to="StationOverlay/StationMenu" method="_on_turret_pressed"]
-[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/TowerButton" to="StationOverlay/StationMenu" method="_on_tower_pressed"]
-[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/DamageUpgradeButton" to="StationOverlay/StationMenu" method="_on_damage_upgrade_pressed"]
-[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/HealthUpgradeButton" to="StationOverlay/StationMenu" method="_on_health_upgrade_pressed"]
-[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/AmmoUpgradeButton" to="StationOverlay/StationMenu" method="_on_ammo_upgrade_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/UpgradesButton" to="StationOverlay/StationMenu" method="_on_upgrades_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/InstructionsButton" to="StationOverlay/StationMenu" method="_on_instructions_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/InformationButton" to="StationOverlay/StationMenu" method="_on_information_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/NotesButton" to="StationOverlay/StationMenu" method="_on_notes_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/ExitButton" to="StationOverlay/StationMenu" method="_on_exit_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/InstructionsPanel/InstructionsScreen/BackButton" to="StationOverlay/StationMenu" method="_on_instructions_back_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/InformationPanel/InformationScreen/BackButton" to="StationOverlay/StationMenu" method="_on_information_back_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/UpgradesPanel/UpgradesScreen/ActionsGrid/DamageUpgradeButton" to="StationOverlay/StationMenu" method="_on_damage_upgrade_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/UpgradesPanel/UpgradesScreen/ActionsGrid/HealthUpgradeButton" to="StationOverlay/StationMenu" method="_on_health_upgrade_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/UpgradesPanel/UpgradesScreen/ActionsGrid/AmmoUpgradeButton" to="StationOverlay/StationMenu" method="_on_ammo_upgrade_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/UpgradesPanel/UpgradesScreen/ActionsGrid/TurretHealthUpgradeButton" to="StationOverlay/StationMenu" method="_on_turret_health_upgrade_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/UpgradesPanel/UpgradesScreen/ActionsGrid/TurretDamageUpgradeButton" to="StationOverlay/StationMenu" method="_on_turret_damage_upgrade_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/UpgradesPanel/UpgradesScreen/ActionsGrid/TurretAmmoUpgradeButton" to="StationOverlay/StationMenu" method="_on_turret_ammo_upgrade_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/UpgradesPanel/UpgradesScreen/ActionsGrid/TowerHealthUpgradeButton" to="StationOverlay/StationMenu" method="_on_tower_health_upgrade_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/UpgradesPanel/UpgradesScreen/BackButton" to="StationOverlay/StationMenu" method="_on_upgrades_back_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/ResourcesPanel/ResourcesScreen/ActionsGrid/ReturnMegaCoreButton" to="StationOverlay/StationMenu" method="_on_return_mega_core_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/ResourcesPanel/ResourcesScreen/ActionsGrid/ExchangeButton" to="StationOverlay/StationMenu" method="_on_exchange_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/ResourcesPanel/ResourcesScreen/ActionsGrid/ExchangeCellsButton" to="StationOverlay/StationMenu" method="_on_exchange_cells_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/ResourcesPanel/ResourcesScreen/ActionsGrid/HealthButton" to="StationOverlay/StationMenu" method="_on_health_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/ResourcesPanel/ResourcesScreen/ActionsGrid/AmmoButton" to="StationOverlay/StationMenu" method="_on_ammo_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/ResourcesPanel/ResourcesScreen/ActionsGrid/TurretButton" to="StationOverlay/StationMenu" method="_on_turret_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/ResourcesPanel/ResourcesScreen/ActionsGrid/TowerButton" to="StationOverlay/StationMenu" method="_on_tower_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/ResourcesPanel/ResourcesScreen/BackButton" to="StationOverlay/StationMenu" method="_on_resources_back_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/NotesPanel/NotesScreen/NotesList/Note1Button" to="StationOverlay/StationMenu" method="_on_note_one_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/NotesPanel/NotesScreen/NotesList/Note2Button" to="StationOverlay/StationMenu" method="_on_note_two_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/NotesPanel/NotesScreen/NotesList/Note3Button" to="StationOverlay/StationMenu" method="_on_note_three_pressed"]

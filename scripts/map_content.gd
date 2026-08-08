@@ -110,6 +110,7 @@ func _draw() -> void:
 	_draw_towers(map_origin)
 	_draw_mega_core(map_origin)
 	_draw_map_marker(map_origin)
+	_draw_information_marker(map_origin)
 
 	var player_cell := _maze.world_to_cell(_player.position)
 	var player_position := (
@@ -312,8 +313,10 @@ func _draw_turrets(map_origin: Vector2) -> void:
 		if not _maze.is_cell_explored(turret.cell):
 			continue
 		var center := _map_cell_center(map_origin, turret.cell)
+		var map_aim_direction := turret.map_aim_direction()
 		var color := TURRET_FIRING_COLOR \
-				if turret.firing or _game.is_structure_under_attack(turret) \
+				if turret.map_is_firing() \
+						or _game.is_structure_under_attack(turret) \
 				else TURRET_IDLE_COLOR
 		var radius := cell_size * 0.2
 		draw_circle(
@@ -326,15 +329,15 @@ func _draw_turrets(map_origin: Vector2) -> void:
 		)
 		draw_line(
 			center,
-			center + turret.aim_direction * cell_size * 0.35,
+			center + map_aim_direction * cell_size * 0.35,
 			color,
 			maxf(1.5, cell_size * 0.08),
 			true
 		)
-		var back_direction := -turret.aim_direction.normalized()
+		var back_direction := -map_aim_direction.normalized()
 		var side_direction := Vector2(
-			-turret.aim_direction.y,
-			turret.aim_direction.x
+			-map_aim_direction.y,
+			map_aim_direction.x
 		).normalized()
 		var status_position := (
 			center
@@ -472,6 +475,25 @@ func _draw_map_marker(map_origin: Vector2) -> void:
 		_map_cell_center(map_origin, marker_cell)
 	)
 	draw_circle(center, cell_size * 0.22, MAP_MARKER_COLOR)
+
+
+func _draw_information_marker(map_origin: Vector2) -> void:
+	if _game == null \
+			or not _game.has_method("information_marker_cells"):
+		return
+
+	var marker_size := cell_size * 0.34
+	for marker_cell: Vector2i in _game.information_marker_cells():
+		if not _maze.is_cell_explored(marker_cell):
+			continue
+		var center := _map_cell_center(map_origin, marker_cell)
+		draw_rect(
+			Rect2(
+				center - Vector2.ONE * marker_size * 0.5,
+				Vector2.ONE * marker_size
+			),
+			MAP_MARKER_COLOR
+		)
 
 
 func _map_cell_center(map_origin: Vector2, cell: Vector2i) -> Vector2:

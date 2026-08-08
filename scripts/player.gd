@@ -30,16 +30,21 @@ const DOOR_COST := 50
 const TURRET_COST := 50
 const TURRET_MAX_HEALTH := 200
 const TURRET_MAX_AMMO := 30
-const TOWER_COST := 50
-const TOWER_MAX_HEALTH := 500
+const STRUCTURE_MAX_UPGRADED_HEALTH := 900
+const TURRET_MAX_UPGRADED_HEALTH := STRUCTURE_MAX_UPGRADED_HEALTH
+const TURRET_MAX_UPGRADED_AMMO := MAX_UPGRADED_AMMO
+const TURRET_MAX_UPGRADED_DAMAGE_MIN := 190
+const TURRET_MAX_UPGRADED_DAMAGE_MAX := 220
+const TOWER_COST := 10
+const TOWER_MAX_HEALTH := 200
+const TOWER_MAX_UPGRADED_HEALTH := STRUCTURE_MAX_UPGRADED_HEALTH
 const STARTING_DOORS := 0
 const MAX_DOOR_INVENTORY := 5
 const MAX_TURRET_INVENTORY := 5
-const MAX_TOWER_INVENTORY := 5
+const MAX_TOWER_INVENTORY := 20
 const CELL_SIZE := 48.0
 const RECOIL_DISTANCE := CELL_SIZE
 const NOISE_BUILDUP_DISTANCE := CELL_SIZE * 3.0
-const NOISE_DECAY_TIME := 1.0
 const FOOTSTEP_DISTANCE := CELL_SIZE * 1.35
 const ANIMATION_FRAME_COUNT := 8
 const RUN_ANIMATION_FPS := 10.0
@@ -56,6 +61,10 @@ var max_ammo := MAX_AMMO
 var damage_upgrade_level := 0
 var health_upgrade_level := 0
 var ammo_upgrade_level := 0
+var turret_health_upgrade_level := 0
+var turret_damage_upgrade_level := 0
+var turret_ammo_upgrade_level := 0
+var tower_health_upgrade_level := 0
 var energy_cores := 0
 var energy_core_energy := 0
 var energy := 0
@@ -120,7 +129,11 @@ func restore_status(
 	saved_energy_spent_total: int = 0,
 	saved_mega_core_energy_value: int = EQUAL_LEVEL_MEGA_CORE_ENERGY,
 	saved_turret_inventory: Array = [],
-	saved_tower_inventory: Array = []
+	saved_tower_inventory: Array = [],
+	saved_turret_health_upgrade_level: int = 0,
+	saved_turret_damage_upgrade_level: int = 0,
+	saved_turret_ammo_upgrade_level: int = 0,
+	saved_tower_health_upgrade_level: int = 0
 ) -> void:
 	damage_upgrade_level = clampi(
 		saved_damage_upgrade_level,
@@ -133,6 +146,18 @@ func restore_status(
 		MAX_UPGRADE_LEVEL
 	)
 	ammo_upgrade_level = clampi(saved_ammo_upgrade_level, 0, MAX_UPGRADE_LEVEL)
+	turret_health_upgrade_level = clampi(
+		saved_turret_health_upgrade_level, 0, MAX_UPGRADE_LEVEL
+	)
+	turret_damage_upgrade_level = clampi(
+		saved_turret_damage_upgrade_level, 0, MAX_UPGRADE_LEVEL
+	)
+	turret_ammo_upgrade_level = clampi(
+		saved_turret_ammo_upgrade_level, 0, MAX_UPGRADE_LEVEL
+	)
+	tower_health_upgrade_level = clampi(
+		saved_tower_health_upgrade_level, 0, MAX_UPGRADE_LEVEL
+	)
 	_update_maximums()
 	health = clampi(saved_health, 0, max_health)
 	ammo = clampi(saved_ammo, 0, max_ammo)
@@ -194,6 +219,54 @@ func current_level() -> int:
 	return mini(damage_upgrade_level, health_upgrade_level) + 1
 
 
+func turret_max_health() -> int:
+	return _upgraded_value(
+		TURRET_MAX_HEALTH,
+		TURRET_MAX_UPGRADED_HEALTH,
+		turret_health_upgrade_level
+	)
+
+
+func turret_max_ammo() -> int:
+	return _upgraded_value(
+		TURRET_MAX_AMMO,
+		TURRET_MAX_UPGRADED_AMMO,
+		turret_ammo_upgrade_level
+	)
+
+
+func turret_damage_min() -> int:
+	return _upgraded_value(
+		BASE_DAMAGE_MIN,
+		TURRET_MAX_UPGRADED_DAMAGE_MIN,
+		turret_damage_upgrade_level
+	)
+
+
+func turret_damage_max() -> int:
+	return _upgraded_value(
+		BASE_DAMAGE_MAX,
+		TURRET_MAX_UPGRADED_DAMAGE_MAX,
+		turret_damage_upgrade_level
+	)
+
+
+func tower_max_health() -> int:
+	return _upgraded_value(
+		TOWER_MAX_HEALTH,
+		TOWER_MAX_UPGRADED_HEALTH,
+		tower_health_upgrade_level
+	)
+
+
+func _upgraded_value(base_value: int, upgraded_value: int, level: int) -> int:
+	return roundi(lerpf(
+		base_value,
+		upgraded_value,
+		float(level) / MAX_UPGRADE_LEVEL
+	))
+
+
 static func energy_core_reward(enemy_level: int, player_level: int) -> int:
 	if enemy_level < player_level:
 		return LOWER_LEVEL_CORE_ENERGY
@@ -242,10 +315,95 @@ func upgrade_ammo(station_id: int) -> bool:
 	return true
 
 
+func can_upgrade_turret_health() -> bool:
+	return _can_upgrade_structure(turret_health_upgrade_level)
+
+
+func can_upgrade_turret_damage() -> bool:
+	return _can_upgrade_structure(turret_damage_upgrade_level)
+
+
+func can_upgrade_turret_ammo() -> bool:
+	return _can_upgrade_structure(turret_ammo_upgrade_level)
+
+
+func can_upgrade_tower_health() -> bool:
+	return _can_upgrade_structure(tower_health_upgrade_level)
+
+
+func upgrade_turret_health() -> bool:
+	if not can_upgrade_turret_health():
+		return false
+	var previous_max := turret_max_health()
+	_spend_energy(UPGRADE_COST)
+	turret_health_upgrade_level += 1
+	_increase_inventory_values(
+		turret_inventory,
+		"health",
+		turret_max_health() - previous_max,
+		turret_max_health()
+	)
+	return true
+
+
+func upgrade_turret_damage() -> bool:
+	if not can_upgrade_turret_damage():
+		return false
+	_spend_energy(UPGRADE_COST)
+	turret_damage_upgrade_level += 1
+	return true
+
+
+func upgrade_turret_ammo() -> bool:
+	if not can_upgrade_turret_ammo():
+		return false
+	var previous_max := turret_max_ammo()
+	_spend_energy(UPGRADE_COST)
+	turret_ammo_upgrade_level += 1
+	_increase_inventory_values(
+		turret_inventory,
+		"ammo",
+		turret_max_ammo() - previous_max,
+		turret_max_ammo()
+	)
+	return true
+
+
+func upgrade_tower_health() -> bool:
+	if not can_upgrade_tower_health():
+		return false
+	var previous_max := tower_max_health()
+	_spend_energy(UPGRADE_COST)
+	tower_health_upgrade_level += 1
+	_increase_inventory_values(
+		tower_inventory,
+		"health",
+		tower_max_health() - previous_max,
+		tower_max_health()
+	)
+	return true
+
+
+func _can_upgrade_structure(level: int) -> bool:
+	return level < MAX_UPGRADE_LEVEL and energy >= UPGRADE_COST
+
+
+func _increase_inventory_values(
+	inventory: Array[Dictionary],
+	key: String,
+	amount: int,
+	maximum: int
+) -> void:
+	for item in inventory:
+		item[key] = mini(maximum, int(item.get(key, 0)) + amount)
+
+
 func _can_upgrade_at_station(
 	level: int,
 	station_id: int
 ) -> bool:
+	if station_id == 1:
+		return level < MAX_UPGRADE_LEVEL and energy >= UPGRADE_COST
 	var station_index := station_id - 2
 	if station_index < 0 or station_index >= 2:
 		return false
@@ -373,8 +531,8 @@ func buy_turret() -> bool:
 		return false
 	_spend_energy(TURRET_COST)
 	turret_inventory.append({
-		"health": TURRET_MAX_HEALTH,
-		"ammo": TURRET_MAX_AMMO,
+		"health": turret_max_health(),
+		"ammo": turret_max_ammo(),
 	})
 	return true
 
@@ -393,8 +551,8 @@ func store_turret_in_inventory(health_value: int, ammo_value: int) -> bool:
 	if not can_store_turret():
 		return false
 	turret_inventory.append({
-		"health": clampi(health_value, 1, TURRET_MAX_HEALTH),
-		"ammo": clampi(ammo_value, 0, TURRET_MAX_AMMO),
+		"health": clampi(health_value, 1, turret_max_health()),
+		"ammo": clampi(ammo_value, 0, turret_max_ammo()),
 	})
 	return true
 
@@ -407,7 +565,7 @@ func buy_tower() -> bool:
 	if not can_buy_tower():
 		return false
 	_spend_energy(TOWER_COST)
-	tower_inventory.append({"health": TOWER_MAX_HEALTH})
+	tower_inventory.append({"health": tower_max_health()})
 	return true
 
 
@@ -425,7 +583,7 @@ func store_tower_in_inventory(health_value: int) -> bool:
 	if not can_store_tower():
 		return false
 	tower_inventory.append({
-		"health": clampi(health_value, 1, TOWER_MAX_HEALTH),
+		"health": clampi(health_value, 1, tower_max_health()),
 	})
 	return true
 
@@ -443,14 +601,14 @@ func _sanitize_turret_inventory(saved_turrets: Array) -> Array[Dictionary]:
 			continue
 		restored.append({
 			"health": clampi(
-				int(saved_turret.get("health", TURRET_MAX_HEALTH)),
+				int(saved_turret.get("health", turret_max_health())),
 				1,
-				TURRET_MAX_HEALTH
+				turret_max_health()
 			),
 			"ammo": clampi(
-				int(saved_turret.get("ammo", TURRET_MAX_AMMO)),
+				int(saved_turret.get("ammo", turret_max_ammo())),
 				0,
-				TURRET_MAX_AMMO
+				turret_max_ammo()
 			),
 		})
 	return restored
@@ -465,9 +623,9 @@ func _sanitize_tower_inventory(saved_towers: Array) -> Array[Dictionary]:
 			continue
 		restored.append({
 			"health": clampi(
-				int(saved_tower.get("health", TOWER_MAX_HEALTH)),
+				int(saved_tower.get("health", tower_max_health())),
 				1,
-				TOWER_MAX_HEALTH
+				tower_max_health()
 			),
 		})
 	return restored
@@ -635,11 +793,7 @@ func _physics_process(delta: float) -> void:
 			velocity.length() * delta / NOISE_BUILDUP_DISTANCE
 		)
 	else:
-		noise_level = move_toward(
-			noise_level,
-			0.0,
-			delta / NOISE_DECAY_TIME
-		)
+		noise_level = 0.0
 
 	_update_animation(delta)
 

@@ -75,11 +75,11 @@ func _update_menu() -> void:
 		return
 	tower_status.text = tr("Башня: здоровье %d/%d") % [
 		_tower.health,
-		Tower.MAX_HEALTH,
+		_tower.max_health,
 	]
 	tower_stats.text = tr("Максимальное здоровье: %d (%d уровень)") % [
-		Tower.MAX_HEALTH,
-		1,
+		game.player.tower_max_health(),
+		game.player.tower_health_upgrade_level + 1,
 	]
 	player_status.text = tr("Энергия: %d") % game.player.energy
 	var amount: int = game.tower_health_purchase_amount(_tower)

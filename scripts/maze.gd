@@ -71,6 +71,8 @@ var _room_specs: Array[Dictionary] = []
 var _station_specs: Array[Dictionary] = []
 var _closed_door_cells: Dictionary = {}
 var _safe_cell_mask := PackedByteArray()
+var _base_safe_cell_mask := PackedByteArray()
+var _tower_safe_cells_cache: Dictionary = {}
 var _planned_exit_x := int(COLUMNS / 2.0)
 var _start_cell := Vector2i(-1, -1)
 var _start_door_cell := Vector2i(-1, -1)
@@ -523,10 +525,13 @@ func _segment_intersects_rect(
 
 
 func set_door_closed(cell: Vector2i, closed: bool) -> void:
+	var was_closed := _closed_door_cells.has(cell)
 	if closed:
 		_closed_door_cells[cell] = true
 	else:
 		_closed_door_cells.erase(cell)
+	if was_closed != closed:
+		_tower_safe_cells_cache.clear()
 	_view_position = Vector2(-1.0, -1.0)
 	queue_redraw()
 
@@ -647,6 +652,14 @@ func update_safe_zone(
 	for index in cell_count:
 		if safe_components.has(component_ids[index]):
 			_safe_cell_mask[index] = 1
+	_base_safe_cell_mask = _safe_cell_mask.duplicate()
+	queue_redraw()
+
+
+func reset_safe_zone_to_base() -> void:
+	if _base_safe_cell_mask.size() != COLUMNS * ROWS:
+		return
+	_safe_cell_mask = _base_safe_cell_mask.duplicate()
 	queue_redraw()
 
 
@@ -662,21 +675,9 @@ func extend_safe_zone_from_towers(
 	direct_mask.resize(cell_count)
 	direct_mask.fill(0)
 	for tower_position in tower_positions:
-		var tower_cell := world_to_cell(tower_position)
-		for y in range(-radius, radius + 1):
-			for x in range(-radius, radius + 1):
-				var cell := tower_cell + Vector2i(x, y)
-				if not _is_inside(cell) or _is_wall(cell) \
-						or Vector2(x, y).length() > float(radius):
-					continue
-				if not has_line_of_sight(
-					tower_position,
-					cell_to_world(cell),
-					float(radius) + 0.5
-				):
-					continue
-				direct_mask[_cell_index(cell)] = 1
-				_safe_cell_mask[_cell_index(cell)] = 1
+		for cell_index in _tower_safe_cell_indices(tower_position, radius):
+			direct_mask[cell_index] = 1
+			_safe_cell_mask[cell_index] = 1
 
 	var door_mask := PackedByteArray()
 	door_mask.resize(cell_count)
@@ -740,6 +741,33 @@ func extend_safe_zone_from_towers(
 				and component_touches_tower_field[component_id]:
 			_safe_cell_mask[index] = 1
 	queue_redraw()
+
+
+func _tower_safe_cell_indices(
+	tower_position: Vector2,
+	radius: int
+) -> PackedInt32Array:
+	var tower_cell := world_to_cell(tower_position)
+	var cache_key := Vector2i(_cell_index(tower_cell), radius)
+	if _tower_safe_cells_cache.has(cache_key):
+		return _tower_safe_cells_cache[cache_key]
+
+	var result := PackedInt32Array()
+	for y in range(-radius, radius + 1):
+		for x in range(-radius, radius + 1):
+			var cell := tower_cell + Vector2i(x, y)
+			if not _is_inside(cell) or _is_wall(cell) \
+					or Vector2(x, y).length() > float(radius):
+				continue
+			if not has_line_of_sight(
+				tower_position,
+				cell_to_world(cell),
+				float(radius) + 0.5
+			):
+				continue
+			result.append(_cell_index(cell))
+	_tower_safe_cells_cache[cache_key] = result
+	return result
 
 
 func carve_floor_cell(cell: Vector2i) -> void:
@@ -1255,33 +1283,35 @@ func _add_stations(rng: RandomNumberGenerator) -> void:
 		1,
 		Vector2i.ZERO
 	)
-	var station_two_region := _random_other_placement_region(placement, rng)
-	var station_three_region := _random_other_placement_region(
-		station_two_region,
-		rng
-	)
-	_add_station(
-		Vector2i(
-			_upgrade_station_x(station_two_region, rng),
-			_random_upgrade_station_y(
-				LEVEL_TWO_UPGRADE_STATION_LEVEL,
-				rng
-			)
-		),
-		2,
-		Vector2i.ZERO
-	)
-	_add_station(
-		Vector2i(
-			_upgrade_station_x(station_three_region, rng),
-			_random_upgrade_station_y(
-				LEVEL_FOUR_UPGRADE_STATION_LEVEL,
-				rng
-			)
-		),
-		3,
-		Vector2i.ZERO
-	)
+	# Upgrade stations are temporarily disabled. Keep their placement code here
+	# so the separate stations can be restored while this design is evaluated.
+	# var station_two_region := _random_other_placement_region(placement, rng)
+	# var station_three_region := _random_other_placement_region(
+	# 	station_two_region,
+	# 	rng
+	# )
+	# _add_station(
+	# 	Vector2i(
+	# 		_upgrade_station_x(station_two_region, rng),
+	# 		_random_upgrade_station_y(
+	# 			LEVEL_TWO_UPGRADE_STATION_LEVEL,
+	# 			rng
+	# 		)
+	# 	),
+	# 	2,
+	# 	Vector2i.ZERO
+	# )
+	# _add_station(
+	# 	Vector2i(
+	# 		_upgrade_station_x(station_three_region, rng),
+	# 		_random_upgrade_station_y(
+	# 			LEVEL_FOUR_UPGRADE_STATION_LEVEL,
+	# 			rng
+	# 		)
+	# 	),
+	# 	3,
+	# 	Vector2i.ZERO
+	# )
 
 
 func _random_other_placement_region(

@@ -59,6 +59,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 
 	if event is InputEventMouseButton \
+			and event.button_index == MOUSE_BUTTON_LEFT \
+			and event.pressed:
+		_set_information_marker_at_mouse()
+		get_viewport().set_input_as_handled()
+		return
+
+	if event is InputEventMouseButton \
 			and event.button_index == MOUSE_BUTTON_RIGHT \
 			and event.pressed:
 		_set_marker_at_mouse()
@@ -162,6 +169,24 @@ func _set_marker_at_mouse() -> void:
 		AudioManager.play_map_marker_remove()
 	else:
 		game.set_map_marker_cell(cell)
+		AudioManager.play_map_marker_place()
+	map_content.queue_redraw()
+
+
+func _set_information_marker_at_mouse() -> void:
+	var local_position := map_content.get_local_mouse_position()
+	if not Rect2(Vector2.ZERO, map_content.size).has_point(local_position):
+		return
+
+	var cell: Vector2i = map_content.cell_at_local_position(local_position)
+	if cell.x < 0 or not maze.is_cell_explored(cell):
+		return
+
+	if game.has_information_marker_at(cell):
+		game.remove_information_marker(cell)
+		AudioManager.play_map_marker_remove()
+	else:
+		game.add_information_marker(cell)
 		AudioManager.play_map_marker_place()
 	map_content.queue_redraw()
 

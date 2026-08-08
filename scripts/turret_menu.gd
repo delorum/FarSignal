@@ -93,20 +93,20 @@ func _update_menu() -> void:
 		return
 	turret_status.text = tr("Турель: здоровье %d/%d, патроны %d/%d") % [
 		_turret.health,
-		Turret.MAX_HEALTH,
+		_turret.max_health,
 		_turret.ammo,
-		Turret.MAX_AMMO,
+		_turret.max_ammo,
 	]
 	turret_stats.text = tr(
 		"Максимальное здоровье: %d (%d уровень)\nМаксимальное количество патронов: %d (%d уровень)\nУрон: %d-%d (%d уровень)"
 	) % [
-		Turret.MAX_HEALTH,
-		1,
-		Turret.MAX_AMMO,
-		1,
-		Player.BASE_DAMAGE_MIN,
-		Player.BASE_DAMAGE_MAX,
-		1,
+		game.player.turret_max_health(),
+		game.player.turret_health_upgrade_level + 1,
+		game.player.turret_max_ammo(),
+		game.player.turret_ammo_upgrade_level + 1,
+		game.player.turret_damage_min(),
+		game.player.turret_damage_max(),
+		game.player.turret_damage_upgrade_level + 1,
 	]
 	player_status.text = tr("Энергия: %d") % game.player.energy
 	var health_amount: int = game.turret_health_purchase_amount(_turret)

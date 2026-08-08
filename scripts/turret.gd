@@ -17,15 +17,21 @@ const FIRING_COLOR := Color("e03f43")
 const AMMO_TEXT_COLOR := Color(1.0, 1.0, 1.0, 1.0)
 const HEALTH_TEXT_COLOR := Color(0.9, 0.25, 0.27, 1.0)
 const OUTLINE_WIDTH := 2.0
+const EXPLORED_MODULATE := Color(0.34, 0.38, 0.4, 0.82)
 
 var cell := Vector2i(-1, -1)
 var health := MAX_HEALTH
 var ammo := MAX_AMMO
+var max_health := MAX_HEALTH
+var max_ammo := MAX_AMMO
 var base_direction := Vector2.RIGHT
 var aim_direction := Vector2.RIGHT
 var firing := false
 var being_reoriented := false
 var _normally_visible := false
+var _explored := false
+var _displayed_aim_direction := Vector2.RIGHT
+var _displayed_firing := false
 
 var _game: Node
 var _maze: Maze
@@ -61,8 +67,10 @@ func setup(
 		else facing_direction.normalized()
 	)
 	aim_direction = base_direction
-	health = clampi(saved_health, 0, MAX_HEALTH)
-	ammo = clampi(saved_ammo, 0, MAX_AMMO)
+	max_health = game.player.turret_max_health()
+	max_ammo = game.player.turret_max_ammo()
+	health = clampi(saved_health, 0, max_health)
+	ammo = clampi(saved_ammo, 0, max_ammo)
 	z_index = 2
 	visible = false
 	_update_sprite()
@@ -103,6 +111,24 @@ func is_active() -> bool:
 	return health > 0
 
 
+func apply_upgraded_maximums(
+	new_max_health: int,
+	new_max_ammo: int,
+	refill_increase: bool = true
+) -> void:
+	var health_increase := maxi(0, new_max_health - max_health)
+	var ammo_increase := maxi(0, new_max_ammo - max_ammo)
+	max_health = new_max_health
+	max_ammo = new_max_ammo
+	if refill_increase:
+		health = mini(max_health, health + health_increase)
+		ammo = mini(max_ammo, ammo + ammo_increase)
+	else:
+		health = mini(health, max_health)
+		ammo = mini(ammo, max_ammo)
+	queue_redraw()
+
+
 func begin_reorientation() -> void:
 	being_reoriented = true
 	_firing_flash_left = 0.0
@@ -127,12 +153,25 @@ func finish_reorientation() -> void:
 	queue_redraw()
 
 
-func update_visibility(currently_visible: bool) -> void:
-	if _normally_visible == currently_visible:
+func update_visibility(currently_visible: bool, explored: bool) -> void:
+	if _normally_visible == currently_visible and _explored == explored:
 		return
 	_normally_visible = currently_visible
-	visible = _normally_visible
+	_explored = explored
+	visible = currently_visible or explored
+	if currently_visible:
+		_update_sprite(true)
+	elif turret_sprite != null:
+		turret_sprite.modulate = EXPLORED_MODULATE
 	queue_redraw()
+
+
+func map_aim_direction() -> Vector2:
+	return aim_direction if _normally_visible else _displayed_aim_direction
+
+
+func map_is_firing() -> bool:
+	return _normally_visible and firing
 
 
 func _process(delta: float) -> void:
@@ -161,7 +200,9 @@ func _process(delta: float) -> void:
 				TURN_SPEED * delta
 			)
 		).normalized()
-		if _shoot_cooldown <= 0.0 and _is_aimed_at(desired_direction):
+		if _shoot_cooldown <= 0.0 \
+				and _is_aimed_at(desired_direction) \
+				and _game.enemy_has_clear_shot(position, target.position):
 			_fire()
 	else:
 		aim_direction = aim_direction.rotated(
@@ -197,9 +238,12 @@ func _visible_target() -> Node:
 			VISION_RANGE
 		):
 			continue
-		if distance_cells < best_distance:
-			best_distance = distance_cells
-			best_enemy = enemy
+		if distance_cells >= best_distance:
+			continue
+		if not _game.enemy_has_clear_shot(position, enemy.position):
+			continue
+		best_distance = distance_cells
+		best_enemy = enemy
 	return best_enemy
 
 
@@ -229,7 +273,11 @@ func _fire() -> void:
 
 
 func _draw() -> void:
-	var body_color := FIRING_COLOR if firing else IDLE_COLOR
+	var display_direction := (
+		aim_direction if _normally_visible else _displayed_aim_direction
+	)
+	var display_firing := firing if _normally_visible else _displayed_firing
+	var body_color := FIRING_COLOR if display_firing else IDLE_COLOR
 	_update_sprite()
 	if turret_sprite == null or turret_sprite.texture == null:
 		draw_circle(
@@ -242,13 +290,16 @@ func _draw() -> void:
 		)
 		draw_line(
 			Vector2.ZERO,
-			aim_direction * BARREL_LENGTH,
+			display_direction * BARREL_LENGTH,
 			body_color,
 			3.0,
 			true
 		)
-	var back_direction := -aim_direction.normalized()
-	var side_direction := Vector2(-aim_direction.y, aim_direction.x).normalized()
+	var back_direction := -display_direction.normalized()
+	var side_direction := Vector2(
+		-display_direction.y,
+		display_direction.x
+	).normalized()
 	var status_position := (
 		back_direction * (BODY_RADIUS + STATUS_BACK_OFFSET)
 		+ side_direction * STATUS_SIDE_OFFSET
@@ -273,12 +324,16 @@ func _draw() -> void:
 	)
 
 
-func _update_sprite() -> void:
+func _update_sprite(force: bool = false) -> void:
 	if turret_sprite == null:
 		return
-	turret_sprite.rotation = aim_direction.angle()
+	if not force and not _normally_visible:
+		return
+	_displayed_aim_direction = aim_direction
+	_displayed_firing = firing
+	turret_sprite.rotation = _displayed_aim_direction.angle()
 	turret_sprite.modulate = (
 		FIRING_COLOR
-		if firing
+		if _displayed_firing
 		else IDLE_COLOR
 	)
