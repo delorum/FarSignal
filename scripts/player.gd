@@ -23,9 +23,8 @@ const AMMO_COST_PER_ROUND := 1
 const LOWER_LEVEL_CORE_ENERGY := 10
 const EQUAL_LEVEL_CORE_ENERGY := 20
 const EXPLORATION_POINTS_PER_ENERGY := 20
-const LOWER_LEVEL_MEGA_CORE_ENERGY := 50
-const EQUAL_LEVEL_MEGA_CORE_ENERGY := 100
-const MEGA_CORE_LEVEL_BONUS_ENERGY := 50
+const MEGA_CORE_ENERGY_PER_LEVEL := 100
+const MEGA_CORE_LEVEL_COUNT := 5
 const DOOR_COST := 50
 const TURRET_COST := 50
 const TURRET_MAX_HEALTH := 200
@@ -38,6 +37,9 @@ const TURRET_MAX_UPGRADED_DAMAGE_MAX := 220
 const TOWER_COST := 10
 const TOWER_MAX_HEALTH := 200
 const TOWER_MAX_UPGRADED_HEALTH := STRUCTURE_MAX_UPGRADED_HEALTH
+const TOWER_SAFE_RADIUS := 5
+const TOWER_SAFE_RADIUS_PER_LEVEL := 2
+const MAINTENANCE_RESERVE_TRANSFER := 10
 const STARTING_DOORS := 0
 const MAX_DOOR_INVENTORY := 5
 const MAX_TURRET_INVENTORY := 5
@@ -65,18 +67,25 @@ var turret_health_upgrade_level := 0
 var turret_damage_upgrade_level := 0
 var turret_ammo_upgrade_level := 0
 var tower_health_upgrade_level := 0
+var tower_radius_upgrade_level := 0
 var energy_cores := 0
 var energy_core_energy := 0
 var energy := 0
+var maintenance_energy := 0
 var energy_received_total := 0
 var energy_spent_total := 0
 var door_inventory := STARTING_DOORS
 var turret_inventory: Array[Dictionary] = []
 var tower_inventory: Array[Dictionary] = []
 var exploration_points := 0
-var mega_core_cell := Vector2i(-1, -1)
-var has_mega_core := false
-var mega_core_energy_value := EQUAL_LEVEL_MEGA_CORE_ENERGY
+var mega_core_cells: Array[Vector2i] = [
+	Vector2i(-1, -1),
+	Vector2i(-1, -1),
+	Vector2i(-1, -1),
+	Vector2i(-1, -1),
+	Vector2i(-1, -1),
+]
+var carried_mega_core_levels: Array[int] = []
 var noise_level := 0.0
 var _facing := Vector2.RIGHT
 var _animation_time := 0.0
@@ -117,23 +126,22 @@ func restore_status(
 	saved_ammo: int,
 	saved_energy_cores: int = 0,
 	saved_energy: int = 0,
+	saved_maintenance_energy: int = 0,
 	saved_door_inventory: int = 0,
 	saved_exploration_points: int = 0,
-	saved_mega_core_cell: Vector2i = Vector2i(-1, -1),
-	saved_has_mega_core: bool = false,
 	saved_damage_upgrade_level: int = 0,
 	saved_health_upgrade_level: int = 0,
 	saved_ammo_upgrade_level: int = 0,
 	saved_energy_core_energy: int = 0,
 	saved_energy_received_total: int = 0,
 	saved_energy_spent_total: int = 0,
-	saved_mega_core_energy_value: int = EQUAL_LEVEL_MEGA_CORE_ENERGY,
 	saved_turret_inventory: Array = [],
 	saved_tower_inventory: Array = [],
 	saved_turret_health_upgrade_level: int = 0,
 	saved_turret_damage_upgrade_level: int = 0,
 	saved_turret_ammo_upgrade_level: int = 0,
-	saved_tower_health_upgrade_level: int = 0
+	saved_tower_health_upgrade_level: int = 0,
+	saved_tower_radius_upgrade_level: int = 0
 ) -> void:
 	damage_upgrade_level = clampi(
 		saved_damage_upgrade_level,
@@ -158,21 +166,22 @@ func restore_status(
 	tower_health_upgrade_level = clampi(
 		saved_tower_health_upgrade_level, 0, MAX_UPGRADE_LEVEL
 	)
+	tower_radius_upgrade_level = clampi(
+		saved_tower_radius_upgrade_level, 0, MAX_UPGRADE_LEVEL
+	)
 	_update_maximums()
 	health = clampi(saved_health, 0, max_health)
 	ammo = clampi(saved_ammo, 0, max_ammo)
 	energy_cores = maxi(0, saved_energy_cores)
 	energy_core_energy = maxi(0, saved_energy_core_energy)
 	energy = maxi(0, saved_energy)
+	maintenance_energy = maxi(0, saved_maintenance_energy)
 	energy_received_total = maxi(0, saved_energy_received_total)
 	energy_spent_total = maxi(0, saved_energy_spent_total)
 	door_inventory = clampi(saved_door_inventory, 0, MAX_DOOR_INVENTORY)
 	turret_inventory = _sanitize_turret_inventory(saved_turret_inventory)
 	tower_inventory = _sanitize_tower_inventory(saved_tower_inventory)
 	exploration_points = maxi(0, saved_exploration_points)
-	mega_core_cell = saved_mega_core_cell
-	has_mega_core = saved_has_mega_core
-	mega_core_energy_value = maxi(0, saved_mega_core_energy_value)
 
 
 func consume_ammo() -> bool:
@@ -259,6 +268,12 @@ func tower_max_health() -> int:
 	)
 
 
+func tower_safe_radius() -> int:
+	return TOWER_SAFE_RADIUS + (
+		tower_radius_upgrade_level * TOWER_SAFE_RADIUS_PER_LEVEL
+	)
+
+
 func _upgraded_value(base_value: int, upgraded_value: int, level: int) -> int:
 	return roundi(lerpf(
 		base_value,
@@ -331,6 +346,10 @@ func can_upgrade_tower_health() -> bool:
 	return _can_upgrade_structure(tower_health_upgrade_level)
 
 
+func can_upgrade_tower_radius() -> bool:
+	return _can_upgrade_structure(tower_radius_upgrade_level)
+
+
 func upgrade_turret_health() -> bool:
 	if not can_upgrade_turret_health():
 		return false
@@ -381,6 +400,14 @@ func upgrade_tower_health() -> bool:
 		tower_max_health() - previous_max,
 		tower_max_health()
 	)
+	return true
+
+
+func upgrade_tower_radius() -> bool:
+	if not can_upgrade_tower_radius():
+		return false
+	_spend_energy(UPGRADE_COST)
+	tower_radius_upgrade_level += 1
 	return true
 
 
@@ -455,6 +482,25 @@ func spend_energy(amount: int) -> bool:
 	if amount <= 0 or energy < amount:
 		return false
 	_spend_energy(amount)
+	return true
+
+
+func can_fund_maintenance_reserve() -> bool:
+	return energy >= MAINTENANCE_RESERVE_TRANSFER
+
+
+func fund_maintenance_reserve() -> bool:
+	if not can_fund_maintenance_reserve():
+		return false
+	_spend_energy(MAINTENANCE_RESERVE_TRANSFER)
+	maintenance_energy += MAINTENANCE_RESERVE_TRANSFER
+	return true
+
+
+func consume_maintenance_energy(amount: int = 1) -> bool:
+	if amount <= 0 or maintenance_energy < amount:
+		return false
+	maintenance_energy -= amount
 	return true
 
 
@@ -653,35 +699,75 @@ func exchange_exploration_points() -> bool:
 	return true
 
 
-func assign_mega_core(cell: Vector2i, core_energy_value: int) -> void:
-	mega_core_cell = cell
-	has_mega_core = false
-	mega_core_energy_value = maxi(0, core_energy_value)
+func restore_mega_cores(saved_cells: Array, saved_carried_levels: Array) -> void:
+	mega_core_cells.fill(Vector2i(-1, -1))
+	for index in mini(saved_cells.size(), MEGA_CORE_LEVEL_COUNT):
+		var saved_cell: Variant = saved_cells[index]
+		if saved_cell is Array and saved_cell.size() == 2:
+			mega_core_cells[index] = Vector2i(
+				int(saved_cell[0]),
+				int(saved_cell[1])
+			)
+	carried_mega_core_levels.clear()
+	for saved_level: Variant in saved_carried_levels:
+		var level := int(saved_level)
+		if level >= 1 and level <= MEGA_CORE_LEVEL_COUNT \
+				and not carried_mega_core_levels.has(level):
+			carried_mega_core_levels.append(level)
+			mega_core_cells[level - 1] = Vector2i(-1, -1)
+	carried_mega_core_levels.sort()
 
 
-func collect_mega_core() -> bool:
-	if has_mega_core or mega_core_cell.x < 0:
+func mega_core_cell_for_level(level: int) -> Vector2i:
+	if level < 1 or level > MEGA_CORE_LEVEL_COUNT:
+		return Vector2i(-1, -1)
+	return mega_core_cells[level - 1]
+
+
+func assign_mega_core(level: int, cell: Vector2i) -> void:
+	if level < 1 or level > MEGA_CORE_LEVEL_COUNT \
+			or carried_mega_core_levels.has(level):
+		return
+	mega_core_cells[level - 1] = cell
+
+
+func collect_mega_core(level: int) -> bool:
+	var cell := mega_core_cell_for_level(level)
+	if cell.x < 0 or carried_mega_core_levels.has(level):
 		return false
-	has_mega_core = true
+	mega_core_cells[level - 1] = Vector2i(-1, -1)
+	carried_mega_core_levels.append(level)
+	carried_mega_core_levels.sort()
 	return true
 
 
-func return_mega_core() -> bool:
-	if not has_mega_core:
-		return false
-	_gain_energy(mega_core_energy_value)
-	mega_core_cell = Vector2i(-1, -1)
-	has_mega_core = false
-	mega_core_energy_value = EQUAL_LEVEL_MEGA_CORE_ENERGY
-	return true
+func has_carried_mega_cores() -> bool:
+	return not carried_mega_core_levels.is_empty()
 
 
-static func mega_core_reward(zone_level: int, player_level: int) -> int:
-	if zone_level < player_level:
-		return LOWER_LEVEL_MEGA_CORE_ENERGY
-	return EQUAL_LEVEL_MEGA_CORE_ENERGY + (
-		zone_level - player_level
-	) * MEGA_CORE_LEVEL_BONUS_ENERGY
+func carried_mega_core_count() -> int:
+	return carried_mega_core_levels.size()
+
+
+func carried_mega_core_energy() -> int:
+	var result := 0
+	for level in carried_mega_core_levels:
+		result += mega_core_reward(level)
+	return result
+
+
+func return_mega_cores() -> Array[int]:
+	var returned_levels := carried_mega_core_levels.duplicate()
+	if returned_levels.is_empty():
+		return returned_levels
+	_gain_energy(carried_mega_core_energy())
+	carried_mega_core_levels.clear()
+	return returned_levels
+
+
+static func mega_core_reward(zone_level: int) -> int:
+	return clampi(zone_level, 1, MEGA_CORE_LEVEL_COUNT) \
+			* MEGA_CORE_ENERGY_PER_LEVEL
 
 
 func collect_energy_core(core_energy: int) -> void:

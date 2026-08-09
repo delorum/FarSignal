@@ -60,6 +60,9 @@ msgstr "Turret Ammunition"
 msgid "Здоровье башни"
 msgstr "Tower Health"
 
+msgid "Радиус башни"
+msgstr "Tower Radius"
+
 msgid "Чем выше по карте, тем сильнее враги. Найди Станции 2 и 3: там за энергию можно улучшать урон, здоровье и боезапас."
 msgstr "Enemies become stronger toward the top of the map. Find Stations 2 and 3 to upgrade damage, health, and ammunition capacity with energy."
 
@@ -219,8 +222,8 @@ msgstr "Player: health %d"
 msgid "• WASD или стрелки — движение\n• Мышь — направление взгляда\n• Колесо мыши — режим: башня, турель, стрельба или предохранитель\n• Левая кнопка мыши — выстрел в режиме стрельбы\n• Правая кнопка мыши — установить выбранное устройство или демонтировать существующее\n• E — взаимодействовать со станцией, турелью или башней\n• Tab — открыть или закрыть карту\n• Левая кнопка мыши на карте — информационный маркер\n• Правая кнопка мыши на карте — маркер маршрута или быстрое перемещение\n• Esc — пауза или вернуться назад"
 msgstr "• WASD or arrow keys — move\n• Mouse — aim\n• Mouse wheel — mode: tower, turret, shooting, or safety\n• Left mouse button — fire in shooting mode\n• Right mouse button — install the selected device or remove an existing one\n• E — interact with a station, turret, or tower\n• Tab — open or close the map\n• Left mouse button on the map — informational marker\n• Right mouse button on the map — route marker or fast travel\n• Esc — pause or go back"
 
-msgid "1. Убивай охотников, забирай энергоядра и сдавай их на Станции 1.\n\n2. Исследуй клетки карты и сдавай накопленные очки исследования.\n\n3. Ищи мегаядра и возвращай их на Станцию 1.\n\n4. За ядра и исследование ты получаешь энергию. Чем опаснее враг или зона относительно твоего уровня, тем выше награда.\n\n5. На Станции 1 покупай здоровье, патроны, турели и башни.\n\n6. Колесом мыши выбирай режим установки башни, установки турели, стрельбы или предохранителя. Установка и демонтаж башни или турели правой кнопкой занимают две секунды.\n\n7. Башня подключается к двери Станции 1 или другой подключенной башне в прямой видимости. Желтые линии показывают сеть.\n\n8. Подключенная башня создает безопасную зону вокруг себя. Враги там не появляются, но могут войти и разрушить башню.\n\n9. Клавишей E можно передать башне здоровье, а турели - здоровье и патроны.\n\n10. Чем больше безопасная зона, тем меньше врагов остается на карте.\n\n11. Чем выше по карте, тем сильнее враги. Найди Станции 2 и 3: там за энергию можно улучшать урон, здоровье и боезапас."
-msgstr "1. Kill hunters, collect their energy cores, and turn them in at Station 1.\n\n2. Explore map cells and exchange the accumulated exploration points.\n\n3. Find megacores and return them to Station 1.\n\n4. Cores and exploration provide energy. The more dangerous the enemy or zone relative to your level, the greater the reward.\n\n5. Buy health, ammunition, turrets, and towers at Station 1.\n\n6. Use the mouse wheel to select tower placement, turret placement, shooting, or safety mode. Tower and turret installation or removal with the right mouse button takes two seconds.\n\n7. A tower connects to a Station 1 door or another connected tower within direct line of sight. Yellow lines show the network.\n\n8. A connected tower creates a safe zone around itself. Enemies do not spawn there, but they can enter and destroy the tower.\n\n9. Press E to transfer health to a tower, or health and ammunition to a turret.\n\n10. The larger the safe zone, the fewer enemies remain on the map.\n\n11. Enemies become stronger toward the top of the map. Find Stations 2 and 3 to upgrade damage, health, and ammunition capacity with energy."
+msgid "1. Убивай охотников, забирай энергоядра и сдавай их на Станции 1.\n\n2. Исследуй клетки карты и сдавай накопленные очки исследования.\n\n3. Ищи мегаядра и возвращай их на Станцию 1.\n\n4. За ядра и исследование ты получаешь энергию. Чем опаснее враг или зона относительно твоего уровня, тем выше награда.\n\n5. На Станции 1 покупай здоровье, патроны, турели и башни.\n\n6. Колесом мыши выбирай режим установки башни, установки турели, стрельбы или предохранителя. Установка и демонтаж башни или турели правой кнопкой занимают две секунды.\n\n7. Башня подключается к двери Станции 1 или другой подключенной башне в прямой видимости. Желтые линии показывают сеть.\n\n8. Подключенная башня создает безопасную зону вокруг себя. Враги там не появляются, но могут войти и разрушить башню.\n\n9. Сеть расходует питание, пока создает безопасную зону вне Станции 1. Сдача энергоядра добавляет 30 секунд, мегаядра - 5 минут. При отключении питания сооружения остаются на месте.\n\n10. Клавишей E можно передать башне здоровье, а турели - здоровье и патроны.\n\n11. Чем больше безопасная зона, тем меньше врагов остается на карте.\n\n12. Чем выше по карте, тем сильнее враги. Найди Станции 2 и 3: там за энергию можно улучшать урон, здоровье и боезапас."
+msgstr "1. Kill hunters, collect their energy cores, and turn them in at Station 1.\n\n2. Explore map cells and exchange the accumulated exploration points.\n\n3. Find megacores and return them to Station 1.\n\n4. Cores and exploration provide energy. The more dangerous the enemy or zone relative to your level, the greater the reward.\n\n5. Buy health, ammunition, turrets, and towers at Station 1.\n\n6. Use the mouse wheel to select tower placement, turret placement, shooting, or safety mode. Tower and turret installation or removal with the right mouse button takes two seconds.\n\n7. A tower connects to a Station 1 door or another connected tower within direct line of sight. Yellow lines show the network.\n\n8. A connected tower creates a safe zone around itself. Enemies do not spawn there, but they can enter and destroy the tower.\n\n9. The network consumes power while it creates a safe zone beyond Station 1. Turning in an energy core adds 30 seconds; a megacore adds 5 minutes. Structures remain in place when power goes offline.\n\n10. Press E to transfer health to a tower, or health and ammunition to a turret.\n\n11. The larger the safe zone, the fewer enemies remain on the map.\n\n12. Enemies become stronger toward the top of the map. Find Stations 2 and 3 to upgrade damage, health, and ammunition capacity with energy."
 
 msgid "Патроны передать нельзя"
 msgstr "Cannot transfer ammo"
@@ -365,6 +368,21 @@ msgstr "Return megacore: +%d energy"
 
 msgid "Мегаядро не найдено"
 msgstr "Megacore not located"
+
+msgid "Сдать мегаядра (%d): +%d энергии"
+msgstr "Turn in megacores (%d): +%d energy"
+
+msgid "Нет мегаядер для сдачи"
+msgstr "No megacores to turn in"
+
+msgid "Найти мегаядра: зоны %s"
+msgstr "Find megacores: zones %s"
+
+msgid "Вернуть мегаядра: зоны %s"
+msgstr "Return megacores: zones %s"
+
+msgid "Мегаядра: нет доступных"
+msgstr "Megacores: none available"
 
 msgid "Двери: максимум"
 msgstr "Doors: maximum"
@@ -515,6 +533,27 @@ msgstr "Energy cores: 0"
 
 msgid "Энергия: 0"
 msgstr "Energy: 0"
+
+msgid "Питание сети: %02d:%02d"
+msgstr "Network power: %02d:%02d"
+
+msgid "Питание сети: отключено"
+msgstr "Network power: offline"
+
+msgid "Резерв обслуживания: %d"
+msgstr "Maintenance reserve: %d"
+
+msgid "Энергия: %d    Резерв обслуживания: %d"
+msgstr "Energy: %d    Maintenance reserve: %d"
+
+msgid "Здоровье: %d/%d    Патроны: %d/%d    Турели: %d    Башни: %d\nПитание сети: %02d:%02d"
+msgstr "Health: %d/%d    Ammo: %d/%d    Turrets: %d    Towers: %d\nNetwork power: %02d:%02d"
+
+msgid "Мегаядра: %d"
+msgstr "Megacores: %d"
+
+msgid "Добавить %d энергии в резерв обслуживания"
+msgstr "Add %d energy to maintenance reserve"
 
 msgid "Двери: 0"
 msgstr "Doors: 0"

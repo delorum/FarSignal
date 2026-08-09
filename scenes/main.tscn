@@ -216,6 +216,20 @@ theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
 theme_override_font_sizes/font_size = 18
 text = "Энергия: 0"
 
+[node name="SafeZoneTimeValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.25, 0.27, 1)
+theme_override_font_sizes/font_size = 18
+text = "Питание сети: отключено"
+autowrap_mode = 2
+
+[node name="MaintenanceEnergyValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
+theme_override_font_sizes/font_size = 18
+text = "Резерв обслуживания: 0"
+autowrap_mode = 2
+
 [node name="DoorsValue" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
 visible = false
 layout_mode = 2
@@ -248,6 +262,7 @@ theme_override_font_sizes/font_size = 18
 text = "Очки исследования: 0"
 
 [node name="TasksTitle" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
+visible = false
 layout_mode = 2
 theme_override_colors/font_color = Color(0.82, 0.88, 0.94, 1)
 theme_override_font_sizes/font_size = 18
@@ -261,6 +276,7 @@ text = "Мегаядро: нет координат"
 autowrap_mode = 2
 
 [node name="ExpandSafeZoneTask" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
+visible = false
 layout_mode = 2
 theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
 theme_override_font_sizes/font_size = 18
@@ -268,6 +284,7 @@ text = "Расширять безопасную зону"
 autowrap_mode = 2
 
 [node name="FindUpgradeStationsTask" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
+visible = false
 layout_mode = 2
 theme_override_colors/font_color = Color(0.92, 0.94, 0.97, 1)
 theme_override_font_sizes/font_size = 18
@@ -729,6 +746,13 @@ size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 22
 text = "Улучшить здоровье башни"
 
+[node name="TowerRadiusUpgradeButton" type="Button" parent="StationOverlay/StationMenu/Background/UpgradesPanel/UpgradesScreen/ActionsGrid"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "Улучшить радиус башни"
+
 [node name="BackButton" type="Button" parent="StationOverlay/StationMenu/Background/UpgradesPanel/UpgradesScreen"]
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
@@ -832,6 +856,13 @@ layout_mode = 2
 size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 22
 text = "Купить башню за 10 энергии"
+
+[node name="MaintenanceReserveButton" type="Button" parent="StationOverlay/StationMenu/Background/ResourcesPanel/ResourcesScreen/ActionsGrid"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "Добавить 10 энергии в резерв обслуживания"
 
 [node name="BackButton" type="Button" parent="StationOverlay/StationMenu/Background/ResourcesPanel/ResourcesScreen"]
 custom_minimum_size = Vector2(0, 52)
@@ -1311,6 +1342,7 @@ text = "Далее"
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/UpgradesPanel/UpgradesScreen/ActionsGrid/TurretDamageUpgradeButton" to="StationOverlay/StationMenu" method="_on_turret_damage_upgrade_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/UpgradesPanel/UpgradesScreen/ActionsGrid/TurretAmmoUpgradeButton" to="StationOverlay/StationMenu" method="_on_turret_ammo_upgrade_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/UpgradesPanel/UpgradesScreen/ActionsGrid/TowerHealthUpgradeButton" to="StationOverlay/StationMenu" method="_on_tower_health_upgrade_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/UpgradesPanel/UpgradesScreen/ActionsGrid/TowerRadiusUpgradeButton" to="StationOverlay/StationMenu" method="_on_tower_radius_upgrade_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/UpgradesPanel/UpgradesScreen/BackButton" to="StationOverlay/StationMenu" method="_on_upgrades_back_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/ResourcesPanel/ResourcesScreen/ActionsGrid/ReturnMegaCoreButton" to="StationOverlay/StationMenu" method="_on_return_mega_core_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/ResourcesPanel/ResourcesScreen/ActionsGrid/ExchangeButton" to="StationOverlay/StationMenu" method="_on_exchange_pressed"]
@@ -1319,6 +1351,7 @@ text = "Далее"
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/ResourcesPanel/ResourcesScreen/ActionsGrid/AmmoButton" to="StationOverlay/StationMenu" method="_on_ammo_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/ResourcesPanel/ResourcesScreen/ActionsGrid/TurretButton" to="StationOverlay/StationMenu" method="_on_turret_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/ResourcesPanel/ResourcesScreen/ActionsGrid/TowerButton" to="StationOverlay/StationMenu" method="_on_tower_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/ResourcesPanel/ResourcesScreen/ActionsGrid/MaintenanceReserveButton" to="StationOverlay/StationMenu" method="_on_maintenance_reserve_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/ResourcesPanel/ResourcesScreen/BackButton" to="StationOverlay/StationMenu" method="_on_resources_back_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/NotesPanel/NotesScreen/NotesList/Note1Button" to="StationOverlay/StationMenu" method="_on_note_one_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/NotesPanel/NotesScreen/NotesList/Note2Button" to="StationOverlay/StationMenu" method="_on_note_two_pressed"]

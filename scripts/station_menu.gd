@@ -31,6 +31,7 @@ const LoreText = preload("res://scripts/lore_text.gd")
 @onready var upgrades_button: Button = $Background/Center/Menu/ActionsGrid/UpgradesButton
 @onready var turret_button: Button = $Background/ResourcesPanel/ResourcesScreen/ActionsGrid/TurretButton
 @onready var tower_button: Button = $Background/ResourcesPanel/ResourcesScreen/ActionsGrid/TowerButton
+@onready var maintenance_reserve_button: Button = $Background/ResourcesPanel/ResourcesScreen/ActionsGrid/MaintenanceReserveButton
 @onready var instructions_button: Button = $Background/Center/Menu/ActionsGrid/InstructionsButton
 @onready var information_button: Button = $Background/Center/Menu/ActionsGrid/InformationButton
 @onready var notes_button: Button = $Background/Center/Menu/ActionsGrid/NotesButton
@@ -41,6 +42,7 @@ const LoreText = preload("res://scripts/lore_text.gd")
 @onready var turret_damage_upgrade_button: Button = $Background/UpgradesPanel/UpgradesScreen/ActionsGrid/TurretDamageUpgradeButton
 @onready var turret_ammo_upgrade_button: Button = $Background/UpgradesPanel/UpgradesScreen/ActionsGrid/TurretAmmoUpgradeButton
 @onready var tower_health_upgrade_button: Button = $Background/UpgradesPanel/UpgradesScreen/ActionsGrid/TowerHealthUpgradeButton
+@onready var tower_radius_upgrade_button: Button = $Background/UpgradesPanel/UpgradesScreen/ActionsGrid/TowerRadiusUpgradeButton
 @onready var exit_button: Button = $Background/Center/Menu/ActionsGrid/ExitButton
 @onready var instructions_back_button: Button = $Background/InstructionsPanel/InstructionsScreen/BackButton
 @onready var information_back_button: Button = $Background/InformationPanel/InformationScreen/BackButton
@@ -76,6 +78,7 @@ func _ready() -> void:
 		turret_damage_upgrade_button,
 		turret_ammo_upgrade_button,
 		tower_health_upgrade_button,
+		tower_radius_upgrade_button,
 	]
 
 
@@ -302,6 +305,12 @@ func _on_tower_pressed() -> void:
 	_show_resources()
 
 
+func _on_maintenance_reserve_pressed() -> void:
+	game.fund_maintenance_reserve()
+	_update_buttons()
+	_show_resources()
+
+
 func _on_upgrades_pressed() -> void:
 	_show_upgrades()
 
@@ -380,6 +389,12 @@ func _on_tower_health_upgrade_pressed() -> void:
 	_show_upgrades()
 
 
+func _on_tower_radius_upgrade_pressed() -> void:
+	game.upgrade_tower_radius()
+	_update_buttons()
+	_show_upgrades()
+
+
 func _on_instructions_back_pressed() -> void:
 	_show_menu()
 
@@ -410,11 +425,16 @@ func _on_exit_pressed() -> void:
 
 
 func _update_buttons() -> void:
-	energy_value.text = tr("Энергия: %d") % game.player.energy
-	upgrades_energy_value.text = tr("Энергия: %d") % game.player.energy
-	resources_energy_value.text = tr("Энергия: %d") % game.player.energy
+	var safe_zone_seconds: int = game.safe_zone_time_seconds()
+	var energy_text := tr("Энергия: %d    Резерв обслуживания: %d") % [
+		game.player.energy,
+		game.player.maintenance_energy,
+	]
+	energy_value.text = energy_text
+	upgrades_energy_value.text = energy_text
+	resources_energy_value.text = energy_text
 	var player_status_text := tr(
-		"Здоровье: %d/%d    Патроны: %d/%d    Турели: %d    Башни: %d"
+		"Здоровье: %d/%d    Патроны: %d/%d    Турели: %d    Башни: %d\nПитание сети: %02d:%02d"
 	) % [
 		game.player.health,
 		game.player.max_health,
@@ -422,6 +442,8 @@ func _update_buttons() -> void:
 		game.player.max_ammo,
 		game.player.turret_inventory_count(),
 		game.player.tower_inventory_count(),
+		floori(float(safe_zone_seconds) / 60.0),
+		safe_zone_seconds % 60,
 	]
 	for status_value in _player_status_values:
 		status_value.text = player_status_text
@@ -468,11 +490,14 @@ func _update_buttons() -> void:
 		]
 	)
 
-	return_mega_core_button.disabled = not game.player.has_mega_core
+	return_mega_core_button.disabled = not game.player.has_carried_mega_cores()
 	return_mega_core_button.text = (
-		tr("Вернуть мегаядро: +%d энергии") % game.player.mega_core_energy_value
-		if game.player.has_mega_core
-		else tr("Мегаядро не найдено")
+		tr("Сдать мегаядра (%d): +%d энергии") % [
+			game.player.carried_mega_core_count(),
+			game.player.carried_mega_core_energy(),
+		]
+		if game.player.has_carried_mega_cores()
+		else tr("Нет мегаядер для сдачи")
 	)
 	door_button.disabled = not game.player.can_buy_door()
 	door_button.text = (
@@ -492,13 +517,18 @@ func _update_buttons() -> void:
 		if not game.player.can_store_tower()
 		else tr("Купить башню за %d энергии") % Player.TOWER_COST
 	)
+	maintenance_reserve_button.disabled = not game.can_fund_maintenance_reserve()
+	maintenance_reserve_button.text = tr(
+		"Добавить %d энергии в резерв обслуживания"
+	) % Player.MAINTENANCE_RESERVE_TRANSFER
 	resources_button.disabled = health_button.disabled \
 			and ammo_button.disabled \
 			and turret_button.disabled \
 			and tower_button.disabled \
 			and exchange_button.disabled \
 			and exchange_cells_button.disabled \
-			and return_mega_core_button.disabled
+			and return_mega_core_button.disabled \
+			and maintenance_reserve_button.disabled
 
 	damage_upgrade_button.disabled = not game.can_upgrade_player_damage(1)
 	damage_upgrade_button.text = _upgrade_button_text(
@@ -534,6 +564,11 @@ func _update_buttons() -> void:
 	tower_health_upgrade_button.text = _structure_upgrade_button_text(
 		tr("Здоровье башни"),
 		game.player.tower_health_upgrade_level
+	)
+	tower_radius_upgrade_button.disabled = not game.can_upgrade_tower_radius()
+	tower_radius_upgrade_button.text = _structure_upgrade_button_text(
+		tr("Радиус башни"),
+		game.player.tower_radius_upgrade_level
 	)
 
 

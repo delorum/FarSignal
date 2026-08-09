@@ -9,8 +9,17 @@ var maze: Maze
 var player: Player
 var game: Node
 var _animation_time := 0.0
+var _mega_core_sprites: Array[Sprite2D] = []
 
 @onready var mega_core_sprite: Sprite2D = $Sprite2D
+
+
+func _ready() -> void:
+	_mega_core_sprites.append(mega_core_sprite)
+	for index in range(1, Player.MEGA_CORE_LEVEL_COUNT):
+		var sprite := mega_core_sprite.duplicate() as Sprite2D
+		add_child(sprite)
+		_mega_core_sprites.append(sprite)
 
 
 func setup(maze_node: Maze, player_node: Player, game_node: Node) -> void:
@@ -30,21 +39,22 @@ func _draw() -> void:
 
 
 func _update_mega_core_sprite(delta: float) -> void:
-	var should_show := player != null \
-			and maze != null \
-			and not player.has_mega_core \
-			and player.mega_core_cell.x >= 0 \
-			and maze.is_cell_visible(player.mega_core_cell)
-	mega_core_sprite.visible = should_show
-	if not should_show:
+	if player == null or maze == null:
+		for sprite in _mega_core_sprites:
+			sprite.visible = false
 		return
-
-	mega_core_sprite.position = maze.cell_to_world(player.mega_core_cell)
 	_animation_time += delta
-	mega_core_sprite.frame = posmod(
+	var frame := posmod(
 		floori(_animation_time * ANIMATION_FPS),
 		ANIMATION_FRAME_COUNT
 	)
+	for index in _mega_core_sprites.size():
+		var cell := player.mega_core_cell_for_level(index + 1)
+		var sprite := _mega_core_sprites[index]
+		sprite.visible = cell.x >= 0 and maze.is_cell_visible(cell)
+		if sprite.visible:
+			sprite.position = maze.cell_to_world(cell)
+			sprite.frame = frame
 
 
 func _draw_map_marker_path() -> void:

@@ -663,6 +663,15 @@ func reset_safe_zone_to_base() -> void:
 	queue_redraw()
 
 
+func has_safe_cells_outside_base() -> bool:
+	if _base_safe_cell_mask.size() != _safe_cell_mask.size():
+		return false
+	for index in _safe_cell_mask.size():
+		if _safe_cell_mask[index] == 1 and _base_safe_cell_mask[index] == 0:
+			return true
+	return false
+
+
 func extend_safe_zone_from_towers(
 	tower_positions: Array[Vector2],
 	door_cells: Array[Vector2i],

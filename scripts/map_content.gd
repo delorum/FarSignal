@@ -420,22 +420,28 @@ func _draw_towers(map_origin: Vector2) -> void:
 
 
 func _draw_mega_core(map_origin: Vector2) -> void:
-	if _player.has_mega_core or _player.mega_core_cell.x < 0:
-		return
-
-	var center := (
-		map_origin
-		+ (Vector2(_player.mega_core_cell) + Vector2.ONE * 0.5) * cell_size
-	)
-	var radius := cell_size * 0.28
-	var points := PackedVector2Array([
-		center + Vector2(0.0, -radius),
-		center + Vector2(radius, 0.0),
-		center + Vector2(0.0, radius),
-		center + Vector2(-radius, 0.0),
-		center + Vector2(0.0, -radius),
-	])
-	draw_polyline(points, MEGA_CORE_COLOR, maxf(1.5, cell_size * 0.08), true)
+	for level in range(1, Player.MEGA_CORE_LEVEL_COUNT + 1):
+		var cell := _player.mega_core_cell_for_level(level)
+		if cell.x < 0:
+			continue
+		var center := (
+			map_origin
+			+ (Vector2(cell) + Vector2.ONE * 0.5) * cell_size
+		)
+		var radius := cell_size * 0.28
+		var points := PackedVector2Array([
+			center + Vector2(0.0, -radius),
+			center + Vector2(radius, 0.0),
+			center + Vector2(0.0, radius),
+			center + Vector2(-radius, 0.0),
+			center + Vector2(0.0, -radius),
+		])
+		draw_polyline(
+			points,
+			MEGA_CORE_COLOR,
+			maxf(1.5, cell_size * 0.08),
+			true
+		)
 
 
 func _draw_map_marker_path(map_origin: Vector2) -> void:

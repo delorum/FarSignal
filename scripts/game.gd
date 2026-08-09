@@ -29,8 +29,8 @@ const PLAYER_RECOIL_ENABLED := false
 const MAP_MARKER_PATH_REFRESH_SECONDS := 5.0
 const BUILD_ACTION_DURATION := 2.0
 const BUILD_ACTION_HIT_INTERVAL := 0.5
-const MEGA_CORE_MIN_SAFE_ZONE_DISTANCE := 30
-const MEGA_CORE_MAX_SAFE_ZONE_DISTANCE := 80
+const MEGA_CORE_PREFERRED_SAFE_ZONE_DISTANCE := 20
+const MEGA_CORE_MINIMUM_UNSAFE_RATIO := 0.2
 const MAX_ALERTED_ENEMIES := 3
 const PURSUIT_STATUS_INTERVAL := 3.0
 const COMBAT_MUSIC_HOLD_SECONDS := 10.0
@@ -55,8 +55,12 @@ const TURRET_PLACEMENT_REQUIRES_SAFE_ZONE := false
 const PLAYER_STRUCTURE_COLLISION_ENABLED := false
 const ENEMY_STRUCTURE_COLLISION_ENABLED := true
 const PLAYER_ENEMY_COLLISION_ENABLED := true
-const TOWER_SAFE_RADIUS := 5
 const STRUCTURE_STATUS_DURATION := 3.0
+const ENERGY_CORE_SAFE_ZONE_SECONDS := 30.0
+const MEGA_CORE_SAFE_ZONE_SECONDS := 5.0 * 60.0
+const STRUCTURE_MAINTENANCE_INTERVAL := 1.0
+const STRUCTURE_MAINTENANCE_HEALTH := 2
+const STRUCTURE_MAINTENANCE_AMMO := 1
 
 enum BuildMode {
 	TOWER,
@@ -101,6 +105,8 @@ enum BuildActionType {
 @onready var damage_value: Label = $GameInterface/PlayerPanel/Margin/VBox/DamageValue
 @onready var energy_cores_value: Label = $GameInterface/PlayerPanel/Margin/VBox/EnergyCoresValue
 @onready var energy_value: Label = $GameInterface/PlayerPanel/Margin/VBox/EnergyValue
+@onready var safe_zone_time_value: Label = $GameInterface/PlayerPanel/Margin/VBox/SafeZoneTimeValue
+@onready var maintenance_energy_value: Label = $GameInterface/PlayerPanel/Margin/VBox/MaintenanceEnergyValue
 @onready var doors_value: Label = $GameInterface/PlayerPanel/Margin/VBox/DoorsValue
 @onready var turrets_value: Label = $GameInterface/PlayerPanel/Margin/VBox/TurretsValue
 @onready var towers_value: Label = $GameInterface/PlayerPanel/Margin/VBox/TowersValue
@@ -134,6 +140,8 @@ var _displayed_damage_max := -1
 var _displayed_damage_upgrade_level := -1
 var _displayed_energy_cores := -1
 var _displayed_energy := -1
+var _displayed_safe_zone_seconds := -1
+var _displayed_maintenance_energy := -1
 var _displayed_door_inventory := -1
 var _displayed_turret_inventory := -1
 var _displayed_tower_inventory := -1
@@ -160,6 +168,9 @@ var _hit_flash_tween: Tween
 var _combat_music_active := false
 var _combat_music_hold_left := 0.0
 var _game_time_seconds := 0.0
+var _safe_zone_time_left := 0.0
+var _has_safe_zone_outside_station := false
+var _structure_maintenance_elapsed := 0.0
 var _map_marker_cell := Vector2i(-1, -1)
 var _information_marker_cells: Array[Vector2i] = []
 var _map_marker_path: Array[Vector2i] = []
@@ -226,7 +237,7 @@ func _ready() -> void:
 		player.restore_facing_direction([start_facing.x, start_facing.y])
 		_create_generated_doors()
 		_refresh_safe_zone()
-		_assign_new_mega_core()
+		_assign_missing_mega_cores()
 		_create_generated_enemies(player_cell)
 	else:
 		_create_generated_stations()
@@ -290,6 +301,8 @@ func _process(delta: float) -> void:
 		return
 
 	_game_time_seconds += delta
+	_update_safe_zone_timer(delta)
+	_update_structure_maintenance(delta)
 	_update_build_action(delta)
 	_update_placement_preview()
 	_update_turret_reorientation()
@@ -713,6 +726,27 @@ func _update_player_panel() -> void:
 	if player.energy != _displayed_energy:
 		_displayed_energy = player.energy
 		energy_value.text = tr("Энергия: %d") % player.energy
+	var safe_zone_seconds := ceili(_safe_zone_time_left)
+	if safe_zone_seconds != _displayed_safe_zone_seconds:
+		_displayed_safe_zone_seconds = safe_zone_seconds
+		safe_zone_time_value.text = (
+			tr("Питание сети: %02d:%02d") % [
+				floori(float(safe_zone_seconds) / 60.0),
+				safe_zone_seconds % 60,
+			]
+			if safe_zone_seconds > 0
+			else tr("Питание сети: отключено")
+		)
+		safe_zone_time_value.modulate = (
+			STATUS_CRITICAL_COLOR
+			if safe_zone_seconds <= 60
+			else STATUS_VALUE_COLOR
+		)
+	if player.maintenance_energy != _displayed_maintenance_energy:
+		_displayed_maintenance_energy = player.maintenance_energy
+		maintenance_energy_value.text = tr("Резерв обслуживания: %d") % (
+			player.maintenance_energy
+		)
 	if player.door_inventory != _displayed_door_inventory:
 		_displayed_door_inventory = player.door_inventory
 		doors_value.text = tr("Двери: %d") % player.door_inventory
@@ -732,14 +766,11 @@ func _update_player_panel() -> void:
 		explored_cells_value.text = (
 			tr("Очки исследования: %d") % player.exploration_points
 		)
-	var station_one_found := _station_instructions_seen
-	expand_safe_zone_task.visible = station_one_found
+	expand_safe_zone_task.visible = false
 	# Upgrade stations 2 and 3 are temporarily not generated.
 	find_upgrade_stations_task.visible = false
-	var mega_core_text := (
-		_mega_core_status_text()
-		if station_one_found
-		else tr("Найти Станцию 1")
+	var mega_core_text := tr("Мегаядра: %d") % (
+		player.carried_mega_core_count()
 	)
 	if mega_core_text != _displayed_mega_core_text:
 		_displayed_mega_core_text = mega_core_text
@@ -765,24 +796,33 @@ func _pick_up_energy_cores() -> void:
 
 
 func _pick_up_mega_core() -> void:
-	if player.has_mega_core or player.mega_core_cell.x < 0:
+	var player_cell := maze.world_to_cell(player.position)
+	for level in range(1, ENEMY_LEVEL_COUNT + 1):
+		if player.mega_core_cell_for_level(level) != player_cell:
+			continue
+		if player.collect_mega_core(level):
+			AudioManager.play_mega_core_pickup()
+			_update_player_panel()
+			queue_redraw()
 		return
-	if maze.world_to_cell(player.position) != player.mega_core_cell:
-		return
-	if player.collect_mega_core():
-		AudioManager.play_mega_core_pickup()
-		_update_player_panel()
-		queue_redraw()
 
 
 func _mega_core_status_text() -> String:
-	if player.has_mega_core:
-		return tr("Вернуть мегаядро на станцию 1")
-	if player.mega_core_cell.x >= 0:
-		return tr("Найти мегаядро в зоне %d") % _enemy_level_for_y(
-			player.mega_core_cell.y
-		)
-	return tr("Мегаядро: не найдено")
+	var search_levels: Array[String] = []
+	for level in range(1, ENEMY_LEVEL_COUNT + 1):
+		if player.mega_core_cell_for_level(level).x >= 0:
+			search_levels.append(str(level))
+	var lines: Array[String] = []
+	if not search_levels.is_empty():
+		lines.append(tr("Найти мегаядра: зоны %s") % ", ".join(search_levels))
+	if player.has_carried_mega_cores():
+		var carried_levels: Array[String] = []
+		for level in player.carried_mega_core_levels:
+			carried_levels.append(str(level))
+		lines.append(tr("Вернуть мегаядра: зоны %s") % ", ".join(carried_levels))
+	if lines.is_empty():
+		return tr("Мегаядра: нет доступных")
+	return "\n".join(lines)
 
 
 func save_game() -> bool:
@@ -797,19 +837,19 @@ func save_game() -> bool:
 		"player_energy_cores": player.energy_cores,
 		"player_energy_core_energy": player.energy_core_energy,
 		"player_energy": player.energy,
+		"player_maintenance_energy": player.maintenance_energy,
 		"player_energy_received_total": player.energy_received_total,
 		"player_energy_spent_total": player.energy_spent_total,
+		"safe_zone_time_left": _safe_zone_time_left,
 		"player_doors": player.door_inventory,
 		"player_turrets": player.turret_inventory_for_save(),
 		"player_towers": player.tower_inventory_for_save(),
 		"build_mode": _build_mode_save_value(),
 		"player_exploration_points": player.exploration_points,
-		"player_mega_core_cell": [
-			player.mega_core_cell.x,
-			player.mega_core_cell.y,
-		],
-		"player_has_mega_core": player.has_mega_core,
-		"player_mega_core_energy_value": player.mega_core_energy_value,
+		"player_mega_core_cells": player.mega_core_cells.map(
+			func(cell: Vector2i): return [cell.x, cell.y]
+		),
+		"player_carried_mega_core_levels": player.carried_mega_core_levels,
 		"player_damage_upgrade_level": player.damage_upgrade_level,
 		"player_health_upgrade_level": player.health_upgrade_level,
 		"player_ammo_upgrade_level": player.ammo_upgrade_level,
@@ -817,6 +857,7 @@ func save_game() -> bool:
 		"turret_damage_upgrade_level": player.turret_damage_upgrade_level,
 		"turret_ammo_upgrade_level": player.turret_ammo_upgrade_level,
 		"tower_health_upgrade_level": player.tower_health_upgrade_level,
+		"tower_radius_upgrade_level": player.tower_radius_upgrade_level,
 		"map_marker_cell": [
 			_map_marker_cell.x,
 			_map_marker_cell.y,
@@ -861,41 +902,35 @@ func _restore_game(save_data: Dictionary) -> void:
 		float(saved_position[1])
 	)
 	player.restore_facing_direction(save_data.player_facing)
-	var saved_mega_core_cell := Vector2i(-1, -1)
-	var saved_mega_core_cell_data: Array = save_data.get(
-		"player_mega_core_cell",
-		[]
-	)
-	if saved_mega_core_cell_data.size() == 2:
-		saved_mega_core_cell = Vector2i(
-			int(saved_mega_core_cell_data[0]),
-			int(saved_mega_core_cell_data[1])
-		)
 	player.restore_status(
 		int(save_data.get("player_health", Player.MAX_HEALTH)),
 		int(save_data.get("player_ammo", Player.MAX_AMMO)),
 		int(save_data.get("player_energy_cores", 0)),
 		int(save_data.get("player_energy", 0)),
+		int(save_data.get("player_maintenance_energy", 0)),
 		int(save_data.get("player_doors", 0)),
 		int(save_data.get("player_exploration_points", 0)),
-		saved_mega_core_cell,
-		bool(save_data.get("player_has_mega_core", false)),
 		int(save_data.get("player_damage_upgrade_level", 0)),
 		int(save_data.get("player_health_upgrade_level", 0)),
 		int(save_data.get("player_ammo_upgrade_level", 0)),
 		int(save_data.get("player_energy_core_energy", 0)),
 		int(save_data.get("player_energy_received_total", 0)),
 		int(save_data.get("player_energy_spent_total", 0)),
-		int(save_data.get(
-			"player_mega_core_energy_value",
-			Player.EQUAL_LEVEL_MEGA_CORE_ENERGY
-		)),
 		save_data.get("player_turrets", []),
 		save_data.get("player_towers", []),
 		int(save_data.get("turret_health_upgrade_level", 0)),
 		int(save_data.get("turret_damage_upgrade_level", 0)),
 		int(save_data.get("turret_ammo_upgrade_level", 0)),
-		int(save_data.get("tower_health_upgrade_level", 0))
+		int(save_data.get("tower_health_upgrade_level", 0)),
+		int(save_data.get("tower_radius_upgrade_level", 0))
+	)
+	player.restore_mega_cores(
+		save_data.get("player_mega_core_cells", []),
+		save_data.get("player_carried_mega_core_levels", [])
+	)
+	_safe_zone_time_left = maxf(
+		0.0,
+		float(save_data.get("safe_zone_time_left", 0.0))
 	)
 	_build_mode = _build_mode_from_save(
 		String(save_data.get("build_mode", "turret"))
@@ -947,8 +982,7 @@ func _restore_game(save_data: Dictionary) -> void:
 		if tower_data is Dictionary:
 			_create_tower_from_save(tower_data)
 	_refresh_safe_zone()
-	if not player.has_mega_core and player.mega_core_cell.x < 0:
-		_assign_new_mega_core()
+	_assign_missing_mega_cores()
 	_enemies_killed = int(save_data.get("enemies_killed", 0))
 	_mega_cores_returned = int(save_data.get("mega_cores_returned", 0))
 	if save_data.has("enemies"):
@@ -2128,16 +2162,19 @@ func _refresh_safe_zone(recompute_base_zone: bool = true) -> void:
 	else:
 		maze.reset_safe_zone_to_base()
 	_refresh_tower_connections()
-	var connected_tower_positions: Array[Vector2] = []
-	for tower: Tower in _towers:
-		if tower.connected:
-			connected_tower_positions.append(tower.position)
-	maze.extend_safe_zone_from_towers(
-		connected_tower_positions,
-		door_cells,
-		TOWER_SAFE_RADIUS
-	)
+	if _safe_zone_time_left > 0.0:
+		var connected_tower_positions: Array[Vector2] = []
+		for tower: Tower in _towers:
+			if tower.connected:
+				connected_tower_positions.append(tower.position)
+		maze.extend_safe_zone_from_towers(
+			connected_tower_positions,
+			door_cells,
+			player.tower_safe_radius()
+		)
+	_has_safe_zone_outside_station = maze.has_safe_cells_outside_base()
 	_assert_station_floor_is_safe()
+	_assign_missing_mega_cores()
 	call_deferred("_maintain_enemy_population")
 	queue_redraw()
 
@@ -2708,8 +2745,39 @@ func can_upgrade_tower_health() -> bool:
 	return player.can_upgrade_tower_health()
 
 
+func upgrade_tower_radius() -> bool:
+	if not player.upgrade_tower_radius():
+		return false
+	_refresh_safe_zone(false)
+	_update_player_panel()
+	return true
+
+
+func can_upgrade_tower_radius() -> bool:
+	return player.can_upgrade_tower_radius()
+
+
+func fund_maintenance_reserve() -> bool:
+	var funded := player.fund_maintenance_reserve()
+	_update_player_panel()
+	return funded
+
+
+func can_fund_maintenance_reserve() -> bool:
+	return player.can_fund_maintenance_reserve()
+
+
+func safe_zone_time_seconds() -> int:
+	return ceili(_safe_zone_time_left)
+
+
 func exchange_energy_cores() -> bool:
+	var exchanged_core_count := player.energy_cores
 	var exchanged := player.exchange_energy_cores()
+	if exchanged:
+		_add_safe_zone_time(
+			float(exchanged_core_count) * ENERGY_CORE_SAFE_ZONE_SECONDS
+		)
 	_update_player_panel()
 	return exchanged
 
@@ -2721,45 +2789,166 @@ func exchange_exploration_points() -> bool:
 
 
 func return_mega_core() -> bool:
-	if not player.return_mega_core():
+	var returned_levels := player.return_mega_cores()
+	if returned_levels.is_empty():
 		return false
-	_mega_cores_returned += 1
-	_assign_new_mega_core()
+	_add_safe_zone_time(
+		MEGA_CORE_SAFE_ZONE_SECONDS * float(returned_levels.size())
+	)
+	_mega_cores_returned += returned_levels.size()
+	_assign_missing_mega_cores()
 	_update_player_panel()
 	return true
 
 
-func _assign_new_mega_core() -> void:
-	var cell := _find_mega_core_cell()
+func _add_safe_zone_time(seconds: float) -> void:
+	if seconds <= 0.0:
+		return
+	var was_disabled := _safe_zone_time_left <= 0.0
+	_safe_zone_time_left += seconds
+	_displayed_safe_zone_seconds = -1
+	if was_disabled:
+		_refresh_safe_zone(false)
+
+
+func _update_safe_zone_timer(delta: float) -> void:
+	if _safe_zone_time_left <= 0.0 or not _has_safe_zone_outside_station:
+		return
+	_safe_zone_time_left = maxf(0.0, _safe_zone_time_left - delta)
+	if _safe_zone_time_left <= 0.0:
+		_refresh_safe_zone(false)
+
+
+func _update_structure_maintenance(delta: float) -> void:
+	if player.maintenance_energy <= 0 or _has_alerted_enemies():
+		_structure_maintenance_elapsed = 0.0
+		return
+	_structure_maintenance_elapsed += delta
+	if _structure_maintenance_elapsed < STRUCTURE_MAINTENANCE_INTERVAL:
+		return
+	_structure_maintenance_elapsed = fmod(
+		_structure_maintenance_elapsed,
+		STRUCTURE_MAINTENANCE_INTERVAL
+	)
+	_service_safe_structures()
+
+
+func _has_alerted_enemies() -> bool:
+	for enemy: Enemy in _enemies:
+		if not enemy.dead and enemy.is_alerted():
+			return true
+	return false
+
+
+func _service_safe_structures() -> void:
+	for turret: Turret in _turrets:
+		if player.maintenance_energy <= 0:
+			return
+		if not maze.is_cell_safe(maze.world_to_cell(turret.position)):
+			continue
+		if turret.health < turret.max_health \
+				and player.consume_maintenance_energy():
+			turret.health = mini(
+				turret.max_health,
+				turret.health + STRUCTURE_MAINTENANCE_HEALTH
+			)
+			turret.queue_redraw()
+		if turret.ammo < turret.max_ammo \
+				and player.consume_maintenance_energy():
+			turret.ammo = mini(
+				turret.max_ammo,
+				turret.ammo + STRUCTURE_MAINTENANCE_AMMO
+			)
+			turret.queue_redraw()
+	for tower: Tower in _towers:
+		if player.maintenance_energy <= 0:
+			return
+		if not maze.is_cell_safe(maze.world_to_cell(tower.position)):
+			continue
+		if tower.health < tower.max_health \
+				and player.consume_maintenance_energy():
+			tower.health = mini(
+				tower.max_health,
+				tower.health + STRUCTURE_MAINTENANCE_HEALTH
+			)
+			tower.queue_redraw()
+
+
+func _assign_missing_mega_cores() -> void:
+	var missing_levels: Array[int] = []
+	for level in range(1, ENEMY_LEVEL_COUNT + 1):
+		if player.mega_core_cell_for_level(level).x < 0 \
+				and not player.carried_mega_core_levels.has(level):
+			missing_levels.append(level)
+	if missing_levels.is_empty():
+		return
+	var safe_zone_distances := _safe_zone_distance_squared_map()
+	for level in missing_levels:
+		_assign_mega_core_for_level(level, safe_zone_distances)
+
+
+func _assign_mega_core_for_level(
+	level: int,
+	safe_zone_distances: PackedFloat64Array = PackedFloat64Array()
+) -> void:
+	if player.carried_mega_core_levels.has(level) \
+			or player.mega_core_cell_for_level(level).x >= 0:
+		return
+	var distances := safe_zone_distances
+	if distances.is_empty():
+		distances = _safe_zone_distance_squared_map()
+	var cell := _find_mega_core_cell_for_level(level, distances)
 	if cell.x >= 0:
-		var core_energy_value := Player.mega_core_reward(
-			_enemy_level_for_y(cell.y),
-			player.current_level()
-		)
-		player.assign_mega_core(cell, core_energy_value)
+		player.assign_mega_core(level, cell)
+		_displayed_mega_core_text = ""
 		queue_redraw()
 
 
-func _find_mega_core_cell() -> Vector2i:
-	var safe_zone_distances := _safe_zone_distance_squared_map()
-	return _find_valid_mega_core_cell(safe_zone_distances)
-
-
-func _find_valid_mega_core_cell(
+func _find_mega_core_cell_for_level(
+	level: int,
 	safe_zone_distances: PackedFloat64Array
 ) -> Vector2i:
-	for attempt in 512:
-		var cell := maze.get_random_floor_cell(_rng)
-		if _mega_core_cell_is_valid(cell, safe_zone_distances):
-			return cell
-
+	var bounds := _enemy_zone_bounds(level)
+	var total_floor_cells := 0
+	var unsafe_floor_cells := 0
+	var candidates: Array[Vector2i] = []
+	var preferred_candidates: Array[Vector2i] = []
 	var grid_size := maze.grid_size()
-	for y in grid_size.y:
+	var preferred_distance_squared := float(
+		MEGA_CORE_PREFERRED_SAFE_ZONE_DISTANCE ** 2
+	)
+	for y in range(bounds.x, bounds.y + 1):
 		for x in grid_size.x:
 			var cell := Vector2i(x, y)
-			if _mega_core_cell_is_valid(cell, safe_zone_distances):
-				return cell
-	return Vector2i(-1, -1)
+			if maze.is_wall(cell):
+				continue
+			total_floor_cells += 1
+			if maze.is_cell_safe(cell):
+				continue
+			unsafe_floor_cells += 1
+			if not maze.is_cell_walkable(cell) or _has_door_at(cell) \
+					or _has_mega_core_at(cell):
+				continue
+			candidates.append(cell)
+			var index := cell.y * grid_size.x + cell.x
+			if safe_zone_distances[index] >= preferred_distance_squared:
+				preferred_candidates.append(cell)
+	if total_floor_cells <= 0 \
+			or float(unsafe_floor_cells) / float(total_floor_cells) \
+					< MEGA_CORE_MINIMUM_UNSAFE_RATIO:
+		return Vector2i(-1, -1)
+	var pool := preferred_candidates if not preferred_candidates.is_empty() \
+			else candidates
+	if pool.is_empty():
+		return Vector2i(-1, -1)
+	return pool[_rng.randi_range(0, pool.size() - 1)]
+
+
+func _has_mega_core_at(cell: Vector2i) -> bool:
+	for level in range(1, ENEMY_LEVEL_COUNT + 1):
+		if player.mega_core_cell_for_level(level) == cell:
+			return true
+	return false
 
 
 func _safe_zone_distance_squared_map() -> PackedFloat64Array:
@@ -2850,26 +3039,6 @@ func _parabola_intersection(
 		- values[second_index]
 		- float(second_index * second_index)
 	) / float(2 * (first_index - second_index))
-
-
-func _mega_core_cell_is_valid(
-	cell: Vector2i,
-	safe_zone_distances: PackedFloat64Array
-) -> bool:
-	if cell.x < 0 or cell.y < 0:
-		return false
-	var grid_size := maze.grid_size()
-	var distance_squared := safe_zone_distances[
-		cell.y * grid_size.x + cell.x
-	]
-	return cell.x >= 0 \
-			and distance_squared \
-					>= float(MEGA_CORE_MIN_SAFE_ZONE_DISTANCE ** 2) \
-			and distance_squared \
-					<= float(MEGA_CORE_MAX_SAFE_ZONE_DISTANCE ** 2) \
-			and not maze.is_cell_safe(cell) \
-			and not _has_door_at(cell) \
-			and maze.is_cell_walkable(cell)
 
 
 func spawn_enemy_bullet(
@@ -3012,6 +3181,8 @@ func _on_language_changed() -> void:
 	_displayed_damage_upgrade_level = -1
 	_displayed_energy_cores = -1
 	_displayed_energy = -1
+	_displayed_safe_zone_seconds = -1
+	_displayed_maintenance_energy = -1
 	_displayed_door_inventory = -1
 	_displayed_turret_inventory = -1
 	_displayed_exploration_points = -1
