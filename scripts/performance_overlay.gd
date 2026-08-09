@@ -6,6 +6,7 @@ const SETTINGS_PATH := "user://far_signal_settings.cfg"
 
 var _label: Label
 var debug_info_enabled := true
+var map_enemy_debug_enabled := false
 var _measurement_signals_connected := false
 var _last_frame_ticks_usec := 0
 var _display_elapsed := 0.0
@@ -39,6 +40,13 @@ func set_debug_info_enabled(enabled: bool) -> void:
 		return
 	debug_info_enabled = enabled
 	_apply_enabled_state()
+	_save_setting()
+
+
+func set_map_enemy_debug_enabled(enabled: bool) -> void:
+	if map_enemy_debug_enabled == enabled:
+		return
+	map_enemy_debug_enabled = enabled
 	_save_setting()
 
 
@@ -146,6 +154,11 @@ func _load_setting() -> void:
 		"performance_overlay_enabled",
 		true
 	))
+	map_enemy_debug_enabled = bool(config.get_value(
+		"debug",
+		"map_enemy_debug_enabled",
+		false
+	))
 
 
 func _save_setting() -> void:
@@ -155,6 +168,11 @@ func _save_setting() -> void:
 		"debug",
 		"performance_overlay_enabled",
 		debug_info_enabled
+	)
+	config.set_value(
+		"debug",
+		"map_enemy_debug_enabled",
+		map_enemy_debug_enabled
 	)
 	var error := config.save(SETTINGS_PATH)
 	if error != OK:

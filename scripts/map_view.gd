@@ -59,13 +59,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 
 	if event is InputEventMouseButton \
-			and event.button_index == MOUSE_BUTTON_LEFT \
-			and event.pressed:
-		_set_information_marker_at_mouse()
-		get_viewport().set_input_as_handled()
-		return
-
-	if event is InputEventMouseButton \
 			and event.button_index == MOUSE_BUTTON_RIGHT \
 			and event.pressed:
 		_set_marker_at_mouse()

@@ -6,6 +6,7 @@ signal back_requested
 @onready var audio_screen: VBoxContainer = $AudioScreen
 @onready var audio_button: Button = $SettingsScreen/AudioButton
 @onready var debug_info_enabled: CheckButton = $SettingsScreen/DebugInfoEnabled
+@onready var map_enemy_debug_enabled: CheckButton = $SettingsScreen/MapEnemyDebugEnabled
 @onready var language_selector: OptionButton = $SettingsScreen/LanguageRow/LanguageSelector
 @onready var music_enabled: CheckButton = $AudioScreen/MusicEnabled
 @onready var sounds_enabled: CheckButton = $AudioScreen/SoundsEnabled
@@ -56,6 +57,11 @@ func _on_debug_info_enabled_toggled(enabled: bool) -> void:
 		PerformanceOverlay.set_debug_info_enabled(enabled)
 
 
+func _on_map_enemy_debug_enabled_toggled(enabled: bool) -> void:
+	if not _syncing:
+		PerformanceOverlay.set_map_enemy_debug_enabled(enabled)
+
+
 func _on_language_selected(index: int) -> void:
 	if not _syncing:
 		Localization.set_locale(Localization.SUPPORTED_LOCALES[index])
@@ -103,6 +109,9 @@ func _sync_controls() -> void:
 func _sync_debug_control() -> void:
 	_syncing = true
 	debug_info_enabled.button_pressed = PerformanceOverlay.debug_info_enabled
+	map_enemy_debug_enabled.button_pressed = (
+		PerformanceOverlay.map_enemy_debug_enabled
+	)
 	_syncing = false
 
 

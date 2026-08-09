@@ -26,6 +26,8 @@ const TURRET_STATUS_BACK_OFFSET := 0.62
 const TURRET_STATUS_SIDE_OFFSET := 0.16
 const LEVEL_BOUNDARY_COLOR := Color(1.0, 1.0, 1.0, 0.82)
 const LEVEL_LABEL_SHADOW_COLOR := Color(0.02, 0.03, 0.04, 0.95)
+const DEBUG_ENEMY_PATROL_COLOR := Color(0.82, 0.87, 0.9, 0.95)
+const DEBUG_ENEMY_ALERT_COLOR := Color(0.93, 0.2, 0.22, 1.0)
 const ENEMY_LEVEL_COUNT := 5
 
 var scroll_position := Vector2.ZERO
@@ -106,6 +108,7 @@ func _draw() -> void:
 	_draw_map_marker_path(map_origin)
 	_draw_stations(map_origin)
 	_draw_dead_enemies(map_origin)
+	_draw_debug_enemies(map_origin)
 	_draw_turrets(map_origin)
 	_draw_towers(map_origin)
 	_draw_mega_core(map_origin)
@@ -303,6 +306,46 @@ func _draw_dead_enemies(map_origin: Vector2) -> void:
 			false,
 			maxf(1.0, cell_size * 0.05),
 			true
+		)
+
+
+func _draw_debug_enemies(map_origin: Vector2) -> void:
+	if not PerformanceOverlay.map_enemy_debug_enabled or _enemies == null:
+		return
+	for enemy: Enemy in _enemies.get_children():
+		if enemy.dead:
+			continue
+		var center := map_origin + (
+			enemy.position / Maze.CELL_SIZE * cell_size
+		)
+		var color := (
+			DEBUG_ENEMY_PATROL_COLOR
+			if enemy.state == Enemy.State.PATROL
+			else DEBUG_ENEMY_ALERT_COLOR
+		)
+		var half_size := cell_size * 0.18
+		draw_rect(
+			Rect2(
+				center - Vector2.ONE * half_size,
+				Vector2.ONE * half_size * 2.0
+			),
+			color
+		)
+		draw_line(
+			center,
+			center + enemy.facing_direction() * cell_size * 0.48,
+			color,
+			maxf(1.5, cell_size * 0.07),
+			true
+		)
+		draw_string(
+			ThemeDB.fallback_font,
+			center + Vector2(half_size + 2.0, -half_size),
+			enemy.debug_state_letter(),
+			HORIZONTAL_ALIGNMENT_LEFT,
+			-1.0,
+			maxi(10, roundi(cell_size * 0.48)),
+			color
 		)
 
 

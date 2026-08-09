@@ -802,6 +802,7 @@ func _pick_up_mega_core() -> void:
 			continue
 		if player.collect_mega_core(level):
 			AudioManager.play_mega_core_pickup()
+			_alert_enemies_to_shot(player_cell)
 			_update_player_panel()
 			queue_redraw()
 		return
@@ -3092,7 +3093,8 @@ func visible_structure_for_enemy(
 	enemy: Enemy,
 	range_cells: float,
 	facing_direction: Vector2,
-	half_angle: float
+	half_angle: float,
+	excluded_structure: Node2D = null
 ) -> Node2D:
 	var best_structure: Node2D
 	var best_distance := INF
@@ -3100,7 +3102,7 @@ func visible_structure_for_enemy(
 	structures.append_array(_turrets)
 	structures.append_array(_towers)
 	for structure: Node2D in structures:
-		if not structure.is_active():
+		if structure == excluded_structure or not structure.is_active():
 			continue
 		var offset := structure.position - enemy.position
 		var distance_cells := offset.length() / Maze.CELL_SIZE

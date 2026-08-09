@@ -20,8 +20,7 @@ const MAX_UPGRADED_DAMAGE_MAX := 338
 const MAX_HEALTH_BUY := 20
 const MAX_AMMO_BUY := 10
 const AMMO_COST_PER_ROUND := 1
-const LOWER_LEVEL_CORE_ENERGY := 10
-const EQUAL_LEVEL_CORE_ENERGY := 20
+const ENERGY_CORE_ENERGY_PER_LEVEL := 20
 const EXPLORATION_POINTS_PER_ENERGY := 20
 const MEGA_CORE_ENERGY_PER_LEVEL := 100
 const MEGA_CORE_LEVEL_COUNT := 5
@@ -282,10 +281,8 @@ func _upgraded_value(base_value: int, upgraded_value: int, level: int) -> int:
 	))
 
 
-static func energy_core_reward(enemy_level: int, player_level: int) -> int:
-	if enemy_level < player_level:
-		return LOWER_LEVEL_CORE_ENERGY
-	return EQUAL_LEVEL_CORE_ENERGY * (enemy_level - player_level + 1)
+static func energy_core_reward(enemy_level: int) -> int:
+	return maxi(1, enemy_level) * ENERGY_CORE_ENERGY_PER_LEVEL
 
 
 func can_upgrade_damage_at_station(station_id: int) -> bool:
@@ -776,14 +773,11 @@ func collect_energy_core(core_energy: int) -> void:
 
 
 func discover_floor_cell(zone_level: int) -> void:
-	exploration_points += exploration_point_multiplier(
-		zone_level,
-		current_level()
-	)
+	exploration_points += exploration_point_multiplier(zone_level)
 
 
-static func exploration_point_multiplier(zone_level: int, player_level: int) -> int:
-	return maxi(1, zone_level - player_level + 1)
+static func exploration_point_multiplier(zone_level: int) -> int:
+	return clampi(zone_level, 1, PLAYER_LEVEL_COUNT)
 
 
 func _gain_energy(amount: int) -> void:
