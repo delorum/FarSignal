@@ -568,7 +568,7 @@ func update_safe_zone(
 
 			var component_id := component_sizes.size()
 			var component_size := 0
-			var touches_station := _is_inside_primary_station(start)
+			var touches_station := _is_inside_station(start)
 			var pending := PackedInt32Array([start_index])
 			component_ids[start_index] = component_id
 			var pending_index := 0
@@ -578,7 +578,7 @@ func update_safe_zone(
 				component_size += 1
 				var current_x := current_index % COLUMNS
 				var current_y := current_index / COLUMNS
-				if _is_inside_primary_station(Vector2i(current_x, current_y)):
+				if _is_inside_station(Vector2i(current_x, current_y)):
 					touches_station = true
 				var neighbor_indices := PackedInt32Array()
 				if current_x > 0:
@@ -1292,35 +1292,33 @@ func _add_stations(rng: RandomNumberGenerator) -> void:
 		1,
 		Vector2i.ZERO
 	)
-	# Upgrade stations are temporarily disabled. Keep their placement code here
-	# so the separate stations can be restored while this design is evaluated.
-	# var station_two_region := _random_other_placement_region(placement, rng)
-	# var station_three_region := _random_other_placement_region(
-	# 	station_two_region,
-	# 	rng
-	# )
-	# _add_station(
-	# 	Vector2i(
-	# 		_upgrade_station_x(station_two_region, rng),
-	# 		_random_upgrade_station_y(
-	# 			LEVEL_TWO_UPGRADE_STATION_LEVEL,
-	# 			rng
-	# 		)
-	# 	),
-	# 	2,
-	# 	Vector2i.ZERO
-	# )
-	# _add_station(
-	# 	Vector2i(
-	# 		_upgrade_station_x(station_three_region, rng),
-	# 		_random_upgrade_station_y(
-	# 			LEVEL_FOUR_UPGRADE_STATION_LEVEL,
-	# 			rng
-	# 		)
-	# 	),
-	# 	3,
-	# 	Vector2i.ZERO
-	# )
+	var station_two_region := _random_other_placement_region(placement, rng)
+	var station_three_region := _random_other_placement_region(
+		station_two_region,
+		rng
+	)
+	_add_station(
+		Vector2i(
+			_upgrade_station_x(station_two_region, rng),
+			_random_upgrade_station_y(
+				LEVEL_TWO_UPGRADE_STATION_LEVEL,
+				rng
+			)
+		),
+		2,
+		Vector2i.ZERO
+	)
+	_add_station(
+		Vector2i(
+			_upgrade_station_x(station_three_region, rng),
+			_random_upgrade_station_y(
+				LEVEL_FOUR_UPGRADE_STATION_LEVEL,
+				rng
+			)
+		),
+		3,
+		Vector2i.ZERO
+	)
 
 
 func _random_other_placement_region(
@@ -1373,6 +1371,7 @@ func _add_station(
 			"cell": door_cell,
 			"horizontal_passage": direction.x != 0,
 			"locked": locked,
+			"station_id": station_id,
 		})
 		if not locked:
 			_connect_station_door(door_cell, direction)
@@ -1417,14 +1416,6 @@ func _is_inside_station(cell: Vector2i) -> bool:
 				and absi(cell.y - center.y) <= STATION_ROOM_RADIUS:
 			return true
 	return false
-
-
-func _is_inside_primary_station(cell: Vector2i) -> bool:
-	if _station_specs.is_empty():
-		return false
-	var center: Vector2i = _station_specs[0].cell
-	return absi(cell.x - center.x) <= STATION_ROOM_RADIUS \
-			and absi(cell.y - center.y) <= STATION_ROOM_RADIUS
 
 
 func _carve_room(origin: Vector2i) -> void:

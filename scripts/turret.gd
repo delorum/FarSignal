@@ -153,6 +153,16 @@ func finish_reorientation() -> void:
 	queue_redraw()
 
 
+func restore_aim_direction(direction: Vector2) -> void:
+	if direction.is_zero_approx():
+		return
+	aim_direction = direction.normalized()
+	_displayed_aim_direction = aim_direction
+	if turret_sprite != null:
+		turret_sprite.rotation = aim_direction.angle()
+	queue_redraw()
+
+
 func update_visibility(currently_visible: bool, explored: bool) -> void:
 	if _normally_visible == currently_visible and _explored == explored:
 		return

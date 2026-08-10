@@ -30,6 +30,7 @@ const MAP_MARKER_PATH_REFRESH_SECONDS := 5.0
 const BUILD_ACTION_DURATION := 2.0
 const BUILD_ACTION_HIT_INTERVAL := 0.5
 const MEGA_CORE_PREFERRED_SAFE_ZONE_DISTANCE := 20
+const MEGA_CORE_ALERT_RANGE := 40.0
 const MEGA_CORE_MINIMUM_UNSAFE_RATIO := 0.2
 const MAX_ALERTED_ENEMIES := 3
 const PURSUIT_STATUS_INTERVAL := 3.0
@@ -56,8 +57,9 @@ const PLAYER_STRUCTURE_COLLISION_ENABLED := false
 const ENEMY_STRUCTURE_COLLISION_ENABLED := true
 const PLAYER_ENEMY_COLLISION_ENABLED := true
 const STRUCTURE_STATUS_DURATION := 3.0
-const ENERGY_CORE_SAFE_ZONE_SECONDS := 30.0
+const ENERGY_CORE_SAFE_ZONE_SECONDS := 15.0
 const MEGA_CORE_SAFE_ZONE_SECONDS := 5.0 * 60.0
+const MAX_SAFE_ZONE_SECONDS := 30.0 * 60.0
 const STRUCTURE_MAINTENANCE_INTERVAL := 1.0
 const STRUCTURE_MAINTENANCE_HEALTH := 2
 const STRUCTURE_MAINTENANCE_AMMO := 1
@@ -159,7 +161,7 @@ var _next_enemy_id := 1
 var _defeated := false
 var _victorious := false
 var _station_instructions_seen := false
-var _unlocked_note_count := 1
+var _unlocked_note_numbers: Array[int] = [0]
 var _pending_story_station_id := 0
 var _show_instructions_after_story := false
 var _final_story_pending := false
@@ -767,7 +769,6 @@ func _update_player_panel() -> void:
 			tr("Очки исследования: %d") % player.exploration_points
 		)
 	expand_safe_zone_task.visible = false
-	# Upgrade stations 2 and 3 are temporarily not generated.
 	find_upgrade_stations_task.visible = false
 	var mega_core_text := tr("Мегаядра: %d") % (
 		player.carried_mega_core_count()
@@ -802,7 +803,7 @@ func _pick_up_mega_core() -> void:
 			continue
 		if player.collect_mega_core(level):
 			AudioManager.play_mega_core_pickup()
-			_alert_enemies_to_shot(player_cell)
+			_alert_enemies_to_shot(player_cell, null, MEGA_CORE_ALERT_RANGE)
 			_update_player_panel()
 			queue_redraw()
 		return
@@ -876,7 +877,7 @@ func save_game() -> bool:
 		),
 		"discovered_station_ids": _discovered_station_ids_for_save(),
 		"station_instructions_seen": _station_instructions_seen,
-		"unlocked_note_count": _unlocked_note_count,
+		"unlocked_note_numbers": _unlocked_note_numbers,
 		"enemies": _enemies.map(func(enemy: Node): return enemy.save_data()),
 		"enemies_killed": _enemies_killed,
 		"mega_cores_returned": _mega_cores_returned,
@@ -929,9 +930,10 @@ func _restore_game(save_data: Dictionary) -> void:
 		save_data.get("player_mega_core_cells", []),
 		save_data.get("player_carried_mega_core_levels", [])
 	)
-	_safe_zone_time_left = maxf(
+	_safe_zone_time_left = clampf(
+		float(save_data.get("safe_zone_time_left", 0.0)),
 		0.0,
-		float(save_data.get("safe_zone_time_left", 0.0))
+		MAX_SAFE_ZONE_SECONDS
 	)
 	_build_mode = _build_mode_from_save(
 		String(save_data.get("build_mode", "turret"))
@@ -964,7 +966,13 @@ func _restore_game(save_data: Dictionary) -> void:
 	_station_instructions_seen = bool(
 		save_data.get("station_instructions_seen", false)
 	)
-	_unlocked_note_count = int(save_data.get("unlocked_note_count", 1))
+	_unlocked_note_numbers.clear()
+	for note_number: Variant in save_data.get("unlocked_note_numbers", [0]):
+		var parsed_note_number := int(note_number)
+		if not _unlocked_note_numbers.has(parsed_note_number):
+			_unlocked_note_numbers.append(parsed_note_number)
+	if not _unlocked_note_numbers.has(0):
+		_unlocked_note_numbers.append(0)
 	if save_data.has("doors"):
 		var removed_generated_doors := _removed_generated_door_cells_from_save(
 			save_data.get("removed_generated_doors", [])
@@ -1885,10 +1893,10 @@ func _create_turret_from_save(saved_data: Dictionary) -> void:
 	)
 	var saved_aim: Array = saved_data.get("aim_direction", [])
 	if saved_aim.size() == 2:
-		turret.aim_direction = Vector2(
+		turret.restore_aim_direction(Vector2(
 			float(saved_aim[0]),
 			float(saved_aim[1])
-		).normalized()
+		))
 
 
 func destroy_turret(turret: Turret) -> void:
@@ -1978,7 +1986,7 @@ func _update_placement_preview() -> void:
 		_tower_preview_connection_target = (
 			_nearest_connection_target_from_position(
 				maze.cell_to_world(target_cell),
-				_station_one_door_positions(),
+				_station_door_positions(),
 				_connected_towers()
 			)
 		)
@@ -2184,7 +2192,7 @@ func _refresh_tower_connections() -> void:
 	_tower_network_revision += 1
 	for tower: Tower in _towers:
 		tower.set_connection(false)
-	var root_positions := _station_one_door_positions()
+	var root_positions := _station_door_positions()
 	var candidates: Array[Tower] = []
 	var best_targets: Array[Vector2] = []
 	var best_distances := PackedFloat64Array()
@@ -2241,13 +2249,21 @@ func _refresh_tower_connections() -> void:
 	tower_connections.queue_redraw()
 
 
-func _station_one_door_positions() -> Array[Vector2]:
+func _station_door_positions() -> Array[Vector2]:
 	var result: Array[Vector2] = []
-	var center := maze.station_cell()
-	for direction in [Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT, Vector2i.UP]:
-		var door := _door_at(center + direction * Maze.STATION_ROOM_RADIUS)
-		if door != null:
-			result.append(door.position)
+	for station_spec in maze.generated_station_specs():
+		var center: Vector2i = station_spec.cell
+		for direction in [
+			Vector2i.RIGHT,
+			Vector2i.DOWN,
+			Vector2i.LEFT,
+			Vector2i.UP,
+		]:
+			var door := _door_at(
+				center + direction * Maze.STATION_ROOM_RADIUS
+			)
+			if door != null:
+				result.append(door.position)
 	return result
 
 
@@ -2313,14 +2329,21 @@ func _tower_connection_is_clear(from: Vector2, to: Vector2) -> bool:
 
 
 func _assert_station_floor_is_safe() -> void:
-	var center := maze.station_cell()
-	for y in range(-Maze.STATION_FLOOR_RADIUS, Maze.STATION_FLOOR_RADIUS + 1):
-		for x in range(-Maze.STATION_FLOOR_RADIUS, Maze.STATION_FLOOR_RADIUS + 1):
-			var cell := center + Vector2i(x, y)
-			assert(
-				maze.is_cell_safe(cell),
-				"Station floor cell %s must belong to a safe zone" % cell
-			)
+	for station_spec in maze.generated_station_specs():
+		var center: Vector2i = station_spec.cell
+		for y in range(
+			-Maze.STATION_FLOOR_RADIUS,
+			Maze.STATION_FLOOR_RADIUS + 1
+		):
+			for x in range(
+				-Maze.STATION_FLOOR_RADIUS,
+				Maze.STATION_FLOOR_RADIUS + 1
+			):
+				var cell := center + Vector2i(x, y)
+				assert(
+					maze.is_cell_safe(cell),
+					"Station floor cell %s must belong to a safe zone" % cell
+				)
 
 
 func _interact_with_door() -> void:
@@ -2358,6 +2381,20 @@ func _interact_with_door() -> void:
 			Vector2.UP
 		)
 		return
+	if not closest_door.is_open:
+		var required_station_id := _missing_station_required_for_door(
+			closest_door
+		)
+		if required_station_id > 0:
+			show_door_error(
+				closest_door.position + Vector2(
+					0.0,
+					-Door.CELL_SIZE * 0.35
+				),
+				tr("найди станцию %d") % required_station_id,
+				Vector2.UP
+			)
+			return
 
 	if closest_door.toggle(player.position):
 		if closest_door.is_open:
@@ -2393,6 +2430,23 @@ func _is_exit_door(door: Door) -> bool:
 	return bool(_generated_door_spec_at(door.cell).get("exit_door", false))
 
 
+func _missing_station_required_for_door(door: Door) -> int:
+	var station_id := int(
+		_generated_door_spec_at(door.cell).get("station_id", 0)
+	)
+	for required_station_id in range(1, station_id):
+		if not _is_station_discovered(required_station_id):
+			return required_station_id
+	return 0
+
+
+func _is_station_discovered(station_id: int) -> bool:
+	for station: Station in _stations:
+		if station.station_id == station_id:
+			return station.discovered
+	return false
+
+
 func _is_start_station_locked_door(door: Door) -> bool:
 	return door.cell == maze.start_door_cell()
 
@@ -2423,9 +2477,8 @@ func _interact_with_station() -> bool:
 
 	var station_id: int = closest_station.station_id
 	closest_station.discover()
-	var unlocked_count_after_story := station_id + 1
-	if _unlocked_note_count < unlocked_count_after_story:
-		_unlocked_note_count = unlocked_count_after_story
+	if not _unlocked_note_numbers.has(station_id):
+		_unlocked_note_numbers.append(station_id)
 		_show_instructions_after_story = station_id == 1
 		_show_station_story(station_id)
 		return true
@@ -2439,8 +2492,8 @@ func _interact_with_station() -> bool:
 	return true
 
 
-func unlocked_note_count() -> int:
-	return _unlocked_note_count
+func is_note_unlocked(note_number: int) -> bool:
+	return _unlocked_note_numbers.has(note_number)
 
 
 func _interact_with_turret() -> bool:
@@ -2806,7 +2859,10 @@ func _add_safe_zone_time(seconds: float) -> void:
 	if seconds <= 0.0:
 		return
 	var was_disabled := _safe_zone_time_left <= 0.0
-	_safe_zone_time_left += seconds
+	_safe_zone_time_left = minf(
+		_safe_zone_time_left + seconds,
+		MAX_SAFE_ZONE_SECONDS
+	)
 	_displayed_safe_zone_seconds = -1
 	if was_disabled:
 		_refresh_safe_zone(false)
@@ -3246,7 +3302,8 @@ func _maintain_enemy_population() -> void:
 
 func _alert_enemies_to_shot(
 	shot_cell: Vector2i,
-	shooter: Node = null
+	shooter: Node = null,
+	hearing_range: float = Enemy.HEARING_RANGE
 ) -> void:
 	await get_tree().create_timer(
 		SHOT_REACTION_DELAY,
@@ -3259,7 +3316,7 @@ func _alert_enemies_to_shot(
 		if enemy.dead or enemy == shooter:
 			continue
 		var enemy_cell: Vector2i = maze.world_to_cell(enemy.position)
-		if Vector2(enemy_cell - shot_cell).length() <= Enemy.HEARING_RANGE:
+		if Vector2(enemy_cell - shot_cell).length() <= hearing_range:
 			enemy.hear_position(shot_cell, true)
 
 

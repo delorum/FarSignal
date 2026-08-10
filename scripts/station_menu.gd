@@ -94,8 +94,8 @@ func open(show_instructions: bool = false, station_id: int = 1) -> void:
 	_station_id = station_id
 	title.text = tr("Станция %d") % station_id
 	for button in _station_one_buttons:
-		button.visible = station_id == 1
-	door_button.visible = station_id == 1 and game.door_gameplay_enabled()
+		button.visible = true
+	door_button.visible = game.door_gameplay_enabled()
 	_update_buttons()
 	visible = true
 	get_tree().paused = true
@@ -225,13 +225,14 @@ func _show_notes() -> void:
 	resources_screen.visible = false
 	notes_screen.visible = true
 	note_reader.visible = false
-	var unlocked_count: int = game.unlocked_note_count()
+	var focus_assigned := false
 	for index in notes_list.get_child_count():
 		var button := notes_list.get_child(index) as Button
-		button.visible = index < unlocked_count
-	if unlocked_count > 0:
-		(notes_list.get_child(0) as Button).grab_focus()
-	else:
+		button.visible = game.is_note_unlocked(index)
+		if button.visible and not focus_assigned:
+			button.grab_focus()
+			focus_assigned = true
+	if not focus_assigned:
 		notes_back_button.grab_focus()
 
 
@@ -584,21 +585,6 @@ func _structure_upgrade_button_text(label: String, level: int) -> String:
 
 
 func _upgrade_button_text(label: String, level: int) -> String:
-	if _station_id == 1:
-		if level >= Player.MAX_UPGRADE_LEVEL:
-			return tr("%s: максимум") % label
-		return tr("%s: уровень %d/%d за %d энергии") % [
-			label,
-			level + 2,
-			Player.PLAYER_LEVEL_COUNT,
-			Player.UPGRADE_COST,
-		]
-	var station_minimum := (_station_id - 2) * Player.UPGRADES_PER_STATION
-	var station_maximum := station_minimum + Player.UPGRADES_PER_STATION
-	if level < station_minimum:
-		return tr("%s: нужна предыдущая станция") % label
-	if level >= station_maximum and level < Player.MAX_UPGRADE_LEVEL:
-		return tr("%s: на этой станции максимум") % label
 	if level >= Player.MAX_UPGRADE_LEVEL:
 		return tr("%s: максимум") % label
 	return tr("%s: уровень %d/%d за %d энергии") % [
