@@ -608,7 +608,7 @@ custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 22
-text = "Ресурсы"
+text = "Развитие"
 
 [node name="DoorButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid"]
 visible = false
@@ -617,13 +617,6 @@ layout_mode = 2
 size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 22
 text = "Купить дверь"
-
-[node name="UpgradesButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid"]
-custom_minimum_size = Vector2(0, 52)
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 22
-text = "Улучшения"
 
 [node name="InstructionsButton" type="Button" parent="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid"]
 custom_minimum_size = Vector2(0, 52)
@@ -781,7 +774,7 @@ theme_override_constants/separation = 22
 layout_mode = 2
 theme_override_colors/font_color = Color(0.345, 0.839, 0.561, 1)
 theme_override_font_sizes/font_size = 40
-text = "Ресурсы"
+text = "Развитие"
 
 [node name="EnergyValue" type="Label" parent="StationOverlay/StationMenu/Background/ResourcesPanel/ResourcesScreen"]
 layout_mode = 2
@@ -863,6 +856,13 @@ layout_mode = 2
 size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 22
 text = "Добавить 10 энергии в резерв обслуживания"
+
+[node name="UpgradesButton" type="Button" parent="StationOverlay/StationMenu/Background/ResourcesPanel/ResourcesScreen/ActionsGrid"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "Улучшения"
 
 [node name="BackButton" type="Button" parent="StationOverlay/StationMenu/Background/ResourcesPanel/ResourcesScreen"]
 custom_minimum_size = Vector2(0, 52)
@@ -1345,7 +1345,6 @@ text = "Далее"
 [connection signal="back_requested" from="PauseOverlay/PauseMenu/CenterContainer/SettingsMenu" to="PauseOverlay/PauseMenu" method="_on_settings_back_requested"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/ResourcesButton" to="StationOverlay/StationMenu" method="_on_resources_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/DoorButton" to="StationOverlay/StationMenu" method="_on_door_pressed"]
-[connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/UpgradesButton" to="StationOverlay/StationMenu" method="_on_upgrades_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/InstructionsButton" to="StationOverlay/StationMenu" method="_on_instructions_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/InformationButton" to="StationOverlay/StationMenu" method="_on_information_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/Center/Menu/ActionsGrid/NotesButton" to="StationOverlay/StationMenu" method="_on_notes_pressed"]
@@ -1369,6 +1368,7 @@ text = "Далее"
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/ResourcesPanel/ResourcesScreen/ActionsGrid/TurretButton" to="StationOverlay/StationMenu" method="_on_turret_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/ResourcesPanel/ResourcesScreen/ActionsGrid/TowerButton" to="StationOverlay/StationMenu" method="_on_tower_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/ResourcesPanel/ResourcesScreen/ActionsGrid/MaintenanceReserveButton" to="StationOverlay/StationMenu" method="_on_maintenance_reserve_pressed"]
+[connection signal="pressed" from="StationOverlay/StationMenu/Background/ResourcesPanel/ResourcesScreen/ActionsGrid/UpgradesButton" to="StationOverlay/StationMenu" method="_on_upgrades_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/ResourcesPanel/ResourcesScreen/BackButton" to="StationOverlay/StationMenu" method="_on_resources_back_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/NotesPanel/NotesScreen/NotesList/Note1Button" to="StationOverlay/StationMenu" method="_on_note_one_pressed"]
 [connection signal="pressed" from="StationOverlay/StationMenu/Background/NotesPanel/NotesScreen/NotesList/Note2Button" to="StationOverlay/StationMenu" method="_on_note_two_pressed"]

@@ -16,6 +16,8 @@ var _peak_frame_time_ms := 0.0
 var _logic_start_ticks_usec := 0
 var _logic_time_ms := 0.0
 var _peak_logic_time_ms := 0.0
+var _coordinate_source: WeakRef
+var _coordinate_cell_size := 1.0
 
 
 func _ready() -> void:
@@ -48,6 +50,22 @@ func set_map_enemy_debug_enabled(enabled: bool) -> void:
 		return
 	map_enemy_debug_enabled = enabled
 	_save_setting()
+
+
+func set_coordinate_source(source: Node2D, cell_size: float) -> void:
+	_coordinate_source = weakref(source)
+	_coordinate_cell_size = maxf(1.0, cell_size)
+	if debug_info_enabled:
+		_update_text()
+
+
+func clear_coordinate_source(source: Node2D) -> void:
+	if _coordinate_source == null \
+			or _coordinate_source.get_ref() != source:
+		return
+	_coordinate_source = null
+	if debug_info_enabled:
+		_update_text()
 
 
 func _process(delta: float) -> void:
@@ -90,7 +108,7 @@ func _update_text() -> void:
 	var draw_calls := int(Performance.get_monitor(
 		Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME
 	))
-	_label.text = (
+	var text := (
 		tr("FPS: %d\nКадр: %.1f мс\nПик (5 с): %.1f мс\n")
 		+ tr("Логика: %.1f мс (пик %.1f)\n")
 		+ tr("Физика: %.1f мс\nОтрисовка: %d выз.")
@@ -103,6 +121,18 @@ func _update_text() -> void:
 		physics_time_ms,
 		draw_calls,
 	]
+	if _coordinate_source != null:
+		var source := _coordinate_source.get_ref() as Node2D
+		if source != null:
+			var cell := Vector2i(
+				floori(source.position.x / _coordinate_cell_size),
+				floori(source.position.y / _coordinate_cell_size)
+			)
+			text += "\n" + tr("Координаты: X: %d, Y: %d") % [
+				cell.x,
+				cell.y,
+			]
+	_label.text = text
 
 
 func _apply_enabled_state() -> void:

@@ -36,7 +36,6 @@ const AIM_TOLERANCE := deg_to_rad(10.0)
 const FIRING_POSITION_SEARCH_RADIUS := 6
 const FIRING_POSITION_REPATH_INTERVAL := 1.5
 const BLOCKED_STRUCTURE_TARGET_TIMEOUT := 4.0
-const STRUCTURE_TARGET_IGNORE_DURATION := 6.0
 const PATH_STUCK_TIMEOUT := 1.5
 const PATH_MINIMUM_PROGRESS_RATIO := 0.1
 const TARGET_SCAN_INTERVAL := 0.15
@@ -86,8 +85,8 @@ var _cached_structure_target: Node2D
 var _current_attack_target: Node2D
 var _blocked_structure_target: Node2D
 var _blocked_structure_target_time := 0.0
-var _ignored_structure_target: Node2D
-var _structure_target_ignore_time_left := 0.0
+var _ignored_structure_target_ids: Dictionary = {}
+var _ignored_structure_origin_cell := Vector2i(-1, -1)
 var _last_known_player_cell := Vector2i(-1, -1)
 var _patrol_minimum_y := 0
 var _patrol_maximum_y := Maze.ROWS - 1
@@ -383,18 +382,17 @@ func _physics_process(delta: float) -> void:
 		_firing_position_repath_cooldown - delta
 	)
 	_target_scan_cooldown = maxf(0.0, _target_scan_cooldown - delta)
-	_structure_target_ignore_time_left = maxf(
-		0.0,
-		_structure_target_ignore_time_left - delta
-	)
-	if _structure_target_ignore_time_left <= 0.0:
-		_ignored_structure_target = null
 	_search_repath_cooldown = maxf(0.0, _search_repath_cooldown - delta)
 	_update_facing(delta)
 
 	var player_cell := _maze.world_to_cell(_player.position)
+	var current_cell := _maze.world_to_cell(position)
+	if not _ignored_structure_target_ids.is_empty() \
+			and current_cell != _ignored_structure_origin_cell:
+		_ignored_structure_target_ids.clear()
+		_ignored_structure_origin_cell = Vector2i(-1, -1)
 	var distance_to_player := Vector2(
-		player_cell - _maze.world_to_cell(position)
+		player_cell - current_cell
 	).length()
 	var direction_to_player := position.direction_to(_player.position)
 	var sees_player: bool = distance_to_player <= VISION_RANGE \
@@ -429,8 +427,18 @@ func _physics_process(delta: float) -> void:
 		if target != null:
 			_last_known_player_cell = target_cell
 			_desired_facing = direction_to_target
+			if target != _player:
+				if _game.enemy_has_clear_shot(position, target_position):
+					_reset_blocked_structure_target()
+				else:
+					_update_blocked_structure_target(target, delta)
+					if state != State.MANEUVER:
+						return
+			else:
+				_reset_blocked_structure_target()
 			_update_maneuver(true)
 		else:
+			_reset_blocked_structure_target()
 			_update_maneuver(false)
 		return
 
@@ -445,28 +453,21 @@ func _physics_process(delta: float) -> void:
 				aim_direction = direction_to_target
 				_desired_facing = aim_direction
 			else:
-				var reposition_started := false
 				if _firing_position_repath_cooldown <= 0.0:
 					_firing_position_repath_cooldown = (
 						FIRING_POSITION_REPATH_INTERVAL
 						+ _rng.randf_range(0.0, 0.5)
 					)
-					reposition_started = _try_reposition_for_clear_shot(
+					_try_reposition_for_clear_shot(
 						target_cell,
 						target_position
 					)
 				if target != _player:
-					_update_blocked_structure_target(
-						target,
-						delta,
-						reposition_started
-					)
+					_update_blocked_structure_target(target, delta)
 				else:
-					_blocked_structure_target = null
-					_blocked_structure_target_time = 0.0
+					_reset_blocked_structure_target()
 				return
-		_blocked_structure_target = null
-		_blocked_structure_target_time = 0.0
+		_reset_blocked_structure_target()
 		if target == _player and _try_start_coordinated_flank(player_cell):
 			return
 		if _shoot_cooldown <= 0.0 and _is_aimed_at(aim_direction):
@@ -534,7 +535,9 @@ func _enter_search() -> void:
 func _visible_structure_target() -> Node2D:
 	if _target_scan_cooldown > 0.0:
 		if is_instance_valid(_cached_structure_target) \
-				and _cached_structure_target != _ignored_structure_target:
+				and not _ignored_structure_target_ids.has(
+					_cached_structure_target.get_instance_id()
+				):
 			return _cached_structure_target
 		return null
 	_target_scan_cooldown = TARGET_SCAN_INTERVAL \
@@ -544,20 +547,15 @@ func _visible_structure_target() -> Node2D:
 		VISION_RANGE,
 		_facing,
 		VISION_HALF_ANGLE,
-		_ignored_structure_target
+		_ignored_structure_target_ids
 	)
 	return _cached_structure_target
 
 
 func _update_blocked_structure_target(
 	target: Node2D,
-	delta: float,
-	reposition_started: bool
+	delta: float
 ) -> void:
-	if reposition_started:
-		_blocked_structure_target = null
-		_blocked_structure_target_time = 0.0
-		return
 	if _blocked_structure_target != target:
 		_blocked_structure_target = target
 		_blocked_structure_target_time = 0.0
@@ -565,14 +563,18 @@ func _update_blocked_structure_target(
 	if _blocked_structure_target_time < BLOCKED_STRUCTURE_TARGET_TIMEOUT:
 		return
 
-	_ignored_structure_target = target
-	_structure_target_ignore_time_left = STRUCTURE_TARGET_IGNORE_DURATION
+	_ignored_structure_target_ids[target.get_instance_id()] = true
+	_ignored_structure_origin_cell = _maze.world_to_cell(position)
 	_cached_structure_target = null
 	_current_attack_target = null
 	_target_scan_cooldown = 0.0
+	_reset_blocked_structure_target()
+	_enter_search()
+
+
+func _reset_blocked_structure_target() -> void:
 	_blocked_structure_target = null
 	_blocked_structure_target_time = 0.0
-	_enter_search()
 
 
 func is_attacking_tower() -> bool:

@@ -410,15 +410,16 @@ func _draw_turrets(map_origin: Vector2) -> void:
 func _draw_towers(map_origin: Vector2) -> void:
 	if _towers == null:
 		return
-	for tower: Tower in _towers.get_children():
-		if not tower.connected or tower.connection_target == Vector2.INF \
-				or not _maze.is_cell_explored(tower.cell):
+	for segment: PackedVector2Array in _game.tower_connection_segments():
+		if segment.size() != 2:
 			continue
-		var target_cell := _maze.world_to_cell(tower.connection_target)
-		if not _maze.is_cell_explored(target_cell):
+		var from_cell := _maze.world_to_cell(segment[0])
+		var target_cell := _maze.world_to_cell(segment[1])
+		if not _maze.is_cell_explored(from_cell) \
+				or not _maze.is_cell_explored(target_cell):
 			continue
 		draw_line(
-			_map_cell_center(map_origin, tower.cell),
+			_map_cell_center(map_origin, from_cell),
 			_map_cell_center(map_origin, target_cell),
 			TOWER_CONNECTION_COLOR,
 			maxf(2.0, cell_size * 0.1),

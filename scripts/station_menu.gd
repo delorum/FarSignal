@@ -29,7 +29,7 @@ const LoreText = preload("res://scripts/lore_text.gd")
 @onready var exchange_cells_button: Button = $Background/ResourcesPanel/ResourcesScreen/ActionsGrid/ExchangeCellsButton
 @onready var return_mega_core_button: Button = $Background/ResourcesPanel/ResourcesScreen/ActionsGrid/ReturnMegaCoreButton
 @onready var door_button: Button = $Background/Center/Menu/ActionsGrid/DoorButton
-@onready var upgrades_button: Button = $Background/Center/Menu/ActionsGrid/UpgradesButton
+@onready var upgrades_button: Button = $Background/ResourcesPanel/ResourcesScreen/ActionsGrid/UpgradesButton
 @onready var turret_button: Button = $Background/ResourcesPanel/ResourcesScreen/ActionsGrid/TurretButton
 @onready var tower_button: Button = $Background/ResourcesPanel/ResourcesScreen/ActionsGrid/TowerButton
 @onready var maintenance_reserve_button: Button = $Background/ResourcesPanel/ResourcesScreen/ActionsGrid/MaintenanceReserveButton
@@ -68,7 +68,6 @@ func _ready() -> void:
 	_station_one_buttons = [
 		resources_button,
 		door_button,
-		upgrades_button,
 		instructions_button,
 	]
 	_upgrade_buttons = [
@@ -218,7 +217,7 @@ func _show_resources() -> void:
 	elif not tower_button.disabled:
 		tower_button.grab_focus()
 	else:
-		resources_back_button.grab_focus()
+		upgrades_button.grab_focus()
 
 
 func _show_notes() -> void:
@@ -409,7 +408,7 @@ func _on_information_back_pressed() -> void:
 
 
 func _on_upgrades_back_pressed() -> void:
-	_show_menu()
+	_show_resources()
 
 
 func _on_resources_back_pressed() -> void:
@@ -526,14 +525,9 @@ func _update_buttons() -> void:
 	maintenance_reserve_button.text = tr(
 		"Добавить %d энергии в резерв обслуживания"
 	) % Player.MAINTENANCE_RESERVE_TRANSFER
-	resources_button.disabled = health_button.disabled \
-			and ammo_button.disabled \
-			and turret_button.disabled \
-			and tower_button.disabled \
-			and exchange_button.disabled \
-			and exchange_cells_button.disabled \
-			and return_mega_core_button.disabled \
-			and maintenance_reserve_button.disabled
+	# Development remains available even when no immediate resource action is
+	# possible, because it also contains the upgrades screen.
+	resources_button.disabled = false
 
 	damage_upgrade_button.disabled = not game.can_upgrade_player_damage(1)
 	damage_upgrade_button.text = _upgrade_button_text(

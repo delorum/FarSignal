@@ -48,7 +48,7 @@ const MIN_PANEL_WIDTH := 260.0
 const MAX_PANEL_WIDTH := 360.0
 const HIT_FLASH_DURATION := 0.25
 const LOCKED_DOOR_LABEL := "закрыто"
-const EXIT_DOOR_LOCKED_LABEL := "Нужна безопасная зона"
+const EXIT_DOOR_LOCKED_LABEL := "Нужна связь башен"
 const SAFE_ZONE_BOUNDARY_DOOR_LABEL := "Граница безопасной зоны"
 const DOOR_REMOVE_FORBIDDEN_LABEL := "нельзя удалить"
 const INVENTORY_LIMIT_LABEL := "лимит"
@@ -192,6 +192,9 @@ var _tower_preview_cell := Vector2i(-1, -1)
 var _tower_preview_network_revision := -1
 var _tower_preview_connection_target := Vector2.INF
 var _tower_connection_visibility_cache: Dictionary = {}
+var _tower_network_segments: Array[PackedVector2Array] = []
+var _station_primary_network_connections: Dictionary = {}
+var _start_exit_network_connected := false
 var _structure_attack_highlight_until: Dictionary = {}
 var _tower_destroyed_message_until := -1.0
 var _turret_destroyed_message_until := -1.0
@@ -216,6 +219,7 @@ func _enter_tree() -> void:
 
 func _ready() -> void:
 	_play_session_started_ticks_msec = Time.get_ticks_msec()
+	PerformanceOverlay.set_coordinate_source(player, Maze.CELL_SIZE)
 	Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
 	_configure_structure_movement_collision(
 		player,
@@ -254,6 +258,7 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
+	PerformanceOverlay.clear_coordinate_source(player)
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 
 
@@ -666,14 +671,7 @@ func notify_structure_attacked(structure: Node2D) -> void:
 
 
 func tower_connection_segments() -> Array[PackedVector2Array]:
-	var segments: Array[PackedVector2Array] = []
-	for tower: Tower in _towers:
-		if tower.connected and tower.connection_target != Vector2.INF:
-			segments.append(PackedVector2Array([
-				tower.position,
-				tower.connection_target,
-			]))
-	return segments
+	return _tower_network_segments
 
 
 func _update_player_panel() -> void:
@@ -2017,7 +2015,7 @@ func _update_placement_preview() -> void:
 		_tower_preview_connection_target = (
 			_nearest_connection_target_from_position(
 				maze.cell_to_world(target_cell),
-				_station_door_positions(),
+				_safe_network_root_positions(),
 				_connected_towers()
 			)
 		)
@@ -2223,61 +2221,21 @@ func _refresh_tower_connections() -> void:
 	_tower_network_revision += 1
 	for tower: Tower in _towers:
 		tower.set_connection(false)
-	var root_positions := _station_door_positions()
 	var candidates: Array[Tower] = []
-	var best_targets: Array[Vector2] = []
-	var best_distances := PackedFloat64Array()
-	var connected := PackedByteArray()
-	var no_connected_towers: Array[Tower] = []
 	for tower: Tower in _towers:
-		if not tower.is_active():
-			continue
-		candidates.append(tower)
-		var root_target := _nearest_connection_target_from_position(
-			tower.position,
-			root_positions,
-			no_connected_towers
-		)
-		best_targets.append(root_target)
-		best_distances.append(
-			tower.position.distance_to(root_target)
-			if root_target != Vector2.INF
-			else INF
-		)
-		connected.append(0)
-
-	while true:
-		var next_index := -1
-		var shortest_connection := INF
-		for index in candidates.size():
-			if connected[index] == 1:
-				continue
-			if best_distances[index] < shortest_connection:
-				shortest_connection = best_distances[index]
-				next_index = index
-		if next_index < 0:
-			break
-
-		var next_tower := candidates[next_index]
-		connected[next_index] = 1
-		next_tower.set_connection(true, best_targets[next_index])
-
-		# Adding one node to the connected set only requires relaxing edges
-		# from that node. Previously every old edge was checked again here.
-		for index in candidates.size():
-			if connected[index] == 1:
-				continue
-			var candidate := candidates[index]
-			var distance := candidate.position.distance_to(next_tower.position)
-			if distance >= best_distances[index] \
-					or not _tower_connection_is_clear(
-						candidate.position,
-						next_tower.position
-					):
-				continue
-			best_distances[index] = distance
-			best_targets[index] = next_tower.position
+		if tower.is_active():
+			candidates.append(tower)
+	_rebuild_unified_tower_network(candidates, _safe_network_root_positions())
 	tower_connections.queue_redraw()
+
+
+func _safe_network_root_positions() -> Array[Vector2]:
+	var result := _station_door_positions()
+	for door_cell in [maze.start_door_cell(), maze.exit_door_cell()]:
+		var door := _door_at(door_cell)
+		if door != null:
+			result.append(door.position)
+	return result
 
 
 func _station_door_positions() -> Array[Vector2]:
@@ -2316,39 +2274,166 @@ func _station_door_positions_for_spec(
 func _station_has_primary_network_connection(station_id: int) -> bool:
 	if station_id <= 1:
 		return true
-	var primary_roots := _station_door_positions_for_id(1)
-	var station_roots := _station_door_positions_for_id(station_id)
-	if primary_roots.is_empty() or station_roots.is_empty():
-		return false
+	return bool(_station_primary_network_connections.get(station_id, false))
 
-	var active_towers: Array[Tower] = []
-	for tower: Tower in _towers:
-		if tower.is_active():
-			active_towers.append(tower)
-	var reachable_towers: Array[Tower] = []
-	var reachable_ids: Dictionary = {}
+
+func _rebuild_unified_tower_network(
+	active_towers: Array[Tower],
+	root_positions: Array[Vector2]
+) -> void:
+	_tower_network_segments.clear()
+	_station_primary_network_connections.clear()
+	_start_exit_network_connected = false
+	var tower_count := active_towers.size()
+	var node_positions: Array[Vector2] = []
 	for tower in active_towers:
-		if _position_connects_to_any(tower.position, primary_roots):
-			reachable_towers.append(tower)
-			reachable_ids[tower.get_instance_id()] = true
+		node_positions.append(tower.position)
+	var root_node_indices: Dictionary = {}
+	for root_position in root_positions:
+		if root_node_indices.has(root_position):
+			continue
+		root_node_indices[root_position] = node_positions.size()
+		node_positions.append(root_position)
+	if tower_count == 0 or root_node_indices.is_empty():
+		return
 
-	var reachable_index := 0
-	while reachable_index < reachable_towers.size():
-		var parent := reachable_towers[reachable_index]
-		reachable_index += 1
-		for tower in active_towers:
-			if reachable_ids.has(tower.get_instance_id()) \
-					or not _tower_connection_is_clear(
-						tower.position,
-						parent.position
+	# Kruskal produces one visible forest that preserves all connectivity of
+	# the line-of-sight graph without drawing its many redundant cycles.
+	var edges: Array[Dictionary] = []
+	for first_index in tower_count:
+		for second_index in range(first_index + 1, tower_count):
+			_add_tower_network_edge(
+				edges,
+				node_positions,
+				first_index,
+				second_index
+			)
+		for root_index in range(tower_count, node_positions.size()):
+			_add_tower_network_edge(
+				edges,
+				node_positions,
+				first_index,
+				root_index
+			)
+	edges.sort_custom(_tower_network_edge_less)
+	var parents: Array[int] = []
+	var ranks := PackedByteArray()
+	for index in node_positions.size():
+		parents.append(index)
+		ranks.append(0)
+	var selected_edges: Array[Dictionary] = []
+	for edge in edges:
+		var first_root := _tower_network_find(parents, int(edge.first))
+		var second_root := _tower_network_find(parents, int(edge.second))
+		if first_root == second_root:
+			continue
+		_tower_network_union(parents, ranks, first_root, second_root)
+		selected_edges.append(edge)
+
+	var rooted_components: Dictionary = {}
+	for root_index in root_node_indices.values():
+		rooted_components[_tower_network_find(parents, int(root_index))] = true
+	for index in tower_count:
+		active_towers[index].set_connection(
+			rooted_components.has(_tower_network_find(parents, index))
+		)
+	for edge in selected_edges:
+		if not rooted_components.has(
+			_tower_network_find(parents, int(edge.first))
+		):
+			continue
+		_tower_network_segments.append(PackedVector2Array([
+			node_positions[int(edge.first)],
+			node_positions[int(edge.second)],
+		]))
+
+	var station_one_roots := _station_door_positions_for_id(1)
+	for station_id in [2, 3]:
+		_station_primary_network_connections[station_id] = (
+			_tower_network_roots_connected(
+				station_one_roots,
+				_station_door_positions_for_id(station_id),
+				root_node_indices,
+				parents
+			)
+		)
+	var start_door := _door_at(maze.start_door_cell())
+	var exit_door := _door_at(maze.exit_door_cell())
+	if start_door != null and exit_door != null:
+		_start_exit_network_connected = _tower_network_roots_connected(
+			[start_door.position],
+			[exit_door.position],
+			root_node_indices,
+			parents
+		)
+
+
+func _add_tower_network_edge(
+	edges: Array[Dictionary],
+	node_positions: Array[Vector2],
+	first_index: int,
+	second_index: int
+) -> void:
+	var first_position := node_positions[first_index]
+	var second_position := node_positions[second_index]
+	if not _tower_connection_is_clear(first_position, second_position):
+		return
+	edges.append({
+		"first": first_index,
+		"second": second_index,
+		"distance": first_position.distance_squared_to(second_position),
+	})
+
+
+func _tower_network_edge_less(first: Dictionary, second: Dictionary) -> bool:
+	return float(first.distance) < float(second.distance)
+
+
+func _tower_network_find(parents: Array[int], index: int) -> int:
+	var root := index
+	while parents[root] != root:
+		root = parents[root]
+	while parents[index] != index:
+		var next := parents[index]
+		parents[index] = root
+		index = next
+	return root
+
+
+func _tower_network_union(
+	parents: Array[int],
+	ranks: PackedByteArray,
+	first_root: int,
+	second_root: int
+) -> void:
+	if ranks[first_root] < ranks[second_root]:
+		parents[first_root] = second_root
+		return
+	parents[second_root] = first_root
+	if ranks[first_root] == ranks[second_root]:
+		ranks[first_root] += 1
+
+
+func _tower_network_roots_connected(
+	first_positions: Array[Vector2],
+	second_positions: Array[Vector2],
+	root_node_indices: Dictionary,
+	parents: Array[int]
+) -> bool:
+	for first_position in first_positions:
+		if not root_node_indices.has(first_position):
+			continue
+		var first_component := _tower_network_find(
+			parents,
+			int(root_node_indices[first_position])
+		)
+		for second_position in second_positions:
+			if root_node_indices.has(second_position) \
+					and first_component == _tower_network_find(
+						parents,
+						int(root_node_indices[second_position])
 					):
-				continue
-			reachable_towers.append(tower)
-			reachable_ids[tower.get_instance_id()] = true
-
-	for tower in reachable_towers:
-		if _position_connects_to_any(tower.position, station_roots):
-			return true
+				return true
 	return false
 
 
@@ -2505,7 +2590,7 @@ func _interact_with_door() -> void:
 
 
 func _interact_with_exit_door(door: Door) -> void:
-	if not maze.is_cell_safe(door.cell + Vector2i.DOWN):
+	if not _start_exit_network_connected:
 		show_door_error(
 			door.position + Vector2(0.0, Door.CELL_SIZE * 0.35),
 			EXIT_DOOR_LOCKED_LABEL,
@@ -3256,7 +3341,7 @@ func visible_structure_for_enemy(
 	range_cells: float,
 	facing_direction: Vector2,
 	half_angle: float,
-	excluded_structure: Node2D = null
+	excluded_structure_ids: Dictionary = {}
 ) -> Node2D:
 	var best_structure: Node2D
 	var best_distance := INF
@@ -3264,7 +3349,8 @@ func visible_structure_for_enemy(
 	structures.append_array(_turrets)
 	structures.append_array(_towers)
 	for structure: Node2D in structures:
-		if structure == excluded_structure or not structure.is_active():
+		if excluded_structure_ids.has(structure.get_instance_id()) \
+				or not structure.is_active():
 			continue
 		var offset := structure.position - enemy.position
 		var distance_cells := offset.length() / Maze.CELL_SIZE
