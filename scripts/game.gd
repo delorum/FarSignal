@@ -24,7 +24,7 @@ const ENEMY_BASE_DAMAGE_MAX := 12
 const ENEMY_MAX_DAMAGE_MIN := 34
 const ENEMY_MAX_DAMAGE_MAX := 38
 const ENEMY_LEVEL_COUNT := 5
-const SHOT_REACTION_DELAY := 2.0
+const SHOT_REACTION_DELAY := 1.0
 const PLAYER_RECOIL_ENABLED := false
 const MAP_MARKER_PATH_REFRESH_SECONDS := 5.0
 const BUILD_ACTION_DURATION := 2.0
@@ -58,7 +58,7 @@ const ENEMY_STRUCTURE_COLLISION_ENABLED := true
 const PLAYER_ENEMY_COLLISION_ENABLED := true
 const STRUCTURE_STATUS_DURATION := 3.0
 const ENERGY_CORE_SAFE_ZONE_SECONDS := 15.0
-const MEGA_CORE_SAFE_ZONE_SECONDS := 5.0 * 60.0
+const MEGA_CORE_SAFE_ZONE_SECONDS := 4.0 * 60.0
 const MAX_SAFE_ZONE_SECONDS := 30.0 * 60.0
 const STRUCTURE_MAINTENANCE_INTERVAL := 1.0
 const STRUCTURE_MAINTENANCE_HEALTH := 2
@@ -170,6 +170,8 @@ var _hit_flash_tween: Tween
 var _combat_music_active := false
 var _combat_music_hold_left := 0.0
 var _game_time_seconds := 0.0
+var _saved_play_time_seconds := 0.0
+var _play_session_started_ticks_msec := 0
 var _safe_zone_time_left := 0.0
 var _has_safe_zone_outside_station := false
 var _structure_maintenance_elapsed := 0.0
@@ -213,6 +215,7 @@ func _enter_tree() -> void:
 
 
 func _ready() -> void:
+	_play_session_started_ticks_msec = Time.get_ticks_msec()
 	Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
 	_configure_structure_movement_collision(
 		player,
@@ -803,7 +806,12 @@ func _pick_up_mega_core() -> void:
 			continue
 		if player.collect_mega_core(level):
 			AudioManager.play_mega_core_pickup()
-			_alert_enemies_to_shot(player_cell, null, MEGA_CORE_ALERT_RANGE)
+			_alert_enemies_to_shot(
+				player_cell,
+				null,
+				MEGA_CORE_ALERT_RANGE,
+				0.0
+			)
 			_update_player_panel()
 			queue_redraw()
 		return
@@ -842,6 +850,7 @@ func save_game() -> bool:
 		"player_maintenance_energy": player.maintenance_energy,
 		"player_energy_received_total": player.energy_received_total,
 		"player_energy_spent_total": player.energy_spent_total,
+		"play_time_seconds": play_time_seconds(),
 		"safe_zone_time_left": _safe_zone_time_left,
 		"player_doors": player.door_inventory,
 		"player_turrets": player.turret_inventory_for_save(),
@@ -898,6 +907,10 @@ func _discovered_station_ids_for_save() -> Array[int]:
 
 
 func _restore_game(save_data: Dictionary) -> void:
+	_saved_play_time_seconds = maxf(
+		0.0,
+		float(save_data.get("play_time_seconds", 0.0))
+	)
 	var saved_position: Array = save_data.player_position
 	player.position = Vector2(
 		float(saved_position[0]),
@@ -1208,6 +1221,7 @@ func _target_enemy_count() -> int:
 
 func station_statistics() -> Dictionary:
 	return {
+		"play_time": formatted_play_time(),
 		"explored_cells": maze.explored_floor_cell_count(),
 		"safe_zone_size": maze.safe_floor_cell_count(),
 		"total_floor_cells": maze.floor_cell_count(),
@@ -1220,6 +1234,23 @@ func station_statistics() -> Dictionary:
 		"energy_remaining": player.energy,
 		"enemy_level_summary": _enemy_level_summary(),
 	}
+
+
+func play_time_seconds() -> float:
+	if _play_session_started_ticks_msec <= 0:
+		return _saved_play_time_seconds
+	return _saved_play_time_seconds + maxf(
+		0.0,
+		float(Time.get_ticks_msec() - _play_session_started_ticks_msec) / 1000.0
+	)
+
+
+func formatted_play_time() -> String:
+	var total_seconds := floori(play_time_seconds())
+	var hours := total_seconds / 3600
+	var minutes := (total_seconds % 3600) / 60
+	var seconds := total_seconds % 60
+	return "%02d:%02d:%02d" % [hours, minutes, seconds]
 
 
 func _enemy_level_summary() -> String:
@@ -2252,19 +2283,83 @@ func _refresh_tower_connections() -> void:
 func _station_door_positions() -> Array[Vector2]:
 	var result: Array[Vector2] = []
 	for station_spec in maze.generated_station_specs():
-		var center: Vector2i = station_spec.cell
-		for direction in [
-			Vector2i.RIGHT,
-			Vector2i.DOWN,
-			Vector2i.LEFT,
-			Vector2i.UP,
-		]:
-			var door := _door_at(
-				center + direction * Maze.STATION_ROOM_RADIUS
-			)
-			if door != null:
-				result.append(door.position)
+		result.append_array(_station_door_positions_for_spec(station_spec))
 	return result
+
+
+func _station_door_positions_for_id(station_id: int) -> Array[Vector2]:
+	for station_spec in maze.generated_station_specs():
+		if int(station_spec.get("station_id", 0)) == station_id:
+			return _station_door_positions_for_spec(station_spec)
+	return []
+
+
+func _station_door_positions_for_spec(
+	station_spec: Dictionary
+) -> Array[Vector2]:
+	var result: Array[Vector2] = []
+	var center: Vector2i = station_spec.cell
+	for direction in [
+		Vector2i.RIGHT,
+		Vector2i.DOWN,
+		Vector2i.LEFT,
+		Vector2i.UP,
+	]:
+		var door := _door_at(
+			center + direction * Maze.STATION_ROOM_RADIUS
+		)
+		if door != null:
+			result.append(door.position)
+	return result
+
+
+func _station_has_primary_network_connection(station_id: int) -> bool:
+	if station_id <= 1:
+		return true
+	var primary_roots := _station_door_positions_for_id(1)
+	var station_roots := _station_door_positions_for_id(station_id)
+	if primary_roots.is_empty() or station_roots.is_empty():
+		return false
+
+	var active_towers: Array[Tower] = []
+	for tower: Tower in _towers:
+		if tower.is_active():
+			active_towers.append(tower)
+	var reachable_towers: Array[Tower] = []
+	var reachable_ids: Dictionary = {}
+	for tower in active_towers:
+		if _position_connects_to_any(tower.position, primary_roots):
+			reachable_towers.append(tower)
+			reachable_ids[tower.get_instance_id()] = true
+
+	var reachable_index := 0
+	while reachable_index < reachable_towers.size():
+		var parent := reachable_towers[reachable_index]
+		reachable_index += 1
+		for tower in active_towers:
+			if reachable_ids.has(tower.get_instance_id()) \
+					or not _tower_connection_is_clear(
+						tower.position,
+						parent.position
+					):
+				continue
+			reachable_towers.append(tower)
+			reachable_ids[tower.get_instance_id()] = true
+
+	for tower in reachable_towers:
+		if _position_connects_to_any(tower.position, station_roots):
+			return true
+	return false
+
+
+func _position_connects_to_any(
+	position_to_connect: Vector2,
+	target_positions: Array[Vector2]
+) -> bool:
+	for target_position in target_positions:
+		if _tower_connection_is_clear(position_to_connect, target_position):
+			return true
+	return false
 
 
 func _nearest_tower_connection_target(
@@ -2476,6 +2571,17 @@ func _interact_with_station() -> bool:
 		return false
 
 	var station_id: int = closest_station.station_id
+	if station_id > 1 and not closest_station.discovered \
+			and not _station_has_primary_network_connection(station_id):
+		show_door_error(
+			closest_station.position + Vector2(
+				0.0,
+				-Maze.CELL_SIZE * 0.5
+			),
+			"нет связи",
+			Vector2.UP
+		)
+		return true
 	closest_station.discover()
 	if not _unlocked_note_numbers.has(station_id):
 		_unlocked_note_numbers.append(station_id)
@@ -3303,12 +3409,11 @@ func _maintain_enemy_population() -> void:
 func _alert_enemies_to_shot(
 	shot_cell: Vector2i,
 	shooter: Node = null,
-	hearing_range: float = Enemy.HEARING_RANGE
+	hearing_range: float = Enemy.HEARING_RANGE,
+	reaction_delay: float = SHOT_REACTION_DELAY
 ) -> void:
-	await get_tree().create_timer(
-		SHOT_REACTION_DELAY,
-		false
-	).timeout
+	if reaction_delay > 0.0:
+		await get_tree().create_timer(reaction_delay, false).timeout
 	if _defeated or _victorious:
 		return
 
@@ -3332,7 +3437,8 @@ func _show_defeat() -> void:
 		_mega_cores_returned,
 		player.energy_received_total,
 		player.energy_spent_total,
-		player.energy
+		player.energy,
+		formatted_play_time()
 	)
 
 
@@ -3348,7 +3454,8 @@ func _show_victory() -> void:
 		_mega_cores_returned,
 		player.energy_received_total,
 		player.energy_spent_total,
-		player.energy
+		player.energy,
+		formatted_play_time()
 	)
 
 

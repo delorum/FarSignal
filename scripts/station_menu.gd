@@ -9,7 +9,8 @@ const LoreText = preload("res://scripts/lore_text.gd")
 @onready var instructions_scroll: ScrollContainer = $Background/InstructionsPanel/InstructionsScreen/InstructionsScroll
 @onready var instructions_text: Label = $Background/InstructionsPanel/InstructionsScreen/InstructionsScroll/InstructionsText
 @onready var information_screen: Control = $Background/InformationPanel
-@onready var information_text: Label = $Background/InformationPanel/InformationScreen/InformationText
+@onready var information_scroll: ScrollContainer = $Background/InformationPanel/InformationScreen/InformationScroll
+@onready var information_text: Label = $Background/InformationPanel/InformationScreen/InformationScroll/InformationText
 @onready var upgrades_screen: Control = $Background/UpgradesPanel
 @onready var upgrades_energy_value: Label = $Background/UpgradesPanel/UpgradesScreen/EnergyValue
 @onready var resources_screen: Control = $Background/ResourcesPanel
@@ -145,7 +146,8 @@ func _show_information() -> void:
 			"Врагов на карте: %d (целевое: %d)\n"
 		) % [statistics.living_enemies, statistics.target_enemies]
 	information_text.text = (
-		tr("Исследовано клеток: %d (%.1f%%)\n")
+		tr("Время игры: %s") + "\n"
+		+ tr("Исследовано клеток: %d (%.1f%%)\n")
 		+ tr("Размер безопасной зоны: %d (%.1f%%)\n")
 		+ tr("Убито врагов: %d\n")
 		+ enemy_count_text
@@ -155,6 +157,7 @@ func _show_information() -> void:
 		+ tr("Осталось энергии: %d\n\n")
 		+ tr("Уровни врагов:\n%s")
 	) % [
+		statistics.play_time,
 		statistics.explored_cells,
 		_percentage(statistics.explored_cells, total_floor_cells),
 		statistics.safe_zone_size,
@@ -173,6 +176,7 @@ func _show_information() -> void:
 	resources_screen.visible = false
 	notes_screen.visible = false
 	note_reader.visible = false
+	information_scroll.scroll_vertical = 0
 	information_back_button.grab_focus()
 
 
