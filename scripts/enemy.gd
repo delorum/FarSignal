@@ -64,6 +64,7 @@ var damage_max := 12
 var dead := false
 var energy_core_collected := false
 var energy_core_energy_value := Player.energy_core_reward(1)
+var collected_corpse_age := 0.0
 var state := State.PATROL
 var enemy_id := 0
 var _facing := Vector2.LEFT
@@ -139,6 +140,10 @@ func restore_state(saved_data: Dictionary) -> void:
 	health = clampi(int(saved_data.get("health", max_health)), 0, max_health)
 	dead = bool(saved_data.get("dead", health <= 0))
 	energy_core_collected = bool(saved_data.get("energy_core_collected", false))
+	collected_corpse_age = maxf(
+		0.0,
+		float(saved_data.get("collected_corpse_age", 0.0))
+	)
 	energy_core_energy_value = Player.energy_core_reward(enemy_level)
 	if dead:
 		health = 0
@@ -187,6 +192,7 @@ func save_data() -> Dictionary:
 		"dead": dead,
 		"energy_core_collected": energy_core_collected,
 		"energy_core_energy_value": energy_core_energy_value,
+		"collected_corpse_age": collected_corpse_age,
 	}
 
 
@@ -294,6 +300,7 @@ func take_damage(amount: int) -> bool:
 	dead = true
 	_current_attack_target = null
 	energy_core_collected = false
+	collected_corpse_age = 0.0
 	energy_core_energy_value = Player.energy_core_reward(enemy_level)
 	_active = false
 	velocity = Vector2.ZERO
@@ -334,8 +341,14 @@ func collect_energy_core() -> bool:
 	if not has_energy_core():
 		return false
 	energy_core_collected = true
+	collected_corpse_age = 0.0
 	_update_dead_sprite_modulate()
 	return true
+
+
+func age_collected_corpse(delta: float) -> void:
+	if dead and energy_core_collected:
+		collected_corpse_age += delta
 
 
 func _apply_dead_state() -> void:

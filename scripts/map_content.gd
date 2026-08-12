@@ -25,12 +25,11 @@ const TOWER_CONNECTION_COLOR := Color(1.0, 0.82, 0.18, 0.95)
 const TURRET_STATUS_BACK_OFFSET := 0.62
 const TURRET_STATUS_SIDE_OFFSET := 0.16
 const LEVEL_BOUNDARY_COLOR := Color(1.0, 1.0, 1.0, 0.82)
-const LEVEL_LABEL_SHADOW_COLOR := Color(0.02, 0.03, 0.04, 0.95)
 const DEBUG_ENEMY_PATROL_COLOR := Color(0.82, 0.87, 0.9, 0.95)
 const DEBUG_ENEMY_ALERT_COLOR := Color(0.93, 0.2, 0.22, 1.0)
 const ENEMY_LEVEL_COUNT := 5
+const SHOW_MEGA_CORES_ON_MAP := false
 
-var scroll_position := Vector2.ZERO
 var cell_size := 40.0
 
 var _game: Node
@@ -71,19 +70,10 @@ func _draw() -> void:
 	if _maze == null or _player == null:
 		return
 
-	var map_origin := size * 0.5 - scroll_position
+	var map_origin := Vector2.ZERO
 	var grid_size := _maze.grid_size()
-	var first_cell := Vector2i(
-		maxi(0, floori(-map_origin.x / cell_size)),
-		maxi(0, floori(-map_origin.y / cell_size))
-	)
-	var last_cell := Vector2i(
-		mini(grid_size.x - 1, ceili((size.x - map_origin.x) / cell_size)),
-		mini(grid_size.y - 1, ceili((size.y - map_origin.y) / cell_size))
-	)
-
-	for y in range(first_cell.y, last_cell.y + 1):
-		for x in range(first_cell.x, last_cell.x + 1):
+	for y in grid_size.y:
+		for x in grid_size.x:
 			var cell := Vector2i(x, y)
 			if not _maze.is_cell_explored(cell):
 				continue
@@ -111,7 +101,10 @@ func _draw() -> void:
 	_draw_debug_enemies(map_origin)
 	_draw_turrets(map_origin)
 	_draw_towers(map_origin)
-	_draw_mega_core(map_origin)
+	# Keep the exact-location map renderer available while proximity-based
+	# megacore search is being evaluated.
+	if SHOW_MEGA_CORES_ON_MAP:
+		_draw_mega_core(map_origin)
 	_draw_map_marker(map_origin)
 	_draw_information_marker(map_origin)
 
@@ -134,8 +127,6 @@ func _draw_enemy_level_boundaries(
 	if visible_left >= visible_right:
 		return
 
-	var font := ThemeDB.fallback_font
-	var font_size := maxi(12, roundi(cell_size * 0.8))
 	for boundary_index in range(1, ENEMY_LEVEL_COUNT):
 		var boundary_cell_y := floori(
 			float(boundary_index * grid_size.y) / float(ENEMY_LEVEL_COUNT)
@@ -151,52 +142,9 @@ func _draw_enemy_level_boundaries(
 			true
 		)
 
-		var upper_level := ENEMY_LEVEL_COUNT + 1 - boundary_index
-		var lower_level := ENEMY_LEVEL_COUNT - boundary_index
-		var label_x := visible_left + 6.0
-		_draw_level_label(
-			font,
-			Vector2(label_x, line_y - 5.0),
-			str(upper_level),
-			font_size
-		)
-		_draw_level_label(
-			font,
-			Vector2(label_x, line_y + float(font_size) + 5.0),
-			str(lower_level),
-			font_size
-		)
-
-
-func _draw_level_label(
-	font: Font,
-	position: Vector2,
-	text: String,
-	font_size: int
-) -> void:
-	draw_string(
-		font,
-		position + Vector2.ONE,
-		text,
-		HORIZONTAL_ALIGNMENT_LEFT,
-		-1.0,
-		font_size,
-		LEVEL_LABEL_SHADOW_COLOR
-	)
-	draw_string(
-		font,
-		position,
-		text,
-		HORIZONTAL_ALIGNMENT_LEFT,
-		-1.0,
-		font_size,
-		LEVEL_BOUNDARY_COLOR
-	)
-
 
 func cell_at_local_position(local_position: Vector2) -> Vector2i:
-	var map_origin := size * 0.5 - scroll_position
-	var cell := Vector2i(floor((local_position - map_origin) / cell_size))
+	var cell := Vector2i(floor(local_position / cell_size))
 	if _maze == null:
 		return Vector2i(-1, -1)
 	var grid_size := _maze.grid_size()
@@ -279,9 +227,17 @@ func _draw_stations(map_origin: Vector2) -> void:
 func _draw_dead_enemies(map_origin: Vector2) -> void:
 	if _enemies == null:
 		return
+	_draw_dead_enemy_pass(map_origin, false)
+	_draw_dead_enemy_pass(map_origin, true)
 
+
+func _draw_dead_enemy_pass(
+	map_origin: Vector2,
+	requires_energy_core: bool
+) -> void:
 	for enemy in _enemies.get_children():
-		if not enemy.dead:
+		if not enemy.dead \
+				or enemy.has_energy_core() != requires_energy_core:
 			continue
 
 		var enemy_cell: Vector2i = _maze.world_to_cell(enemy.position)

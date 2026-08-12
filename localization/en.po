@@ -324,6 +324,12 @@ msgstr "Find a megacore in zone %d"
 msgid "Мегаядро: не найдено"
 msgstr "Megacore: not located"
 
+msgid "Нет мегаядра"
+msgstr "No megacore"
+
+msgid "Сигнал мегаядра"
+msgstr "Megacore signal"
+
 msgid "закрыто"
 msgstr "locked"
 
@@ -428,6 +434,9 @@ msgstr "%s: station limit reached"
 
 msgid "%s: максимум"
 msgstr "%s: maximum"
+
+msgid "%s: подключи Станцию %d"
+msgstr "%s: connect Station %d"
 
 msgid "%s: уровень %d/%d за %d энергии"
 msgstr "%s: level %d/%d for %d energy"

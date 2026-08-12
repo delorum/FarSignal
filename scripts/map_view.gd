@@ -23,6 +23,7 @@ const TEXT_COLOR := Color("d8e7f5")
 @onready var victory_menu: Control = $"../../VictoryOverlay/VictoryMenu"
 @onready var map_viewport: Control = $MapViewport
 @onready var map_content: Control = $MapViewport/MapContent
+@onready var level_labels: Control = $LevelLabelsOverlay
 
 var _scroll_position := Vector2.ZERO
 var _cell_size := MIN_MAP_CELL_SIZE
@@ -42,6 +43,9 @@ func _ready() -> void:
 		enemies,
 		_cell_size
 	)
+	_configure_map_content_size()
+	level_labels.setup(maze)
+	_update_map_content_transform()
 
 
 func _exit_tree() -> void:
@@ -96,7 +100,7 @@ func _process(delta: float) -> void:
 	if not scroll_direction.is_zero_approx():
 		_scroll_position += scroll_direction * SCROLL_SPEED * delta
 		_clamp_scroll_position()
-		_update_map_content()
+		_update_map_content_transform()
 
 
 func _open_map() -> void:
@@ -107,7 +111,9 @@ func _open_map() -> void:
 	visible = true
 	get_tree().paused = true
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-	_update_map_content()
+	_configure_map_content_size()
+	_update_map_content_transform()
+	map_content.queue_redraw()
 	queue_redraw()
 
 
@@ -137,10 +143,15 @@ func _clamp_scroll_position() -> void:
 			)
 
 
-func _update_map_content() -> void:
-	map_content.scroll_position = _scroll_position
+func _configure_map_content_size() -> void:
+	map_content.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	map_content.size = Vector2(maze.grid_size()) * _cell_size
 	map_content.cell_size = _cell_size
-	map_content.queue_redraw()
+
+
+func _update_map_content_transform() -> void:
+	map_content.position = map_viewport.size * 0.5 - _scroll_position
+	level_labels.update_layout(_map_rect(), _scroll_position, _cell_size)
 
 
 func _set_marker_at_mouse() -> void:
@@ -154,7 +165,8 @@ func _set_marker_at_mouse() -> void:
 
 	if game.try_fast_travel_to_safe_cell(cell):
 		AudioManager.play_menu_confirmation()
-		_update_map_content()
+		_update_map_content_transform()
+		map_content.queue_redraw()
 		return
 
 	if game.has_map_marker() and game.map_marker_cell() == cell:
@@ -186,7 +198,8 @@ func _set_information_marker_at_mouse() -> void:
 
 func _on_resized() -> void:
 	_clamp_scroll_position()
-	_update_map_content()
+	_configure_map_content_size()
+	_update_map_content_transform()
 	queue_redraw()
 
 

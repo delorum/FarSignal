@@ -572,24 +572,20 @@ func _update_buttons() -> void:
 
 
 func _structure_upgrade_button_text(label: String, level: int) -> String:
-	if level >= Player.MAX_UPGRADE_LEVEL:
-		return tr("%s: максимум") % label
-	return tr("%s: уровень %d/%d за %d энергии") % [
-		label,
-		level + 2,
-		Player.PLAYER_LEVEL_COUNT,
-		Player.UPGRADE_COST,
-	]
+	return _upgrade_button_text(label, level)
 
 
 func _upgrade_button_text(label: String, level: int) -> String:
 	if level >= Player.MAX_UPGRADE_LEVEL:
 		return tr("%s: максимум") % label
+	var required_station: int = game.upgrade_required_station(level)
+	if required_station > 0:
+		return tr("%s: подключи Станцию %d") % [label, required_station]
 	return tr("%s: уровень %d/%d за %d энергии") % [
 		label,
 		level + 2,
 		Player.PLAYER_LEVEL_COUNT,
-		Player.UPGRADE_COST,
+		Player.upgrade_cost(level),
 	]
 
 

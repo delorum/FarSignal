@@ -70,6 +70,7 @@ var _door_specs: Array[Dictionary] = []
 var _room_specs: Array[Dictionary] = []
 var _station_specs: Array[Dictionary] = []
 var _closed_door_cells: Dictionary = {}
+var _door_cells: Dictionary = {}
 var _safe_cell_mask := PackedByteArray()
 var _base_safe_cell_mask := PackedByteArray()
 var _tower_safe_cells_cache: Dictionary = {}
@@ -425,7 +426,8 @@ func has_line_of_sight(
 
 func has_strict_line_of_sight(
 	from_position: Vector2,
-	to_position: Vector2
+	to_position: Vector2,
+	all_doors_block: bool = false
 ) -> bool:
 	var from_cell := world_to_cell(from_position)
 	var to_cell := world_to_cell(to_position)
@@ -437,8 +439,12 @@ func has_strict_line_of_sight(
 			var cell := Vector2i(x, y)
 			if cell == from_cell or cell == to_cell:
 				continue
-			if _is_inside(cell) and not _is_wall(cell) \
-					and not _closed_door_cells.has(cell):
+			var door_blocks := (
+				_door_cells.has(cell)
+				if all_doors_block
+				else _closed_door_cells.has(cell)
+			)
+			if _is_inside(cell) and not _is_wall(cell) and not door_blocks:
 				continue
 			var blocker := Rect2(
 				Vector2(cell) * CELL_SIZE,
@@ -525,6 +531,7 @@ func _segment_intersects_rect(
 
 
 func set_door_closed(cell: Vector2i, closed: bool) -> void:
+	_door_cells[cell] = true
 	var was_closed := _closed_door_cells.has(cell)
 	if closed:
 		_closed_door_cells[cell] = true
@@ -532,6 +539,14 @@ func set_door_closed(cell: Vector2i, closed: bool) -> void:
 		_closed_door_cells.erase(cell)
 	if was_closed != closed:
 		_tower_safe_cells_cache.clear()
+	_view_position = Vector2(-1.0, -1.0)
+	queue_redraw()
+
+
+func remove_door(cell: Vector2i) -> void:
+	_door_cells.erase(cell)
+	_closed_door_cells.erase(cell)
+	_tower_safe_cells_cache.clear()
 	_view_position = Vector2(-1.0, -1.0)
 	queue_redraw()
 

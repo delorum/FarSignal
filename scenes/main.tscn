@@ -1,10 +1,11 @@
-[gd_scene load_steps=30 format=3 uid="uid://dw58ygdj26wbu"]
+[gd_scene load_steps=31 format=3 uid="uid://dw58ygdj26wbu"]
 
 [ext_resource type="Script" uid="uid://b7t1b5rs3b076" path="res://scripts/game.gd" id="1_game"]
 [ext_resource type="Script" uid="uid://1jcmw0g6148v" path="res://scripts/maze.gd" id="2_maze"]
 [ext_resource type="Script" uid="uid://h6ytpoggv4ve" path="res://scripts/player.gd" id="3_player"]
 [ext_resource type="Script" path="res://scripts/map_view.gd" id="5_map"]
 [ext_resource type="Script" path="res://scripts/map_content.gd" id="6_map_content"]
+[ext_resource type="Script" path="res://scripts/map_level_labels.gd" id="6_map_labels"]
 [ext_resource type="Script" path="res://scripts/pause_menu.gd" id="7_pause"]
 [ext_resource type="Script" path="res://scripts/station_menu.gd" id="9_station_menu"]
 [ext_resource type="Script" path="res://scripts/defeat_menu.gd" id="11_defeat"]
@@ -275,6 +276,53 @@ theme_override_font_sizes/font_size = 18
 text = "Мегаядро: нет координат"
 autowrap_mode = 2
 
+[node name="MegaCoreSignalLabel" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.82, 0.88, 0.94, 1)
+theme_override_font_sizes/font_size = 18
+text = "Нет мегаядра"
+
+[node name="MegaCoreSignalBar" type="HBoxContainer" parent="GameInterface/PlayerPanel/Margin/VBox"]
+visible = false
+custom_minimum_size = Vector2(0, 14)
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Segment1" type="ColorRect" parent="GameInterface/PlayerPanel/Margin/VBox/MegaCoreSignalBar"]
+custom_minimum_size = Vector2(0, 14)
+layout_mode = 2
+size_flags_horizontal = 3
+color = Color(0.18, 0.22, 0.27, 1)
+mouse_filter = 2
+
+[node name="Segment2" type="ColorRect" parent="GameInterface/PlayerPanel/Margin/VBox/MegaCoreSignalBar"]
+custom_minimum_size = Vector2(0, 14)
+layout_mode = 2
+size_flags_horizontal = 3
+color = Color(0.18, 0.22, 0.27, 1)
+mouse_filter = 2
+
+[node name="Segment3" type="ColorRect" parent="GameInterface/PlayerPanel/Margin/VBox/MegaCoreSignalBar"]
+custom_minimum_size = Vector2(0, 14)
+layout_mode = 2
+size_flags_horizontal = 3
+color = Color(0.18, 0.22, 0.27, 1)
+mouse_filter = 2
+
+[node name="Segment4" type="ColorRect" parent="GameInterface/PlayerPanel/Margin/VBox/MegaCoreSignalBar"]
+custom_minimum_size = Vector2(0, 14)
+layout_mode = 2
+size_flags_horizontal = 3
+color = Color(0.18, 0.22, 0.27, 1)
+mouse_filter = 2
+
+[node name="Segment5" type="ColorRect" parent="GameInterface/PlayerPanel/Margin/VBox/MegaCoreSignalBar"]
+custom_minimum_size = Vector2(0, 14)
+layout_mode = 2
+size_flags_horizontal = 3
+color = Color(0.18, 0.22, 0.27, 1)
+mouse_filter = 2
+
 [node name="ExpandSafeZoneTask" type="Label" parent="GameInterface/PlayerPanel/Margin/VBox"]
 visible = false
 layout_mode = 2
@@ -345,6 +393,7 @@ theme_override_font_sizes/font_size = 18
 text = "Турель уничтожена"
 autowrap_mode = 2
 
+
 [node name="HitFlash" type="Panel" parent="GameInterface"]
 modulate = Color(1, 1, 1, 0)
 layout_mode = 1
@@ -395,6 +444,16 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("6_map_content")
+
+[node name="LevelLabelsOverlay" type="Control" parent="MapOverlay/MapView"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("6_map_labels")
 
 [node name="PauseOverlay" type="CanvasLayer" parent="."]
 layer = 20

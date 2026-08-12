@@ -9,8 +9,7 @@ const MAX_HEALTH := 100
 const MAX_AMMO := 30
 const PLAYER_LEVEL_COUNT := 5
 const MAX_UPGRADE_LEVEL := PLAYER_LEVEL_COUNT - 1
-const UPGRADES_PER_STATION := 2
-const UPGRADE_COST := 300
+const UPGRADE_COSTS := [300, 600, 1200, 2400]
 const MAX_UPGRADED_HEALTH := 340
 const MAX_UPGRADED_AMMO := 200
 const BASE_DAMAGE_MIN := 27
@@ -300,7 +299,7 @@ func can_upgrade_ammo_at_station(station_id: int) -> bool:
 func upgrade_damage(station_id: int) -> bool:
 	if not can_upgrade_damage_at_station(station_id):
 		return false
-	_spend_energy(UPGRADE_COST)
+	_spend_energy(upgrade_cost(damage_upgrade_level))
 	damage_upgrade_level += 1
 	return true
 
@@ -309,7 +308,7 @@ func upgrade_health(station_id: int) -> bool:
 	if not can_upgrade_health_at_station(station_id):
 		return false
 	var previous_max := max_health
-	_spend_energy(UPGRADE_COST)
+	_spend_energy(upgrade_cost(health_upgrade_level))
 	health_upgrade_level += 1
 	_update_maximums()
 	health += max_health - previous_max
@@ -320,7 +319,7 @@ func upgrade_ammo(station_id: int) -> bool:
 	if not can_upgrade_ammo_at_station(station_id):
 		return false
 	var previous_max := max_ammo
-	_spend_energy(UPGRADE_COST)
+	_spend_energy(upgrade_cost(ammo_upgrade_level))
 	ammo_upgrade_level += 1
 	_update_maximums()
 	ammo += max_ammo - previous_max
@@ -351,7 +350,7 @@ func upgrade_turret_health() -> bool:
 	if not can_upgrade_turret_health():
 		return false
 	var previous_max := turret_max_health()
-	_spend_energy(UPGRADE_COST)
+	_spend_energy(upgrade_cost(turret_health_upgrade_level))
 	turret_health_upgrade_level += 1
 	_increase_inventory_values(
 		turret_inventory,
@@ -365,7 +364,7 @@ func upgrade_turret_health() -> bool:
 func upgrade_turret_damage() -> bool:
 	if not can_upgrade_turret_damage():
 		return false
-	_spend_energy(UPGRADE_COST)
+	_spend_energy(upgrade_cost(turret_damage_upgrade_level))
 	turret_damage_upgrade_level += 1
 	return true
 
@@ -374,7 +373,7 @@ func upgrade_turret_ammo() -> bool:
 	if not can_upgrade_turret_ammo():
 		return false
 	var previous_max := turret_max_ammo()
-	_spend_energy(UPGRADE_COST)
+	_spend_energy(upgrade_cost(turret_ammo_upgrade_level))
 	turret_ammo_upgrade_level += 1
 	_increase_inventory_values(
 		turret_inventory,
@@ -389,7 +388,7 @@ func upgrade_tower_health() -> bool:
 	if not can_upgrade_tower_health():
 		return false
 	var previous_max := tower_max_health()
-	_spend_energy(UPGRADE_COST)
+	_spend_energy(upgrade_cost(tower_health_upgrade_level))
 	tower_health_upgrade_level += 1
 	_increase_inventory_values(
 		tower_inventory,
@@ -403,13 +402,13 @@ func upgrade_tower_health() -> bool:
 func upgrade_tower_radius() -> bool:
 	if not can_upgrade_tower_radius():
 		return false
-	_spend_energy(UPGRADE_COST)
+	_spend_energy(upgrade_cost(tower_radius_upgrade_level))
 	tower_radius_upgrade_level += 1
 	return true
 
 
 func _can_upgrade_structure(level: int) -> bool:
-	return level < MAX_UPGRADE_LEVEL and energy >= UPGRADE_COST
+	return level < MAX_UPGRADE_LEVEL and energy >= upgrade_cost(level)
 
 
 func _increase_inventory_values(
@@ -424,18 +423,16 @@ func _increase_inventory_values(
 
 func _can_upgrade_at_station(
 	level: int,
-	station_id: int
+	_station_id: int
 ) -> bool:
-	if station_id == 1:
-		return level < MAX_UPGRADE_LEVEL and energy >= UPGRADE_COST
-	var station_index := station_id - 2
-	if station_index < 0 or station_index >= 2:
-		return false
-	var minimum_level := station_index * UPGRADES_PER_STATION
-	var maximum_level := minimum_level + UPGRADES_PER_STATION
-	return level >= minimum_level \
-			and level < maximum_level \
-			and energy >= UPGRADE_COST
+	return level < MAX_UPGRADE_LEVEL and energy >= upgrade_cost(level)
+
+
+static func upgrade_cost(current_upgrade_level: int) -> int:
+	if current_upgrade_level < 0 \
+			or current_upgrade_level >= UPGRADE_COSTS.size():
+		return 0
+	return UPGRADE_COSTS[current_upgrade_level]
 
 
 func _update_maximums() -> void:

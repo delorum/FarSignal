@@ -60,9 +60,21 @@ const STRUCTURE_STATUS_DURATION := 3.0
 const ENERGY_CORE_SAFE_ZONE_SECONDS := 15.0
 const MEGA_CORE_SAFE_ZONE_SECONDS := 4.0 * 60.0
 const MAX_SAFE_ZONE_SECONDS := 30.0 * 60.0
+const MEGA_CORE_SIGNAL_THRESHOLDS_SQUARED := [
+	20 * 20,
+	40 * 40,
+	60 * 60,
+	80 * 80,
+	120 * 120,
+]
+const MEGA_CORE_SIGNAL_ACTIVE_COLOR := Color(0.35, 0.84, 0.96, 1.0)
+const MEGA_CORE_SIGNAL_INACTIVE_COLOR := Color(0.18, 0.22, 0.27, 1.0)
 const STRUCTURE_MAINTENANCE_INTERVAL := 1.0
 const STRUCTURE_MAINTENANCE_HEALTH := 2
 const STRUCTURE_MAINTENANCE_AMMO := 1
+const COLLECTED_CORPSE_LIFETIME := 5.0 * 60.0
+const COLLECTED_CORPSE_LIMIT := 120
+const CORPSE_CLEANUP_INTERVAL := 1.0
 
 enum BuildMode {
 	TOWER,
@@ -124,6 +136,8 @@ enum BuildActionType {
 @onready var turret_attacked_value: Label = $GameInterface/PlayerPanel/Margin/VBox/TurretAttackedValue
 @onready var tower_destroyed_value: Label = $GameInterface/PlayerPanel/Margin/VBox/TowerDestroyedValue
 @onready var turret_destroyed_value: Label = $GameInterface/PlayerPanel/Margin/VBox/TurretDestroyedValue
+@onready var mega_core_signal_label: Label = $GameInterface/PlayerPanel/Margin/VBox/MegaCoreSignalLabel
+@onready var mega_core_signal_bar: HBoxContainer = $GameInterface/PlayerPanel/Margin/VBox/MegaCoreSignalBar
 @onready var station_menu: Control = $StationOverlay/StationMenu
 @onready var turret_menu: Control = $TurretOverlay/TurretMenu
 @onready var tower_menu: Control = $TowerOverlay/TowerMenu
@@ -150,6 +164,9 @@ var _displayed_tower_inventory := -1
 var _displayed_build_mode := -1
 var _displayed_exploration_points := -1
 var _displayed_mega_core_text := ""
+var _displayed_mega_core_signal_level := -1
+var _displayed_mega_core_signal_zone := -1
+var _displayed_mega_core_signal_cell := Vector2i(-2, -2)
 var _doors: Array[Node] = []
 var _turrets: Array[Node] = []
 var _towers: Array[Node] = []
@@ -175,6 +192,7 @@ var _play_session_started_ticks_msec := 0
 var _safe_zone_time_left := 0.0
 var _has_safe_zone_outside_station := false
 var _structure_maintenance_elapsed := 0.0
+var _corpse_cleanup_elapsed := 0.0
 var _map_marker_cell := Vector2i(-1, -1)
 var _information_marker_cells: Array[Vector2i] = []
 var _map_marker_path: Array[Vector2i] = []
@@ -273,8 +291,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			if event.button_index == MOUSE_BUTTON_WHEEL_UP
 			else 1
 		)
-		_build_mode = posmod(_build_mode + step, BUILD_MODE_COUNT)
-		_update_player_panel()
+		_set_build_mode(posmod(_build_mode + step, BUILD_MODE_COUNT))
 		get_viewport().set_input_as_handled()
 
 
@@ -313,19 +330,23 @@ func _process(delta: float) -> void:
 	_game_time_seconds += delta
 	_update_safe_zone_timer(delta)
 	_update_structure_maintenance(delta)
+	_update_collected_corpses(delta)
 	_update_build_action(delta)
 	_update_placement_preview()
 	_update_turret_reorientation()
-	if Input.is_action_just_pressed("shoot") \
-			and _build_mode == BuildMode.SHOOTING:
-		_shoot()
+	if Input.is_action_just_pressed("shoot"):
+		if _build_mode == BuildMode.SHOOTING:
+			_shoot()
+		elif _build_mode == BuildMode.TOWER \
+				or _build_mode == BuildMode.TURRET:
+			_set_build_mode(BuildMode.SHOOTING)
 	if Input.is_action_just_pressed("place_door") \
 			and (player.controls_enabled \
 			or is_instance_valid(_turret_being_reoriented)):
 		if is_instance_valid(_turret_being_reoriented):
 			_finish_turret_reorientation()
 		else:
-			_start_build_at(get_global_mouse_position())
+			_handle_right_click(get_global_mouse_position())
 
 	if Input.is_action_just_pressed("interact") \
 			and not is_instance_valid(_turret_being_reoriented):
@@ -364,6 +385,35 @@ func _update_music_state(delta: float) -> void:
 	if combat_active != _combat_music_active:
 		_combat_music_active = combat_active
 		AudioManager.set_combat_active(combat_active)
+
+
+func _update_collected_corpses(delta: float) -> void:
+	_corpse_cleanup_elapsed += delta
+	if _corpse_cleanup_elapsed < CORPSE_CLEANUP_INTERVAL:
+		return
+	var elapsed := _corpse_cleanup_elapsed
+	_corpse_cleanup_elapsed = 0.0
+	var collected_corpses: Array[Enemy] = []
+	for enemy: Enemy in _enemies:
+		if not enemy.dead or enemy.has_energy_core():
+			continue
+		enemy.age_collected_corpse(elapsed)
+		collected_corpses.append(enemy)
+	collected_corpses.sort_custom(func(first: Enemy, second: Enemy) -> bool:
+		return first.collected_corpse_age > second.collected_corpse_age
+	)
+	var retained_count := 0
+	for corpse in collected_corpses:
+		if corpse.collected_corpse_age >= COLLECTED_CORPSE_LIFETIME \
+				or retained_count >= COLLECTED_CORPSE_LIMIT:
+			_remove_collected_corpse(corpse)
+		else:
+			retained_count += 1
+
+
+func _remove_collected_corpse(corpse: Enemy) -> void:
+	_enemies.erase(corpse)
+	corpse.queue_free()
 
 
 func find_enemy_path(
@@ -777,12 +827,51 @@ func _update_player_panel() -> void:
 	if mega_core_text != _displayed_mega_core_text:
 		_displayed_mega_core_text = mega_core_text
 		mega_core_value.text = mega_core_text
+	_update_mega_core_signal()
 	var shooting_enabled := player.controls_enabled \
 			and _build_mode == BuildMode.SHOOTING \
 			and player.ammo > 0
 	var weapon_readiness := 1.0 if shooting_enabled else 0.0
 	player.set_aim_indicator_readiness(weapon_readiness)
 	player.set_aim_indicator_shooting_enabled(shooting_enabled)
+
+
+func _update_mega_core_signal() -> void:
+	var player_cell := maze.world_to_cell(player.position)
+	var zone_level := _enemy_level_for_y(player_cell.y)
+	var mega_core_cell := player.mega_core_cell_for_level(zone_level)
+	var signal_level := -1
+	if mega_core_cell.x >= 0:
+		var distance_squared := int(
+			player_cell.distance_squared_to(mega_core_cell)
+		)
+		signal_level = 0
+		for threshold_index in MEGA_CORE_SIGNAL_THRESHOLDS_SQUARED.size():
+			if distance_squared <= MEGA_CORE_SIGNAL_THRESHOLDS_SQUARED[
+				threshold_index
+			]:
+				signal_level = 5 - threshold_index
+				break
+	if signal_level == _displayed_mega_core_signal_level \
+			and zone_level == _displayed_mega_core_signal_zone \
+			and mega_core_cell == _displayed_mega_core_signal_cell:
+		return
+	_displayed_mega_core_signal_level = signal_level
+	_displayed_mega_core_signal_zone = zone_level
+	_displayed_mega_core_signal_cell = mega_core_cell
+	mega_core_signal_label.text = (
+		tr("Нет мегаядра")
+		if signal_level < 0
+		else tr("Сигнал мегаядра")
+	)
+	mega_core_signal_bar.visible = signal_level >= 0
+	for index in mega_core_signal_bar.get_child_count():
+		var segment := mega_core_signal_bar.get_child(index) as ColorRect
+		segment.color = (
+			MEGA_CORE_SIGNAL_ACTIVE_COLOR
+			if index < signal_level
+			else MEGA_CORE_SIGNAL_INACTIVE_COLOR
+		)
 
 
 func _pick_up_energy_cores() -> void:
@@ -1641,6 +1730,28 @@ func _start_build_at(target_position: Vector2) -> void:
 		_start_turret_action_at(target_position)
 
 
+func _handle_right_click(target_position: Vector2) -> void:
+	var target_cell := _structure_target_cell(target_position)
+	if _tower_at(target_cell) != null or _turret_at(target_cell) != null:
+		_start_build_at(target_position)
+		return
+	if _build_mode == BuildMode.SHOOTING:
+		_set_build_mode(BuildMode.SAFETY)
+	elif _build_mode == BuildMode.SAFETY:
+		_set_build_mode(BuildMode.SHOOTING)
+	else:
+		_start_build_at(target_position)
+
+
+func _set_build_mode(mode: int) -> void:
+	if _build_mode == mode:
+		return
+	if _build_action_type != BuildActionType.NONE:
+		_cancel_build_action()
+	_build_mode = mode
+	_update_player_panel()
+
+
 func _build_mode_label() -> String:
 	match _build_mode:
 		BuildMode.TOWER:
@@ -2180,7 +2291,7 @@ func _door_sides_have_matching_safe_zone(door: Door) -> bool:
 
 
 func _remove_door(door: Door) -> void:
-	maze.set_door_closed(door.cell, false)
+	maze.remove_door(door.cell)
 	_tower_connection_visibility_cache.clear()
 	_doors.erase(door)
 	door.queue_free()
@@ -2503,7 +2614,7 @@ func _tower_connection_is_clear(from: Vector2, to: Vector2) -> bool:
 	var cache_key := lower_index * Maze.COLUMNS * Maze.ROWS + upper_index
 	if _tower_connection_visibility_cache.has(cache_key):
 		return bool(_tower_connection_visibility_cache[cache_key])
-	var is_clear := maze.has_strict_line_of_sight(from, to)
+	var is_clear := maze.has_strict_line_of_sight(from, to, true)
 	_tower_connection_visibility_cache[cache_key] = is_clear
 	return is_clear
 
@@ -2585,8 +2696,6 @@ func _interact_with_door() -> void:
 			closest_door.cell,
 			not closest_door.is_open
 		)
-		_tower_connection_visibility_cache.clear()
-		_refresh_safe_zone(false)
 
 
 func _interact_with_exit_door(door: Door) -> void:
@@ -2601,8 +2710,6 @@ func _interact_with_exit_door(door: Door) -> void:
 	if door.toggle(player.position):
 		AudioManager.play_door_open()
 		maze.set_door_closed(door.cell, false)
-		_tower_connection_visibility_cache.clear()
-		_refresh_safe_zone(false)
 		_show_final_story()
 
 
@@ -2656,7 +2763,7 @@ func _interact_with_station() -> bool:
 		return false
 
 	var station_id: int = closest_station.station_id
-	if station_id > 1 and not closest_station.discovered \
+	if station_id > 1 \
 			and not _station_has_primary_network_connection(station_id):
 		show_door_error(
 			closest_station.position + Vector2(
@@ -2887,6 +2994,8 @@ func turret_can_operate(turret: Turret) -> bool:
 
 
 func upgrade_player_damage(station_id: int) -> bool:
+	if not can_upgrade_player_damage(station_id):
+		return false
 	var upgraded := player.upgrade_damage(station_id)
 	if upgraded:
 		_update_enemy_level_labels()
@@ -2895,6 +3004,8 @@ func upgrade_player_damage(station_id: int) -> bool:
 
 
 func upgrade_player_health(station_id: int) -> bool:
+	if not can_upgrade_player_health(station_id):
+		return false
 	var upgraded := player.upgrade_health(station_id)
 	if upgraded:
 		_update_enemy_level_labels()
@@ -2903,6 +3014,8 @@ func upgrade_player_health(station_id: int) -> bool:
 
 
 func upgrade_player_ammo(station_id: int) -> bool:
+	if not can_upgrade_player_ammo(station_id):
+		return false
 	var upgraded := player.upgrade_ammo(station_id)
 	if upgraded:
 		_update_enemy_level_labels()
@@ -2916,18 +3029,23 @@ func _update_enemy_level_labels() -> void:
 
 
 func can_upgrade_player_damage(station_id: int) -> bool:
-	return player.can_upgrade_damage_at_station(station_id)
+	return _upgrade_is_available(player.damage_upgrade_level) \
+			and player.can_upgrade_damage_at_station(station_id)
 
 
 func can_upgrade_player_health(station_id: int) -> bool:
-	return player.can_upgrade_health_at_station(station_id)
+	return _upgrade_is_available(player.health_upgrade_level) \
+			and player.can_upgrade_health_at_station(station_id)
 
 
 func can_upgrade_player_ammo(station_id: int) -> bool:
-	return player.can_upgrade_ammo_at_station(station_id)
+	return _upgrade_is_available(player.ammo_upgrade_level) \
+			and player.can_upgrade_ammo_at_station(station_id)
 
 
 func upgrade_turret_health() -> bool:
+	if not can_upgrade_turret_health():
+		return false
 	var previous_max := player.turret_max_health()
 	if not player.upgrade_turret_health():
 		return false
@@ -2943,12 +3061,16 @@ func upgrade_turret_health() -> bool:
 
 
 func upgrade_turret_damage() -> bool:
+	if not can_upgrade_turret_damage():
+		return false
 	var upgraded := player.upgrade_turret_damage()
 	_update_player_panel()
 	return upgraded
 
 
 func upgrade_turret_ammo() -> bool:
+	if not can_upgrade_turret_ammo():
+		return false
 	var previous_max := player.turret_max_ammo()
 	if not player.upgrade_turret_ammo():
 		return false
@@ -2964,6 +3086,8 @@ func upgrade_turret_ammo() -> bool:
 
 
 func upgrade_tower_health() -> bool:
+	if not can_upgrade_tower_health():
+		return false
 	var previous_max := player.tower_max_health()
 	if not player.upgrade_tower_health():
 		return false
@@ -2975,22 +3099,28 @@ func upgrade_tower_health() -> bool:
 
 
 func can_upgrade_turret_health() -> bool:
-	return player.can_upgrade_turret_health()
+	return _upgrade_is_available(player.turret_health_upgrade_level) \
+			and player.can_upgrade_turret_health()
 
 
 func can_upgrade_turret_damage() -> bool:
-	return player.can_upgrade_turret_damage()
+	return _upgrade_is_available(player.turret_damage_upgrade_level) \
+			and player.can_upgrade_turret_damage()
 
 
 func can_upgrade_turret_ammo() -> bool:
-	return player.can_upgrade_turret_ammo()
+	return _upgrade_is_available(player.turret_ammo_upgrade_level) \
+			and player.can_upgrade_turret_ammo()
 
 
 func can_upgrade_tower_health() -> bool:
-	return player.can_upgrade_tower_health()
+	return _upgrade_is_available(player.tower_health_upgrade_level) \
+			and player.can_upgrade_tower_health()
 
 
 func upgrade_tower_radius() -> bool:
+	if not can_upgrade_tower_radius():
+		return false
 	if not player.upgrade_tower_radius():
 		return false
 	_refresh_safe_zone(false)
@@ -2999,7 +3129,22 @@ func upgrade_tower_radius() -> bool:
 
 
 func can_upgrade_tower_radius() -> bool:
-	return player.can_upgrade_tower_radius()
+	return _upgrade_is_available(player.tower_radius_upgrade_level) \
+			and player.can_upgrade_tower_radius()
+
+
+func upgrade_required_station(current_upgrade_level: int) -> int:
+	var target_level := current_upgrade_level + 2
+	if target_level <= 2:
+		return 0
+	if target_level == 3:
+		return 2 if not _station_has_primary_network_connection(2) else 0
+	return 3 if not _station_has_primary_network_connection(3) else 0
+
+
+func _upgrade_is_available(current_upgrade_level: int) -> bool:
+	return current_upgrade_level < Player.MAX_UPGRADE_LEVEL \
+			and upgrade_required_station(current_upgrade_level) == 0
 
 
 func fund_maintenance_reserve() -> bool:
@@ -3437,6 +3582,9 @@ func _on_language_changed() -> void:
 	_displayed_turret_inventory = -1
 	_displayed_exploration_points = -1
 	_displayed_mega_core_text = ""
+	_displayed_mega_core_signal_level = -1
+	_displayed_mega_core_signal_zone = -1
+	_displayed_mega_core_signal_cell = Vector2i(-2, -2)
 	_update_player_panel()
 
 
