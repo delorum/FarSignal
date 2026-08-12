@@ -2,6 +2,7 @@ extends Control
 
 const MAIN_MENU_SCENE := "res://scenes/menu.tscn"
 
+@onready var title: Label = $Background/Center/Menu/Title
 @onready var kills_value: Label = $Background/Center/Menu/KillsValue
 @onready var explored_value: Label = $Background/Center/Menu/ExploredValue
 @onready var safe_zone_value: Label = $Background/Center/Menu/SafeZoneValue
@@ -15,6 +16,7 @@ func _ready() -> void:
 
 
 func open(
+	ending_title: String,
 	enemies_killed: int,
 	explored_cells: int,
 	safe_zone_size: int,
@@ -25,6 +27,7 @@ func open(
 	energy_remaining: int,
 	play_time: String
 ) -> void:
+	title.text = ending_title
 	kills_value.text = tr("Убито врагов: %d") % enemies_killed
 	explored_value.text = tr("Исследовано клеток: %d (%.1f%%)") % [
 		explored_cells,

@@ -182,6 +182,8 @@ var _unlocked_note_numbers: Array[int] = [0]
 var _pending_story_station_id := 0
 var _show_instructions_after_story := false
 var _final_story_pending := false
+var _ending_epilogue_pending := false
+var _ending_title := ""
 var _rng := RandomNumberGenerator.new()
 var _hit_flash_tween: Tween
 var _combat_music_active := false
@@ -2699,18 +2701,17 @@ func _interact_with_door() -> void:
 
 
 func _interact_with_exit_door(door: Door) -> void:
-	if not _start_exit_network_connected:
+	if not _unlocked_note_numbers.has(3):
 		show_door_error(
 			door.position + Vector2(0.0, Door.CELL_SIZE * 0.35),
-			EXIT_DOOR_LOCKED_LABEL,
+			"найди станцию 3",
 			Vector2.DOWN
 		)
 		return
-
 	if door.toggle(player.position):
 		AudioManager.play_door_open()
 		maze.set_door_closed(door.cell, false)
-		_show_final_story()
+		_show_final_story(_start_exit_network_connected)
 
 
 func _is_exit_door(door: Door) -> bool:
@@ -2929,13 +2930,26 @@ func _show_station_story(station_id: int) -> void:
 	)
 
 
-func _show_final_story() -> void:
+func _show_final_story(has_safe_route: bool) -> void:
 	_final_story_pending = true
 	player.controls_enabled = false
-	story_screen.open(tr("Заметка 4"), LoreText.final_text())
+	if has_safe_route:
+		story_screen.open_choice(
+			tr("Заметка 5"),
+			LoreText.good_final_text(),
+			tr("Уйти за сестрой"),
+			tr("Остаться и спасти общину")
+		)
+	else:
+		_ending_title = tr("Плохая концовка")
+		story_screen.open(tr("Заметка 4"), LoreText.bad_final_text())
 
 
 func _on_story_continued() -> void:
+	if _ending_epilogue_pending:
+		_ending_epilogue_pending = false
+		_show_victory()
+		return
 	if _final_story_pending:
 		_final_story_pending = false
 		_show_victory()
@@ -2952,6 +2966,23 @@ func _on_story_continued() -> void:
 	else:
 		get_tree().paused = false
 		Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
+
+
+func _on_ending_choice_selected(choice_id: String) -> void:
+	_final_story_pending = false
+	_ending_epilogue_pending = true
+	if choice_id == "community":
+		_ending_title = tr("Община спасена")
+		story_screen.open(
+			tr("Хорошая концовка"),
+			LoreText.community_ending_text()
+		)
+	else:
+		_ending_title = tr("Путь за сестрой")
+		story_screen.open(
+			tr("Хорошая концовка"),
+			LoreText.leave_ending_text()
+		)
 
 
 func buy_ammo() -> bool:
@@ -3681,6 +3712,7 @@ func _show_victory() -> void:
 	player.controls_enabled = false
 	AudioManager.play_victory_music()
 	victory_menu.open(
+		_ending_title if not _ending_title.is_empty() else tr("Победа"),
 		_enemies_killed,
 		maze.explored_floor_cell_count(),
 		maze.safe_floor_cell_count(),

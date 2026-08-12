@@ -1395,6 +1395,25 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Далее"
 
+[node name="ChoiceButtons" type="HBoxContainer" parent="StoryOverlay/StoryScreen/Background/Center/Panel"]
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="FirstChoiceButton" type="Button" parent="StoryOverlay/StoryScreen/Background/Center/Panel/ChoiceButtons"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "Уйти за сестрой"
+
+[node name="SecondChoiceButton" type="Button" parent="StoryOverlay/StoryScreen/Background/Center/Panel/ChoiceButtons"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 22
+text = "Остаться и спасти общину"
+
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/PauseMenu/ContinueButton" to="PauseOverlay/PauseMenu" method="_on_continue_pressed"]
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/PauseMenu/NewGameButton" to="PauseOverlay/PauseMenu" method="_on_new_game_pressed"]
 [connection signal="pressed" from="PauseOverlay/PauseMenu/CenterContainer/PauseMenu/ControlsButton" to="PauseOverlay/PauseMenu" method="_on_controls_pressed"]
@@ -1438,4 +1457,7 @@ text = "Далее"
 [connection signal="pressed" from="DefeatOverlay/DefeatMenu/Background/Center/Menu/MainMenuButton" to="DefeatOverlay/DefeatMenu" method="_on_main_menu_pressed"]
 [connection signal="pressed" from="VictoryOverlay/VictoryMenu/Background/Center/Menu/MainMenuButton" to="VictoryOverlay/VictoryMenu" method="_on_main_menu_pressed"]
 [connection signal="continued" from="StoryOverlay/StoryScreen" to="." method="_on_story_continued"]
+[connection signal="choice_selected" from="StoryOverlay/StoryScreen" to="." method="_on_ending_choice_selected"]
 [connection signal="pressed" from="StoryOverlay/StoryScreen/Background/Center/Panel/ContinueButton" to="StoryOverlay/StoryScreen" method="_on_continue_pressed"]
+[connection signal="pressed" from="StoryOverlay/StoryScreen/Background/Center/Panel/ChoiceButtons/FirstChoiceButton" to="StoryOverlay/StoryScreen" method="_on_first_choice_pressed"]
+[connection signal="pressed" from="StoryOverlay/StoryScreen/Background/Center/Panel/ChoiceButtons/SecondChoiceButton" to="StoryOverlay/StoryScreen" method="_on_second_choice_pressed"]
